@@ -1,0 +1,18 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- Generated simulation artifacts (regenerate: python scripts\run_all.py) ----
+sim/out/
+
+# ---- Tooling state (not source) ----
+.codegraph/
+.omo/
+
+# ---- OS / editor noise ----
+.DS_Store
+Thumbs.db
+*.log
