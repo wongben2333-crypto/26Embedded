@@ -1,0 +1,42 @@
+// ==============================================================================
+// File: tang_mega_60k_pins.cst
+// Target Board: Sipeed Tang Mega 60K Dock (GW5AT-LV60PG484A)
+// ==============================================================================
+
+// 50MHz 板载时钟
+IO_LOC "clk_50m" V22;
+IO_PORT "clk_50m" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// 板载按键
+IO_LOC "btn_rst_n" AB13;      // 复位按键 (低有效)
+IO_PORT "btn_rst_n" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+IO_LOC "btn_demo_en" AA13;    // 演示模式切换按键
+IO_PORT "btn_demo_en" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// 板载用户 LED (低有效点亮)
+IO_LOC "led_voices[0]" U18;
+IO_PORT "led_voices[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led_voices[1]" V17;
+IO_PORT "led_voices[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led_voices[2]" W17;
+IO_PORT "led_voices[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led_voices[3]" W18;
+IO_PORT "led_voices[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led_voices[4]" AA19;
+IO_PORT "led_voices[4]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "led_voices[5]" AA18;
+IO_PORT "led_voices[5]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// I2S 音频 DAC (PCM5102A) 接口 - 连接至 PMOD 扩展口
+IO_LOC "i2s_bclk"  G15;       // BCLK
+IO_PORT "i2s_bclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+IO_LOC "i2s_lrck"  G16;       // LRCK
+IO_PORT "i2s_lrck" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+IO_LOC "i2s_sdata" H15;       // SDATA
+IO_PORT "i2s_sdata" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+IO_LOC "i2s_mclk"  J15;       // MCLK (如选用内部产生无需外接可悬空)
+IO_PORT "i2s_mclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
