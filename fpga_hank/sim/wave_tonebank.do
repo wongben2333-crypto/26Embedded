@@ -22,16 +22,19 @@ if {[llength [dataset list]] == 0} {
 
 # 窗口大小给成适合截屏的尺寸（用户是直接 Win+Shift+S 截屏，太宽会截不清）
 catch {wm geometry . 1600x900}
-proc wg {title radix sigs} {
+proc wg {title radix sigs {extra {}}} {
     catch {add wave -divider $title}
-    catch {eval add wave -radix $radix $sigs} msg
+    if {[catch {eval add wave -radix $radix $extra $sigs} msg]} {
+        catch {eval add wave -radix $radix $sigs} msg2
+    }
 }
 
 wg "Clock & Reset" binary   [list /$TB/rst_n]
 wg "Stimulus"      binary   [list /$TB/sample_tick /$TB/gate32]
 wg "Control"       hex      [list /$TB/u_bank/addr_mux /$TB/u_bank/samp_cnt /$TB/env_voice]
-wg "Data"          signed   [list /$TB/mix16]
-wg "Data"          unsigned [list /$TB/env_level32 /$TB/u_bank/sum]
+wg "Data"          signed   [list /$TB/mix16] {-format analog-interpolated -height 220}
+wg "Data"          unsigned [list /$TB/env_level32] {-format analog-interpolated -min 0 -max 65536 -height 140}
+wg "Data"          signed   [list /$TB/u_bank/sum] {-format analog-interpolated -height 140}
 
 catch {configure wave -namecolwidth 190 -valuecolwidth 110 -timelineunits us}
 # 放大到 0~120 us ≈ 11 个采样点：既能看到 addr_mux 走完 0..31（分时查表），
@@ -74,3 +77,34 @@ puts "\[wave\]     mix16 每 512 clk（10.24 us）更新一次 = 一个混音样
 puts "\[wave\] 数值：fs = 97656.25 Hz；32 路 = 200/400/.../6400 Hz，间隔 200 Hz"
 puts "\[wave\] 注意：时域波形看不出「几个频率」，要数 32 个谱峰请看频谱图"
 puts "\[wave\] 现在可以 Win+Shift+S 截图"
+
+
+
+# ---- 游标：用官方语法 wave cursor add -time <t> -name <n> -------------------
+# （不用 WaveRestoreCursors —— 那是旧式/别名，官方命令参考里 wave 命令族是
+#   `wave cursor add|configure|delete|see|active`。见 liaison/MODELSIM-GUIDE.md）
+ztry "cursor 0us" {wave cursor add -time 0us -name "采样点起点"}
+ztry "cursor 10.24us" {wave cursor add -time 10.24us -name "下一个采样点"}
+ztry "wave refresh" {wave refresh}
+
+# 游标读回：自证 —— 不是"我说放了游标"，而是把工具里的实际值打印出来
+set _ncur 0
+foreach _ci {1 2 3} {
+    if {[catch {set _cv [wave cursor configure $_ci]} _ce]} {
+        if {$_ncur > 0} { puts "\[cursor\] cursor$_ci 读回失败: $_ce" }
+    } else {
+        incr _ncur
+        puts "\[cursor\] cursor$_ci = $_cv"
+    }
+}
+puts "\[cursor\] 可用游标数 = $_ncur"
+
+# ---- 最终再打印一次时间范围：放【末尾】才不会被 Transcript 滚动遮住 ----
+# 之前把查询放在缩放之后、但后面还有一串 [wave] 输出，于是查询结果被顶出可视区，
+# 看截图的人根本看不到缩放到底有没有生效（本项目实测踩过）。
+after 300
+if {[catch {set _r2 [wave zoom range]} _m2]} {
+    puts "\[zoom\] 最终范围查询失败: $_m2"
+} else {
+    puts "\[zoom\] 最终时间范围 = $_r2"
+}

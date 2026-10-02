@@ -1,197 +1,216 @@
-> **📦 本目录是一个"团队资料包"** —— 除本工程外，还带了一份给队友的
-> [`team-resources/`](team-resources/README.md)：3 个实测过的 Skill
-> （`gowin-flow` 高云命令行构建规范 / `verilog-review` RTL 审查清单 /
-> `fpga-verify` 验证取证门禁，含 8 个脚本与形式验证模板），
-> 以及一份 [`traps/关键坑位速查.md`](team-resources/traps/关键坑位速查.md)。
->
-> **如果你是队友、第一次打开这个目录：先读 `team-resources/关键坑位速查.md`**，
-> 它能省掉几个小时（Gowin 参数大小写、`.tcl` 的 BOM、`.fs` 大小没有鉴别力、
-> ModelSim `-novopt` 已废弃、PowerShell 5.1 + AllSigned + UTF-8 BOM 三重坑……）。
->
-> ⛔ `team-resources/` 是**只读参考资料**；`rtl/`/`constr/`/`sim/`/`tools/`/`docs/` 才是工程本体。
-> ⚠️ 目录里**不含** `eda_proj/`、`_tools/venv/`、`out/` —— 那些是可丢弃的构建/虚拟环境产物，
-> 不要提交进仓库（见 `team-resources/skills/fpga-verify/references/traps.md` §7 的"工程不可移植"结论）。
+# fpga_hank —— 选题二「基于 FPGA 的实时多音色合成电子乐器引擎」
+
+> **2026 第九届全国大学生嵌入式芯片与系统设计竞赛 · FPGA 创新设计赛道（高云半导体命题）**
+> 板卡：Sipeed Tang Mega 138K Dock ｜ 器件：`GW5AST-138C` ｜ 音频：PT8211 I2S DAC
+
+**这是 `fpga_hank` 工作区的完整成果包**，与 `fpga_ben`（算法模型）、`fpga_spark`（另一条技术路线）平级、互不干扰。
 
 ---
 
-# fpga_hank
+## 一、一句话结论
 
-**2026 FPGA 创新设计赛道·高云杯·选题二：基于 FPGA 的实时多音色合成电子乐器引擎**
+> **赛题基础三项 + 拓展① 全部达成，并逐项有实测证据；软件层已闭环，只差上板通电。**
 
-板卡：Sipeed Tang Mega 138K Dock ｜ FPGA：`GW5AST-LV138PG484AC1/I0`（GW5AST-138C）
-
----
-
-## 当前状态
-
-> ⚠️ **本表以实际 testbench 运行结果为准，不是计划。** 更新于 2026-10-02 23:5x。
-
-| 模块 | 状态 | 实测证据 |
+| 赛题要求 | 状态 | 证据 |
 |---|---|---|
-| 高云 Gowin 全链路构建 | ✅ **跑通** | bitstream 生成成功，9 引脚全部按 `.cst` 分配 |
-| PT8211 I2S 发送器 | ✅ **PASS** | `tb_pt8211_final.v`：0 位错、BCK 恒 640 ns、fs = 48828.1 Hz |
-| **32 复音 + 测试模式频谱取证** | ✅ **PASS** | `tb_spectrum.v`：**32/32 谱峰、0 杂散、电平离散度 0.77 dB**（96 kHz）|
-| ADSR 包络 | ✅ **PASS** | `tb_adsr.v`：9/9（起音→衰减→保持→释放→声部复用） |
-| 多音色波表 | ✅ **已接入通路** | `wave_rom.v` 4 种音色；综合后 BSRAM 2→1（证明 ROM 结构真的换了） |
-| 电容触摸检测 | ❌ **FAIL** | `tb_touch_pad_a.v`：3 个错误。**未接入顶层、无引脚，不影响 bitstream** |
-| **整机上板出声** | ⬜ **未做** | 从未在真板上运行过 |
+| ① 多维交互 ≥2 个独立可控维度 | ✅ | `tb_interaction.v` **9 项全 PASS**（含"按住发声时换音色/变调不影响 gate"的**独立性证明**） |
+| ② 纯硬件逐样本 + 延迟 ≤10 ms | ✅ | 仿真 **2.656 ms**（去抖 2.621 + 音频通路 34.8 µs） |
+| ③ 复音≥4 + ADSR + **变调** + 混音 | ✅ | 复音 **32**；ADSR 10.49 / 2.62 / 62.91 ms；**变调误差 0.0144%** |
+| **拓展① 复音 ≥32** | ✅ | **32/32 独立谱峰、0 杂散、离散度 0.77 dB**（两份证据带 SHA256） |
+| 必备交付物：测试模式频谱取证 | ✅ | `docs/evidence/32谱峰-取证报告.md` |
 
-详细数据见 [32复音-验证报告.md](docs/32复音-验证报告.md) 与 [PT8211-验证报告.md](docs/PT8211-验证报告.md)。
-
-> ⚠️ **以上全部是仿真与综合层面的验证。** 赛题要求的"频谱数出 32 个谱峰"最终
-> **必须在真实硬件上取证**（接声卡/示波器）。仿真数据是必要证据，不能替代上板。
+**⚠️ 诚实边界**：以上**全部是仿真与综合层面的验证**。
+**实际的物理烧录、真板发声、真板频谱取证都还没有做**（需要硬件在场）。
+详见 [`docs/上电操作卡-正式交付.md`](docs/上电操作卡-正式交付.md) 第 6 节。
 
 ---
 
-## 数据通路（当前实现）
+## 二、关键成果速查（我要找什么，在哪）
 
+| 我要找… | 路径 |
+|---|---|
+| 📄 **提交用技术文档（Word）** | [`docs/技术文档.docx`](docs/技术文档.docx)（A4 / 14 表格 / 49.8 KB） |
+| 🧪 **32 谱峰证据（赛题必备）** | [`docs/evidence/32谱峰-取证报告.md`](docs/evidence/32谱峰-取证报告.md) |
+| 🔌 **上电后怎么操作** | [`docs/上电操作卡-正式交付.md`](docs/上电操作卡-正式交付.md) ← **插上板子照这份做** |
+| 🔊 **要烧的位流怎么来** | [`docs/预先构建的位流.md`](docs/预先构建的位流.md) |
+| 💻 **RTL 源码** | `rtl/`（9 个 `.v`，其中 **6 个参与正式构建**） |
+| 🎓 **四类能力 / 工具链 / 许可证** | [`docs/工程能力与工具链说明.md`](docs/工程能力与工具链说明.md) |
+| 📚 **踩坑知识库（3 个 skill）** | [`skills/`](skills/) ← 见第四节 |
+| ✅ **一条命令复核全部验证** | `tools/verify/run_acceptance.ps1` |
+| 📊 **6 张 ModelSim 真窗口波形图** | [`docs/waveforms/real/`](docs/waveforms/real/) |
+| 🩺 **分级排障（S0–S6）** | [`docs/上板验证指南.md`](docs/上板验证指南.md) |
+
+---
+
+## 三、怎么用
+
+### 环境要求（本机实测版本）
+
+| 项 | 版本 / 路径 |
+|---|---|
+| 高云 EDA | **V1.9.12.04**，`F:\Gowin\Gowin_V1.9.12.04_x64`（STD license） |
+| 命令行 Tcl | `F:\Gowin\Gowin_V1.9.12.04_x64\IDE\bin\gw_sh.exe` |
+| 仿真器 | **ModelSim SE-64 10.7**，`F:\Modelsim_10.7`（自带 `GW5AT` 预编译库） |
+| 烧录 CLI | `F:\Gowin\...\Programmer\bin\programmer_cli.exe` |
+
+### Python 依赖（仅验收脚本需要）
+
+`run_acceptance.ps1` 里的判据脚本需要：**numpy / scipy / matplotlib / python-docx / lxml / Pillow**。
+
+```powershell
+python -m pip install numpy scipy matplotlib python-docx lxml Pillow
 ```
-bench_gate ──gate[32]──► adsr ──level_rd──► tone_bank ──mix──► pt8211_tx ──► PT8211 DAC
-     ▲                     ▲                   │
-     │                     └── env_voice ◄──────┘
-     └── 真实演奏模式下换成「电容触摸/光电/压力 → 按键扫描 → 声部分配器」
+
+脚本会**优先用项目自带的 venv**（`_tools\venv`，本仓库未包含），找不到就**自动回退到系统 Python** 并打印上面这行安装指引 —— 所以缺包时它会告诉你，不会静默失败。
+
+> 只想看结果、不想配环境？直接读 [`docs/evidence/32谱峰-取证报告.md`](docs/evidence/32谱峰-取证报告.md)（含 SHA256 指纹）。
+
+### 构建 / 仿真 / 验收
+
+```powershell
+# ① 全链路构建（综合 → 布局布线 → 位流），约 85 秒
+& "F:\Gowin\Gowin_V1.9.12.04_x64\IDE\bin\gw_sh.exe" tools\gowin\build.tcl
+# 产物：eda_proj\fpga_hank\impl\pnr\fpga_hank.fs
+
+# ② 一键验收：构建 + 全部仿真 + 全部判据 + 烧录链路 + 交付物清单
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\verify\run_acceptance.ps1
+#   -Quick 只复核证据不跑仿真；-SkipBuild 跳过构建
+#   最近一次：PASS = 9，FAIL = 0
+
+# ③ 烧录（第一次一律用 SRAM：易失、不改 Flash，反复试最安全）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\gowin\program.ps1 -Mode scan    # 确认板子被认出
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\gowin\program.ps1 -Mode sram    # 下载
 ```
 
-- **32 路 ×（独立相位累加器 + 独立频率字 + 独立包络）= 32 个完整振荡器**
-  （赛题【振荡器统计规则】三要素缺一不可）
-- 音色：`wave_rom` 4 张表共用一份 ROM，地址 = `{音色[1:0], 相位高 8 位}`
-- 全 HDL、逐样本实时合成，**无任何预录 PCM / 音频样本 ROM**（赛题红线）
+### 两个工作模式（**上板前必读**）
 
-### 两种工作模式（赛题要求"测试模式"）
+`rtl/top.v` 有一个编译期参数 `TEST_MODE`：
 
-| 模式 | 开关 | gate | 音色 | 用途 |
+| 模式 | `TEST_MODE` | 按键 | 音色 | 用途 |
 |---|---|---|---|---|
-| **测试模式** | `top.v` 的 `TEST_MODE = 1` | 32 路恒按住 | **锁定表 0（纯正弦）** | 频谱取证：32 路 → 32 个独立谱峰 |
-| 演奏模式 | `TEST_MODE = 0` | 由交互逻辑驱动 | 可切换（每 ~2 s 自动轮换演示） | 真实演奏 |
+| **演奏模式** | `0` | **真按键驱动发声** | 按键切换 4 种 | ★ 先烧这个听声音 |
+| **测试模式** | `1`（当前默认） | 无效（32 路恒发声） | 锁定纯正弦 | ★ 频谱取证：数 32 根谱峰 |
 
-⚠️ **测试模式必须用纯正弦表**：若用含谐波的表，每路会产生多个谱峰，
-"32 路 → 32 个谱峰"的判据会被误判为杂散（实测过：门控调制的演奏波形只命中 6/32）。
+**两种模式都已实测综合通过**（时序零违例、12 引脚全约束）：
+`TEST_MODE=0` → Logic 5986 / FF 1745；`TEST_MODE=1` → Logic 5920 / FF 1699。
 
+### 三个按键
+
+| 按键 | 引脚 | 作用 |
+|---|---|---|
+| `key` | `AB13`（板载） | **按住 = 发声**（32 路齐发），松开进入释放段 |
+| `key2` | `Y12`（板载） | 每按一下换音色（4 种循环） |
+| `key_pitch` | `Y22`（**PMOD 排针，需自备按钮接 GND**） | 每按一下升 1 个半音 |
+
+> ⚠️ `Y22` 是 PMOD 排针上的脚，**板上没有现成按钮**。接一个按钮：一端 `Y22`、一端 **GND**，
+> 内部已上拉，按下 = 0，无需外接电阻。**这正是赛题要求的"自研交互形态"。**
 
 ---
 
-## 目录结构
+## 四、skills（踩坑知识库）
+
+`skills/` 下是**本项目自建的 3 个 skill**，记录了开发中真实踩过的坑：
+
+| Skill | 内容 |
+|---|---|
+| `gowin-flow` | 高云命令行全链路规范 + 实测坑位（`-synthesis_tool` 只认小写、`.tcl` 不能带 BOM、顶层不能放 `rtl/` 根…） |
+| `verilog-review` | RTL 审查清单 + "波形正常但实际错误"的案例复盘 |
+| `fpga-verify` | 取证纪律 + 判据脚本 + `references/traps.md`（**§1–§10，22.7 KB**） |
+
+### 怎么让 DSH 真正加载它们
+
+⚠️ **DSH 的 skill 发现深度【只有一层】**：必须是 `<root>/<name>/SKILL.md`。
+
+```powershell
+# 在你自己的项目根下（或 C:\Users\<你>\.dsh\skills\）
+New-Item -ItemType Directory -Force -Path .dsh\skills
+Copy-Item skills\gowin-flow, skills\verilog-review, skills\fpga-verify .dsh\skills\ -Recurse
+```
+
+**放在 `fpga_hank/skills/` 下不会自动加载** —— 那是给你**阅读**和**装到正确位置**用的。
+
+> 另一个实测坑：Claude 的 skill frontmatter 常见 `tools:` / `allowed-tools:` 字段，
+> **DSH 不认**，而且会**静默丢弃整个 skill**。本项目的 skill 只用 `name` + `description`。
+
+---
+
+## 五、目录结构
 
 ```
 fpga_hank/
-├── rtl/                     综合用 RTL（全 HDL，赛题红线要求）
-│   ├── common/              公共模块
-│   ├── synth/               合成引擎（振荡器、波表、ADSR）
-│   ├── audio/               音频输出链路
-│   │   └── pt8211_tx.v      ✅ PT8211 I2S 发送器（已仿真验证）
-│   ├── effects/             效果器（混响/延迟/合唱）
-│   └── io/                  交互检测（电容触摸/光电/力度）
-├── constr/                  约束
-│   ├── fpga_hank.cst        物理约束（引脚）
-│   └── fpga_hank.sdc        时序约束
-├── sim/
-│   ├── run.do               ModelSim 运行脚本
-│   └── tb/                  testbench
-├── tools/gowin/             高云命令行构建工具
-│   └── build.tcl            ✅ 全链路构建脚本（实测通过）
-├── docs/                    设计文档与验证报告
-├── plugin/                  DSH 插件（含逐个 README）
-├── skills/                  Claude Code 项目级 skills 源文件
-└── eda_proj/                Gowin 工程与构建产物（git 忽略）
+├─ README.md                 ← 你在这里
+├─ rtl/                      RTL 源码
+│  ├─ top.v                  顶层（含 TEST_MODE 参数、按键同步去抖）
+│  ├─ synth/                 tone_bank（32 路振荡器）/ adsr / wave_rom / bench_gate
+│  ├─ audio/                 pt8211_tx（I2S 发送器）
+│  ├─ smoke/                 smoke_top（分级冒烟用的另一套顶层）
+│  └─ not_integrated/        未接入的模块 + README 说明（touch_pad / sine_rom）
+├─ sim/                      仿真
+│  ├─ tb/                    testbench（含 tb_interaction 交互验证）
+│  ├─ run.do                 一键跑全部 testbench 并打印 PASS/FAIL
+│  ├─ wave_*.do              「打开即完美」的波形视图脚本
+│  └─ make_wlf.do            生成 .wlf 数据集（选择性 log）
+├─ constr/                   引脚 .cst + 时序 .sdc
+├─ tools/
+│  ├─ gowin/                 build.tcl（构建）/ build_smoke.ps1 / program.ps1（烧录）
+│  ├─ verify/                run_acceptance.ps1 / check_peaks.py / check_pitch_shift.py …
+│  └─ gen/                   RTL 与文档生成器
+├─ docs/                     ★ 全部文档
+│  ├─ 技术文档.docx           提交用技术文档
+│  ├─ 上电操作卡-正式交付.md    ★ 上板照这份做
+│  ├─ 工程能力与工具链说明.md   四类能力 / 许可证 / 兼容性
+│  ├─ 预先构建的位流.md
+│  ├─ 上板验证指南.md          分级排障 S0–S6
+│  ├─ evidence/              32 谱峰取证报告 + 三份样本数据（带 SHA256）
+│  └─ waveforms/real/        6 张 ModelSim 真窗口截图
+└─ skills/                   自建 skill（见第四节）
 ```
 
----
+**未包含在本仓库的**（构建产物，需要时自行生成）：
 
-## 快速开始
-
-### 1. 构建 bitstream
-
-```powershell
-# 直接调 Tcl（推荐，不依赖工作目录）
-& "F:\Gowin\Gowin_V1.9.12.04_x64\IDE\bin\gw_sh.exe" `
-  "C:\Users\Danny\Desktop\FPGA competition\fpga_hank\tools\gowin\build.tcl"
-```
-
-产物：
-
-| 文件 | 说明 |
+| 项 | 生成方式 |
 |---|---|
-| `eda_proj/fpga_hank/impl/pnr/fpga_hank.fs` | **bitstream**，用 Gowin Programmer 烧录 |
-| `eda_proj/fpga_hank/impl/pnr/fpga_hank.rpt.txt` | PnR 报告（含资源占用、告警） |
-| `eda_proj/fpga_hank/impl/pnr/fpga_hank.tr.html` | 时序报告 |
-| `eda_proj/fpga_hank/impl/pnr/fpga_hank.pin.html` | 引脚分配报告 |
-
-### 2. 跑仿真
-
-```powershell
-Set-Location "C:\Users\Danny\Desktop\FPGA competition\fpga_hank"
-& "F:\Modelsim_10.7\win64\vsim.exe" -c -do sim\run.do
-```
+| `eda_proj/`（Gowin 工程，约 135 MB） | `gw_sh tools\gowin\build.tcl` |
+| `out/bitstream/*.fs`（位流，各约 33 MB） | 同上；或改 `TEST_MODE` 后重跑 |
+| `work/`（ModelSim 编译库） | 跑仿真自动生成 |
 
 ---
 
-## ⚠️ 实测踩过的坑（务必先读，能省你几个小时）
+## 六、给评审的代码审查指引
 
-### Gowin 工具链
+赛题要求"RTL 代码要经得起评委对照审查（无音频样本 ROM、无 SD 卡读 WAV）"。逐条指路：
 
-1. **`-synthesis_tool` 只能写小写 `gowinsynthesis`**。`GowinSynthesis`/`GW_SH`/`Synplify`
-   全部报 `unknown synthesis tool` 并**中断整个脚本**（不是警告）。
-2. **`gw_sh.exe` 不会切到 .tcl 所在目录**，`[pwd]` 是调用者的 CWD。
-   必须用 `[file dirname [info script]]` 定位工程根。
-3. **`.tcl` 不能带 UTF-8 BOM**，否则第一条命令被解析成
-   `invalid command name "??oreach"`。
-4. **器件型号必须精确匹配**：part `GW5AST-LV138PG484AC1/I0`、封装 `PBG484A`、
-   device version 按板上实际选 B/C。型号写错不会报错，但烧录后引脚行为不对。
-
-### RTL / 仿真
-
-5. **`32'd1 << FRAC_BITS` 在 Verilog 里，当 `FRAC_BITS ≥ 32` 时等于 0。**
-   会让分数分频的小数补偿彻底失效（`frac_carry` 恒为真）。写分频器时务必注意位宽。
-6. **不要为了"可读性"引入影子寄存器**，例如 `new_ph <= ph+1; ph <= new_ph;`。
-   若后者每拍无条件执行而前者只在条件成立时更新，就构成串行延迟链，
-   寄存器会每个周期只前进"半格"并最终彻底停滞。
-7. **不要在同一个 `always` 里用两个并列 `if` 分支给同一寄存器赋值。**
-   条件重叠时"最后一次赋值生效"，极易造成寄存器卡死。
-8. **位序/半帧边界类错误"看波形完全正常"。** 唯一可靠的验证方式是按 BCK 上升沿
-   逐位解码 DIN 再与期望样本比对。本项目 `sim/tb/tb_pt8211_final.v` 就是这么做的，
-   它抓出了 5 个"波形正常"的错误实现。
-9. **ModelSim 优化后读 DUT 内部寄存器可能得到与实际不符的值。** 调试时优先做纯黑盒
-   验证（只看输出端口），否则会被误导。
-10. **ModelSim 10.7 起 `-novopt` 已废弃**，加上会导致 `Error loading design`。
-11. **不要用 PowerShell `Set-Content -Encoding UTF8` 修改带中文的 .v/.tcl 文件** ——
-   它会加 BOM 并破坏中文编码，导致 `vlog` 报
-    `unexpected non-printable character with the hex value '0xef'`。
-    统一用无 BOM UTF-8（编辑器的 write 工具即可）。
+| 红线 | 怎么看 | 预期 |
+|---|---|---|
+| **无预录 PCM** | 搜 `$readmem` | **RTL 里没有**（`wave_rom.v` 里出现过这个词，但**只在注释中**，是说明"为什么**不**用它"） |
+| | 查有无 `.wav/.mp3/.pcm/.mif/.hex/.coe` | **一个都没有** |
+| | 搜 `sd_` / `spi` / `fat` | **没有** |
+| **波的来源** | 看 `rtl/synth/wave_rom.v` | 1024 项**常量表**（`case`），由三角函数与傅里叶级数**计算生成**。`table0` 正弦 256 项全部 = `32767·sin(2πi/256)`（误差 ≤1 LSB）；table1–3 是**带限**波形（5 / 9 次谐波） |
+| **≥2 个独立可控维度** | 看 `top.v` 三个输入 | `key`(AB13) / `key2`(Y12) / `key_pitch`(Y22)。**独立性**由 `tb_interaction.v` 第 5、6 项证明：**在按住发声过程中**换音色/变调，`gate` 不受影响 |
+| **32 个完整振荡器** | 看 `tone_bank.v` | `acc[0:31]`（**32 个独立 32 bit 相位累加器**）+ `pitch_inc(k,…)`（独立频率字）+ `en_level[k]`（独立包络）。`ROM_PARALLEL=1` 共用一份 ROM **不影响该认定**（统计的是振荡器实例，不是 ROM 实例） |
+| **逐样本运算、无 CPU** | 看三个合成模块 | 均在 `always @(posedge clk)` 里做定点逐拍运算；**`top.v` 里没有任何 AE350 / CPU 实例** |
 
 ---
 
-## 硬件事实（已核对权威资料，勿凭记忆）
+## 七、几个容易误判的点（重要）
 
-### 引脚
-
-```
-clk        V22      50 MHz 板载有源晶振
-led[0..3]  T18 R18 R17 P16      板载 LED，低有效
-           （V13 无灯珠；U21 是 CPU/SSPI 专用脚，布局器会拒绝）
-HP_BCK     Y17      PT8211 I2S 位时钟
-HP_WS      AB17     PT8211 I2S 字选（高=左，低=右）
-HP_DIN     AA16     PT8211 I2S 数据
-PA_EN      AB16     功放使能，低有效（必须拉低才出声）
-```
-
-TMDS/HDMI 差分对：`tmds_d_p_0[0]=J14,H14`、`[1]=J15,H15`、`[2]=K17,J17`、
-`tmds_clk_p_0=G15,G16`，`IO_TYPE=LVCMOS33D`。
-
-### 资源
-
-138 240 LUT4 / 138 240 FF / 6120 Kb BSRAM（340 块）/ 298 个 18×18 乘法器 / 12 PLL
-
-### 供电
-
-12V DC，或 **USB3.0 + DEBUG-USB 双路 5V**。**单口 USB 供电会掉电重启。**
+1. **位流的 SHA256 不能当修订标识** —— 实测同一份 RTL 连续构建两次，`.fs` 哈希就不同
+   （高云时序驱动 P&R 非确定性）。**判断修订要哈希 RTL 源码**，不是位流。
+2. **ADSR 有两套配置，数字不同但都对**：
+   生产 `top.v`（`EN_DIV=512`）衰减 **2.62 ms**；波形取证的 `tb_wave.v`（`EN_DIV=64`）衰减 **20.97 ms**。
+   技术文档里写的是**生产值**。两套配置是为了让取证时斜坡在屏幕上看得出形状。
+3. **`docs/` 里两份带"历史文档"横幅的报告**（`32复音-验证报告.md` / `PT8211-验证报告.md`）
+   描述的是**旧的 48.8 kHz 配置**，数字已过期，**勿据此引用**；方法论部分仍成立。
+4. **`tb_spectrum.v` 的 `EN_DIV=8` 是刻意的测量设置**，不是与设计不一致的 bug
+   （原因见该文件内注释：`bench_gate` 是轮换门控，包络太快到顶会让 FFT 被直流淹没）。
 
 ---
 
-## 赛题要点提醒（详见仓库根 `AGENTS.md`）
+## 八、许可与出处
 
-- 评分公式：**同时活跃可闻独立振荡器总数 × 实际音频输出采样率**（唯一乘数项）
-- 「一个振荡器」必须同时有 **独立相位累加器 + 频率调控 + 包络控制**
-- 单波表查表**只算 1 个**振荡器
-- 🚫 **严禁播放预录 PCM / 预置推流 / 整段录音**
-- 交付必须有**测试模式**：输出 N 路不同频率 → 频谱能数出 N 个独立谱峰
-- 作品提交截止 **2026-11-04 18:00**
+- 本项目 RTL（`pt8211_tx.v` / `tone_bank.v` / `adsr.v` / `wave_rom.v` 等）**全部为独立实现**，
+  只借鉴设计决策，未复制任何第三方代码 ⇒ **不涉及许可证传染**。
+- 参考过（仅事实引用）：`sipeed/TangMega-138K-example`（**Apache-2.0**，引脚事实来源）、
+  `vdalex/tangmega-138k-fpga-projects`（**无 LICENSE，未复制代码**）、`stnolting/captouch`（BSD-3-Clause）。
+- PT8211 手册时序参数引自原厂 **PTC V1.7** AC Characteristics 表。
+- 详见 [`docs/工程能力与工具链说明.md`](docs/工程能力与工具链说明.md)。

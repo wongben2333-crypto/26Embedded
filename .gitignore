@@ -16,3 +16,14 @@ sim/out/
 .DS_Store
 Thumbs.db
 *.log
+# ---- fpga_hank 构建产物（可再生，不入库）----
+# 生成方式：gw_sh fpga_hank\tools\gowin\build.tcl
+fpga_hank/eda_proj/
+fpga_hank/work/
+fpga_hank/out/
+fpga_hank/**/*.fs
+fpga_hank/**/*.wlf
+fpga_hank/modelsim.ini
+fpga_hank/transcript
+fpga_hank/tone_samples.txt
+fpga_hank/_tools/

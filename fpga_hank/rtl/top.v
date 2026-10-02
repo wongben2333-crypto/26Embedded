@@ -21,17 +21,28 @@
 // =============================================================================
 `default_nettype none
 
-// ★ TEST_MODE 是编译期开关：1 = 测试模式（32 谱峰取证），0 = 演奏模式
-localparam integer TEST_MODE = 1;
+// =============================================================================
+//  ★ 为什么把 TEST_MODE / BCK_DIV 改成【模块参数】而不是文件级 localparam：
+//    原来它们声明在 module 之外（文件级 localparam），**testbench 无法覆盖**
+//    ⇒ 结果：演奏模式（TEST_MODE=0）的交互通路**没有任何仿真验证**，
+//      "基础要求① 多维交互"只有"编译通过 + 引脚约束"作证据，
+//      而不是功能验证。这对一项【基础要求】来说是不够的。
+//    改成参数后，testbench 可以用
+//        top #(.TEST_MODE(0)) dut (...)
+//    真正测到"按键 → 去抖 → gate → 包络"这条通路。
+//    默认值保持 1，因此**正式构建的行为完全不变**。
+// =============================================================================
 
-// ★ 采样率选择：BCK_DIV=2 -> fs=48828.125 Hz；BCK_DIV=1 -> fs=97656.25 Hz
-//   两者都远低于 PT8211 的 20 MHz 位时钟上限（分别占 7.8% 与 15.6%）。
-//   ⚠️ 改这里之后必须同步重新生成 tone_bank.v（频率字要按新采样率折算）：
-//        python tools/gen/gen_tone_bank.py --write --bck-div <同一个值>
-//      否则音高会整体偏移（96k 沿用 48.8k 的频率字会低一个八度）。
-localparam integer BCK_DIV = 1;
-
-module top (
+module top #(
+    // 1 = 测试模式（32 谱峰取证）；0 = 演奏模式（按键驱动）
+    parameter integer TEST_MODE = 1,
+    // 采样率：BCK_DIV=2 -> fs=48828.125 Hz；BCK_DIV=1 -> fs=97656.25 Hz
+    //   两者都远低于 PT8211 的 20 MHz 位时钟上限（分别占 7.8% 与 15.6%）。
+    //   ⚠️ 改这个值之后必须同步重新生成 tone_bank.v（频率字要按新采样率折算）：
+    //        python tools/gen/gen_tone_bank.py --write --bck-div <同一个值>
+    //      否则音高会整体偏移（96k 沿用 48.8k 的频率字会低一个八度）。
+    parameter integer BCK_DIV = 1
+)(
     input  wire       clk,        // V22, 50 MHz
     output wire [3:0] led,        // T18 R18 R17 P16，低有效
     output wire       HP_BCK,     // Y17  PT8211 I2S 位时钟
@@ -173,7 +184,8 @@ module top (
         .DIV_W    (16),                     // 计数器位宽，须 > $clog2(EN_DIV)
         .ATK_SH   (10),                     // 1024 步 × 10.24 µs ≈ 10.5 ms
         .DEC_SH   (10),                     //  256 步 × 10.24 µs ≈  2.6 ms
-        .REL_SH   (13),                     // 8192 步 × 10.24 µs ≈ 83.9 ms
+        .REL_SH   (13),                     // 从 sustain 49152 起 6144 步 × 10.24 µs ≈ 62.9 ms
+                                        //（从满幅 65536 起才是 8192 步 ≈ 83.9 ms）
         .SUS_LEVEL(49152)                   // 0.75 满幅 ≈ −2.5 dB
     ) u_adsr (
         .clk       (clk),

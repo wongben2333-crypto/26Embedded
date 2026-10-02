@@ -40,9 +40,18 @@ module tb_spectrum;
     // ★ 采样率必须与 tone_bank.v 的频率字一致，否则 FFT 判据的 --fs 会错
     localparam integer BCK_DIV = 1;          // 2 -> 48828.125 Hz; 1 -> 97656.25 Hz
     localparam integer NV      = 32;
-    // 收集 65536 个样本：fs/65536 ≈ 0.745 Hz 分辨率，足以分辨 200 Hz 间隔。
+    // 收集样本数：可被 plusarg +NSAMP=n 覆盖。
+// 默认 16384：在 97656.25 Hz 下分辨率 5.96 Hz，谱峰间隔 200 Hz
+// ⇒ 分辨 32 个峰绰绰有余，而仿真时间只有 65536 点的 1/4。
+// ★ 为什么降低默认值：ModelSim 是单席位许可证，而本机有其它脚本会周期性
+//   杀掉 vsim（实测每次都在 ~20900 个样本处被终止）。16384 点能在被杀之前
+//   跑完，因此**证据可重复获得**。若要更高分辨率再显式传 --NSAMP=65536。
     // 窗口时长 ≈ 1.34 s，跨多个 bench_gate 组轮换周期 → 32 路都会出现。
-    localparam integer NSAMP   = 65536;
+    integer NSAMP_OVR;
+    initial if (!$value$plusargs("NSAMP=%d", NSAMP_OVR)) NSAMP_OVR = 0;
+    localparam integer NSAMP_DEF = 16384;
+    // 用函数形式让 plusarg 可覆盖（localparam 不能被运行时改）
+    function integer nsamp; begin nsamp = (NSAMP_OVR > 0) ? NSAMP_OVR : NSAMP_DEF; end endfunction
 
     reg clk   = 1'b0;
     reg rst_n = 1'b0;
@@ -131,7 +140,7 @@ adsr #(.N_VOICES(NV), .EN_DIV(8), .ATK_SH(8), .DEC_SH(10), .REL_SH(12),
         // 丢掉前 8192 个样本，让相位累加器与包络进入稳态
         repeat (8192) @(posedge sample_tick);
 
-        while (n < NSAMP) begin
+        while (n < nsamp) begin
             @(posedge sample_tick);
             $fdisplay(fd, "%0d", mix);
             n = n + 1;
@@ -141,7 +150,7 @@ adsr #(.N_VOICES(NV), .EN_DIV(8), .ATK_SH(8), .DEC_SH(10), .REL_SH(12),
         $display("[TB] wrote %0d samples to tone_samples.txt", n);
         // fs 由 BCK_DIV 决定：2 -> 48828.125 Hz；1 -> 97656.25 Hz
         $display("[TB] fs = %0.3f Hz, freq resolution = %f Hz",
-                 (BCK_DIV == 1) ? 97656.25 : 48828.125, ((BCK_DIV == 1) ? 97656.25 : 48828.125)/NSAMP);
+                 (BCK_DIV == 1) ? 97656.25 : 48828.125, ((BCK_DIV == 1) ? 97656.25 : 48828.125)/nsamp);
         $stop;   // ★ 用 $stop 而非 $finish：run.do 要连续跑多个 tb，$finish 会终止整个 vsim
     end
 

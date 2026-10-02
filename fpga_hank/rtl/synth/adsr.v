@@ -42,7 +42,8 @@
 //    默认 EN_DIV=512、clk=50 MHz（每步 10.24 µs）：
 //        ATK_SH=10 → 1024 步 ≈ 10.5 ms  （起音，听得见但跟手）
 //        DEC_SH=10 →  256 步 ≈  2.6 ms  （衰减）
-//        REL_SH=13 → 8192 步 ≈ 83.9 ms  （释放，明显能听到"落下去"）
+//        REL_SH=13 → 6144 步 ≈ 62.9 ms  （释放；从 sustain 49152 往下降）
+//                   8192 步 ≈ 83.9 ms  （若从满幅 65536 起降，才是这个值）
 //    ⚠️ 历史坑：注释曾写"ATK_SH=8 → 131 ms"，实际按当时 EN_DIV=8 只有
 //       40.96 µs（2 个采样点），耳朵完全听不出包络。原因是 en_div_cnt
 //       当时只有 8 位、EN_DIV 上限 255。现已把位宽参数化为 DIV_W。
@@ -63,7 +64,7 @@ module adsr #(
     parameter integer DIV_W     = 16,           // en_div_cnt 位宽，须 > $clog2(EN_DIV)
     parameter integer ATK_SH    = 10,           // 起音：65536>>ATK_SH 步
     parameter integer DEC_SH    = 10,           // 衰减
-    parameter integer REL_SH    = 11,           // 释放
+    parameter integer REL_SH    = 13,           // 释放（与 top.v 生产配置对齐；默认 11 会与生产不符）
     parameter integer SUS_LEVEL = 49152         // Q16，0.75 满幅 ≈ -2.5 dB
 )(
     input  wire               clk,

@@ -153,6 +153,24 @@ module tone_bank #(
         end
     endfunction
 
+    // ============ 变调增量：在全宽 48 位上做乘法，再取 [43:12] ============
+    // ★ 为什么必须这样写（本项目真实回归，详见 tools/gen/patch_pitch_width.py）：
+    //   若直接写 (freq_word(k) * pitch_coef(pitch_semi)) >> 12，
+    //   Verilog 会按两个操作数的最大位宽（32 位）算乘积 —— 而
+    //   freq_word 最大 562949953、乘 4096 需要 44 位 ⇒ **高位被截断**，
+    //   相位增量变成垃圾，输出又弱又乱（实测 32 谱峰判据从 32/32 掉到 0/32）。
+    //   把乘法放进函数、内部用 reg [47:0] 承接，乘积就在全宽上形成。
+    //   ⚠️ 与包络乘法是同一个坑："乘积在全宽形成后再移位"。
+    function [31:0] pitch_inc;
+        input integer      k;
+        input signed [3:0] n;
+        reg   [47:0]       p;
+        begin
+            p = {16'd0, freq_word(k)} * {16'd0, pitch_coef(n)};
+            pitch_inc = p[43:12];
+        end
+    endfunction
+
     // ============ ROM 地址 MUX（时分复用一份 ROM）============
     reg  [4:0]         addr_mux;                          // 0..N_VOICES-1
     // ★ rom_a 必须是【组合】地址，绝不能在两个分支里各赋一次！
@@ -298,7 +316,7 @@ module tone_bank #(
                 //      否则会被截成噪声（本项目在包络乘法上踩过同一个坑）。
                 for (k = 0; k < N_VOICES; k = k + 1)
                     if (gate_in[k])
-                        acc[k] <= acc[k] + ((freq_word(k) * pitch_coef(pitch_semi)) >> 12);
+                        acc[k] <= acc[k] + pitch_inc(k, pitch_semi);
                 // ★ 用【显式状态机】而不是靠 samp_cnt 边界对齐来保证
                 //   "每一路恰好被读一次"。靠边界取巧极易在两端各多读一次：
                 //   实测曾出现 voice[0] 被读 3 次（+9.54 dB）、

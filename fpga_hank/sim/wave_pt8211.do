@@ -71,3 +71,34 @@ puts "\[wave\] 看：WS 高=左声道(16bit) / 低=右声道(16bit)；DIN 在 BC
 puts "\[wave\] 数值：BCK 周期 = 320.0 ns；十六进制样本 sl=0xAAAA sr=0x5555"
 puts "\[wave\] 建议放大到一个 BCK 周期（320 ns）逐位读 b15..b0，可用工具栏 Zoom In"
 puts "\[wave\] 现在可以 Win+Shift+S 截图"
+
+
+
+# ---- 游标：用官方语法 wave cursor add -time <t> -name <n> -------------------
+# （不用 WaveRestoreCursors —— 那是旧式/别名，官方命令参考里 wave 命令族是
+#   `wave cursor add|configure|delete|see|active`。见 liaison/MODELSIM-GUIDE.md）
+ztry "cursor 11.36us" {wave cursor add -time 11.36us -name "WS高后第1个BCK上升沿"}
+ztry "cursor 11.68us" {wave cursor add -time 11.68us -name "再下一个沿(间隔=320ns)"}
+ztry "wave refresh" {wave refresh}
+
+# 游标读回：自证 —— 不是"我说放了游标"，而是把工具里的实际值打印出来
+set _ncur 0
+foreach _ci {1 2 3} {
+    if {[catch {set _cv [wave cursor configure $_ci]} _ce]} {
+        if {$_ncur > 0} { puts "\[cursor\] cursor$_ci 读回失败: $_ce" }
+    } else {
+        incr _ncur
+        puts "\[cursor\] cursor$_ci = $_cv"
+    }
+}
+puts "\[cursor\] 可用游标数 = $_ncur"
+
+# ---- 最终再打印一次时间范围：放【末尾】才不会被 Transcript 滚动遮住 ----
+# 之前把查询放在缩放之后、但后面还有一串 [wave] 输出，于是查询结果被顶出可视区，
+# 看截图的人根本看不到缩放到底有没有生效（本项目实测踩过）。
+after 300
+if {[catch {set _r2 [wave zoom range]} _m2]} {
+    puts "\[zoom\] 最终范围查询失败: $_m2"
+} else {
+    puts "\[zoom\] 最终时间范围 = $_r2"
+}

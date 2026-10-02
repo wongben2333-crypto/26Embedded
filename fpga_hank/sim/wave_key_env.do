@@ -22,14 +22,16 @@ if {[llength [dataset list]] == 0} {
 
 # 窗口大小给成适合截屏的尺寸（用户是直接 Win+Shift+S 截屏，太宽会截不清）
 catch {wm geometry . 1600x900}
-proc wg {title radix sigs} {
+proc wg {title radix sigs {extra {}}} {
     catch {add wave -divider $title}
-    catch {eval add wave -radix $radix $sigs} msg
+    if {[catch {eval add wave -radix $radix $extra $sigs} msg]} {
+        catch {eval add wave -radix $radix $sigs} msg2
+    }
 }
 
 wg "Stimulus" binary   [list /$TB/key /$TB/key2]
 wg "Control"  binary   [list /$TB/dut/key_raw /$TB/dut/key_db /$TB/dut/DBG_GATE /$TB/dut/g_mono/mono_gate]
-wg "Data"     unsigned [list /$TB/dut/g_mono/env_level]
+wg "Data"     unsigned [list /$TB/dut/g_mono/env_level] {-format analog-interpolated -min 0 -max 65536 -height 220}
 wg "Data"     hex      [list /$TB/dut/g_mono/ph_acc]
 wg "Output"   binary   [list /$TB/dut/DBG_AUDIO]
 wg "Output"   hex      [list /$TB/led]
@@ -74,3 +76,34 @@ puts "\[wave\]     -> env_level 爬升 -> DBG_AUDIO 置起 = 出声"
 puts "\[wave\] 数值：去抖窗口 2.621 ms；物理接触 -> 出声 = 2.663 ms（<=10 ms 达标、<5 ms 达标）"
 puts "\[wave\] 想看清那 2.6 ms 的过渡，把时间轴放大到 15.00~17.05 ms"
 puts "\[wave\] 现在可以 Win+Shift+S 截图"
+
+
+
+# ---- 游标：用官方语法 wave cursor add -time <t> -name <n> -------------------
+# （不用 WaveRestoreCursors —— 那是旧式/别名，官方命令参考里 wave 命令族是
+#   `wave cursor add|configure|delete|see|active`。见 liaison/MODELSIM-GUIDE.md）
+ztry "cursor 15.001ms" {wave cursor add -time 15.001ms -name "物理接触"}
+ztry "cursor 17.623ms" {wave cursor add -time 17.623ms -name "去抖完成(+2.621ms)"}
+ztry "wave refresh" {wave refresh}
+
+# 游标读回：自证 —— 不是"我说放了游标"，而是把工具里的实际值打印出来
+set _ncur 0
+foreach _ci {1 2 3} {
+    if {[catch {set _cv [wave cursor configure $_ci]} _ce]} {
+        if {$_ncur > 0} { puts "\[cursor\] cursor$_ci 读回失败: $_ce" }
+    } else {
+        incr _ncur
+        puts "\[cursor\] cursor$_ci = $_cv"
+    }
+}
+puts "\[cursor\] 可用游标数 = $_ncur"
+
+# ---- 最终再打印一次时间范围：放【末尾】才不会被 Transcript 滚动遮住 ----
+# 之前把查询放在缩放之后、但后面还有一串 [wave] 输出，于是查询结果被顶出可视区，
+# 看截图的人根本看不到缩放到底有没有生效（本项目实测踩过）。
+after 300
+if {[catch {set _r2 [wave zoom range]} _m2]} {
+    puts "\[zoom\] 最终范围查询失败: $_m2"
+} else {
+    puts "\[zoom\] 最终时间范围 = $_r2"
+}

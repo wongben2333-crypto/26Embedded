@@ -17,7 +17,10 @@
 //
 //  ★ 刻意只用 Verilog-2001 语法（不用 join_any / 块内声明等 SystemVerilog 构造），
 //    这样高云 GUI 的仿真入口（可能用普通 vlog 而不是 vlog -sv）也能直接编译。
-//  ★ 输出目录 ../_smoke-test/simdata/ 必须已存在（$fopen 不会建目录）。
+//  ★ CSV 输出目录默认 ../_smoke-test/simdata/（CWD = fpga_hank 时）；
+//    打不开就退到当前目录同名文件，**再不行只警告、不中断仿真** ——
+//    因为 CSV 只是附带中间数据，WLF/波形才是主产物（原先会 $finish，导致在别的
+//    目录编译运行时连波形都产不出来，实测踩过）。
 //  ★ 采样一律用「等间隔抽点 + $fwrite」，不靠 VCD：CSV 更好画、也更小。
 // =============================================================================
 `timescale 1ns/1ps
@@ -53,12 +56,15 @@ module tb_wave_pt8211;
     );
 
     initial begin
+        // CSV 只是附带产物；打不开就退到当前目录，再不行只警告、不中断仿真
+        // （否则在别的目录跑时连 WLF 波形都产不出来 —— 实测踩过）
         fd = $fopen("../_smoke-test/simdata/pt8211.csv", "w");
+        if (fd == 0) fd = $fopen("pt8211.csv", "w");
         if (fd == 0) begin
-            $display("ERROR: 打不开 ../_smoke-test/simdata/pt8211.csv");
-            $finish;
+            $display("[tb_wave] 警告: CSV pt8211.csv 打不开, 不影响仿真与波形, 继续");
+        end else begin
+            $fwrite(fd, "t_ns,bck,ws,din,sample_tick\n");
         end
-        $fwrite(fd, "t_ns,bck,ws,din,sample_tick\n");
 
         #200;
         reset = 1'b0;
@@ -70,7 +76,7 @@ module tb_wave_pt8211;
             $fwrite(fd, "%0d,%b,%b,%b,%b\n", $time, bck, ws, din, sample_tick);
         end
 
-        $fclose(fd);
+        if (fd != 0) $fclose(fd);
         $display("[tb_wave_pt8211] 写完 pt8211.csv：%0d 个 clk", i);
         $finish;
     end
@@ -124,12 +130,15 @@ module tb_wave_adsr;
     end
 
     initial begin
+        // CSV 只是附带产物；打不开就退到当前目录，再不行只警告、不中断仿真
+        // （否则在别的目录跑时连 WLF 波形都产不出来 —— 实测踩过）
         fd = $fopen("../_smoke-test/simdata/adsr.csv", "w");
+        if (fd == 0) fd = $fopen("adsr.csv", "w");
         if (fd == 0) begin
-            $display("ERROR: 打不开 adsr.csv");
-            $finish;
+            $display("[tb_wave] 警告: CSV adsr.csv 打不开, 不影响仿真与波形, 继续");
+        end else begin
+            $fwrite(fd, "t_us,gate,level\n");
         end
-        $fwrite(fd, "t_us,gate,level\n");
 
         #1000;
         rst_n = 1'b1;
@@ -138,7 +147,7 @@ module tb_wave_adsr;
         #200000000;              // 按住 200 ms
         gate = 1'b0;             // ---- 释放 ----
         #150000000;              // 再跑 150 ms
-        $fclose(fd);
+        if (fd != 0) $fclose(fd);
         $display("[tb_wave_adsr] 写完 adsr.csv");
         $finish;
     end
@@ -216,12 +225,15 @@ module tb_wave_tonebank;
     );
 
     initial begin
+        // CSV 只是附带产物；打不开就退到当前目录，再不行只警告、不中断仿真
+        // （否则在别的目录跑时连 WLF 波形都产不出来 —— 实测踩过）
         fd = $fopen("../_smoke-test/simdata/tonebank.csv", "w");
+        if (fd == 0) fd = $fopen("tonebank.csv", "w");
         if (fd == 0) begin
-            $display("ERROR: 打不开 tonebank.csv");
-            $finish;
+            $display("[tb_wave] 警告: CSV tonebank.csv 打不开, 不影响仿真与波形, 继续");
+        end else begin
+            $fwrite(fd, "t_us,mix16\n");
         end
-        $fwrite(fd, "t_us,mix16\n");
 
         #1000;
         rst_n = 1'b1;
@@ -232,7 +244,7 @@ module tb_wave_tonebank;
             $fwrite(fd, "%0d,%0d\n", $time / 1000, $signed(mix16));
             n = n + 1;
         end
-        $fclose(fd);
+        if (fd != 0) $fclose(fd);
         $display("[tb_wave_tonebank] 写完 tonebank.csv：%0d 个采样点", n);
         $finish;
     end
@@ -278,12 +290,15 @@ module tb_wave_chain;
     end
 
     initial begin
+        // CSV 只是附带产物；打不开就退到当前目录，再不行只警告、不中断仿真
+        // （否则在别的目录跑时连 WLF 波形都产不出来 —— 实测踩过）
         fd = $fopen("../_smoke-test/simdata/chain.csv", "w");
+        if (fd == 0) fd = $fopen("chain.csv", "w");
         if (fd == 0) begin
-            $display("ERROR: 打不开 chain.csv");
-            $finish;
+            $display("[tb_wave] 警告: CSV chain.csv 打不开, 不影响仿真与波形, 继续");
+        end else begin
+            $fwrite(fd, "t_us,key,key_raw,key_db,dbg_gate,audio_live,env\n");
         end
-        $fwrite(fd, "t_us,key,key_raw,key_db,dbg_gate,audio_live,env\n");
 
         // ⚠️ 必须等过【上电复位】再按键：smoke_top 的 POR 是 2^19 clk = 10.49 ms
         //    （不是几十微秒）。本项目实测踩过：写成 #20000 会在复位期间按键，
@@ -294,7 +309,7 @@ module tb_wave_chain;
         #100000000;              // 按住 100 ms
         key = 1'b1;              // ---- 松开 ----
         #100000000;              // 再跑 100 ms
-        $fclose(fd);
+        if (fd != 0) $fclose(fd);
         $display("[tb_wave_chain] 写完 chain.csv");
         $finish;
     end
@@ -338,12 +353,15 @@ module tb_wave_bounce;
     end
 
     initial begin
+        // CSV 只是附带产物；打不开就退到当前目录，再不行只警告、不中断仿真
+        // （否则在别的目录跑时连 WLF 波形都产不出来 —— 实测踩过）
         fd = $fopen("../_smoke-test/simdata/bounce.csv", "w");
+        if (fd == 0) fd = $fopen("bounce.csv", "w");
         if (fd == 0) begin
-            $display("ERROR: 打不开 bounce.csv");
-            $finish;
+            $display("[tb_wave] 警告: CSV bounce.csv 打不开, 不影响仿真与波形, 继续");
+        end else begin
+            $fwrite(fd, "t_us,key,key_raw,key_db,press_cnt\n");
         end
-        $fwrite(fd, "t_us,key,key_raw,key_db,press_cnt\n");
 
         // 越过 POR（2^19 clk = 10.49 ms）再动
         #15000000;
@@ -364,7 +382,7 @@ module tb_wave_bounce;
         key = 1'b1;              // 最终稳定松开
         #5000000;
 
-        $fclose(fd);
+        if (fd != 0) $fclose(fd);
         $display("[tb_wave_bounce] 写完 bounce.csv（press_cnt 应为 1）");
         $finish;
     end

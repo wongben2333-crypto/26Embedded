@@ -63,6 +63,26 @@ module tb_pt8211_final;
     integer lhf     = 0;
     integer rhf     = 0;
     integer risings = 0;
+
+    // ★ BCK 高电平宽度测量（2026-10-03 新增）
+    //   为什么要量它：PT8211 手册对 BCK 高电平时间 tH 有【最小值】要求（提取到的规格 25 ns）。
+    //   原实现 BCK 只高 1 个相位 = 20 ns，**低于最小值**，属超规格；
+    //   而 DIN 是在 BCK 上升沿被锁存的，高电平过短可能让 DAC 来不及可靠锁存。
+    //   ⚠️ 这个偏差在波形截图上完全看不出来，只有把时间量出来才会暴露。
+    time rise_t   = 0;
+    time min_high = 999999999;
+    time max_high = 0;
+    integer highs = 0;
+    // ============ PT8211 手册（PTC V1.7）AC 特性限值 ============
+    //   从原厂手册提取的完整时序表：
+    //     Fbck (BCK 频率)    max 18.4 MHz
+    //     Fws  (WS 频率)     max 384  kHz
+    //     tH   (H Level Time) min 25  ns
+    //     tR/tF (Rise/Fall)  max 20  ns  ← 是 DAC 自身 I/O 特性，不受 FPGA 控制
+    //   本测试台逐项对照检查，避免"改一处引入超规格"。
+    localparam integer BCK_HIGH_MIN_NS = 25;        // tH 最小值
+    localparam real    BCK_FREQ_MAX_HZ = 18.4e6;    // Fbck 最大值
+    localparam real    WS_FREQ_MAX_HZ  = 384.0e3;   // Fws 最大值
     integer clk_n   = 0;
     integer i;
 
@@ -86,6 +106,15 @@ module tb_pt8211_final;
     // 帧间隔
     integer mono    = 0;
     integer last_st = -1;
+    // BCK 下降沿：算出本周期高电平宽度
+    always @(negedge bck) begin
+        if (rise_t != 0) begin
+            if (($time - rise_t) < min_high) min_high = $time - rise_t;
+            if (($time - rise_t) > max_high) max_high = $time - rise_t;
+            highs = highs + 1;
+        end
+    end
+
     integer st_min  = 999999999;
     integer st_max  = 0;
     integer st_cnt  = 0;
@@ -111,6 +140,7 @@ module tb_pt8211_final;
     reg        is_l  = 1'b0;
 
     always @(posedge bck) begin
+        rise_t = $time;
         if (!counting) begin
             cap   = 16'd0;
             nbits = 0;
@@ -197,12 +227,47 @@ module tb_pt8211_final;
         // ---------------- 报告 ----------------
         $display("[TB] ---------- PT8211 transmitter verification ----------");
         $display("[TB] BCK period        : %0d .. %0d ns  (expect %0d)", min_period, max_period, BCK_NS);
+        $display("[TB] BCK high time     : %0d .. %0d ns  (%0d 次测量, 手册 tH 最小值 %0d ns)",
+                 min_high, max_high, highs, BCK_HIGH_MIN_NS);
         $display("[TB] frame period      : %0d .. %0d clk over %0d frames", st_min, st_max, st_cnt);
         meas_fs = 50.0e6/((st_min+st_max)/2.0);
         if (st_cnt > 0)
             $display("[TB] measured fs       : %0.1f Hz  (target %0.1f)", meas_fs, TARGET_FS);
         $display("[TB] half-frames       : left=%0d right=%0d   BCK rises=%0d", lhf, rhf, risings);
 
+        // ---------- 手册 AC 特性合规检查 ----------
+        begin
+            real f_bck, f_ws;
+            f_bck = (min_period > 0) ? (1.0e9 / min_period) : 0.0;   // min_period 单位 ns
+            f_ws  = (st_cnt > 0)    ? meas_fs : 0.0;                 // WS 每帧翻转 ⇒ Fws = fs
+            $display("[TB] --- PT8211 手册 AC 合规 ---");
+            $display("[TB]   Fbck : %0.4f MHz  (max %0.1f MHz)  %s",
+                     f_bck/1e6, BCK_FREQ_MAX_HZ/1e6,
+                     (f_bck <= BCK_FREQ_MAX_HZ) ? "OK" : "VIOLATION");
+            $display("[TB]   Fws  : %0.3f kHz  (max %0.1f kHz)  %s",
+                     f_ws/1e3, WS_FREQ_MAX_HZ/1e3,
+                     (f_ws <= WS_FREQ_MAX_HZ) ? "OK" : "VIOLATION");
+            $display("[TB]   tH   : %0d ns      (min %0d ns)     %s",
+                     min_high, BCK_HIGH_MIN_NS,
+                     (min_high >= BCK_HIGH_MIN_NS) ? "OK" : "VIOLATION");
+            if (f_bck > BCK_FREQ_MAX_HZ) begin
+                $display("[TB] ERROR: BCK 频率 %0.3f MHz 超过手册上限 %0.1f MHz",
+                         f_bck/1e6, BCK_FREQ_MAX_HZ/1e6);
+                errors = errors + 1;
+            end
+            if (f_ws > WS_FREQ_MAX_HZ) begin
+                $display("[TB] ERROR: WS 频率 %0.1f kHz 超过手册上限 %0.1f kHz",
+                         f_ws/1e3, WS_FREQ_MAX_HZ/1e3);
+                errors = errors + 1;
+            end
+        end
+
+        // ★ BCK 高电平必须 >= 手册 tH 最小值（否则 DAC 可能锁存不了）
+        if (highs > 0 && min_high < BCK_HIGH_MIN_NS) begin
+            $display("[TB] ERROR: BCK 高电平 %0d ns < 手册 tH 最小值 %0d ns（超规格，DAC 可能锁存失败）",
+                     min_high, BCK_HIGH_MIN_NS);
+            errors = errors + 1;
+        end
         if (min_period != BCK_NS || max_period != BCK_NS) begin
             $display("[TB] ERROR: BCK period not constant at %0d ns", BCK_NS);
             errors = errors + 1;

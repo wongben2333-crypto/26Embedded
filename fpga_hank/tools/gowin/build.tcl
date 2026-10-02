@@ -5,9 +5,11 @@
 #
 #  用法（任一工作目录均可）：
 #     & "F:\Gowin\Gowin_V1.9.12.04_x64\IDE\bin\gw_sh.exe" `
-#       "C:\Users\Danny\Desktop\FPGA competition\fpga_hank\tools\gowin\build.tcl"
+#       "<本仓库>\fpga_hank\tools\gowin\build.tcl"
+#  脚本内部用 [file dirname [info script]] 定位工程根 ⇒ 本目录可整体移动，无需改路径。
 #
-#  或走包装脚本：  .\fpga_hank\tools\gowin\build.ps1 [-Stage syn|pnr|all]
+#  ⚠️ 2026-10-03 更正：此处原写「或走包装脚本 ...\build.ps1」，但该文件实际不存在，
+#     已删除该引用。直接调用上面的 gw_sh 命令即可（实测可用）。
 #
 #  本脚本的每条命令都已在 Gowin V1.9.12.04 + 138K 上实测通过。
 #  权威文档：IDE\doc\CN\SUG1220-2.1_Gowin云源软件Tcl命令用户指南.pdf

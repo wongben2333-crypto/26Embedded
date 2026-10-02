@@ -1,12 +1,28 @@
 # =============================================================================
 #  sim/run.do —— ModelSim 一键仿真（编译 + 跑完全部 testbench + 打印 PASS 摘要）
 #
-#  用法（在 fpga_hank 目录下，二选一）：
+#  用法（在 fpga_hank 目录下）：
 #     & "F:\Modelsim_10.7\win64\vsim.exe" -c -do sim\run.do
-#     powershell -NoProfile -ExecutionPolicy Bypass -File tools\verify\run_sim.ps1
 #
 #  只想跑单个 testbench：
 #     $env:SIM_TOP="tb_spectrum"; & "F:\Modelsim_10.7\win64\vsim.exe" -c -do sim\run.do
+#
+#  ===========================================================================
+#  ★ 本目录下几个 .do 的【分工】—— 不要指望用错脚本能得到想要的东西：
+#
+#    sim/run.do          「跑全部 testbench + 打印 PASS/FAIL 摘要」的检查脚本。
+#                        **故意不加 add wave** —— 一次跑 4 个 tb，批量波形没有意义。
+#                        想要波形图请用下面这些。
+#    sim/wave_*.do       「打开即完美」的波形视图脚本（信号已分组、进制已选对、
+#                        时间轴已缩放、游标已摆好）。用法：
+#                            vsim -view sim\wlf\<数据集>.wlf -do sim\wave_<名字>.do
+#    sim/make_wlf.do     生成 .wlf 数据集。注意它用的是**选择性 log**
+#                        （只记图上要看的信号）—— 因为 adsr 仿真里 clk 要翻转
+#                        3500 万次，log 全部信号会让 .wlf 变成几百 MB。
+#
+#  （本段是 2026-10-03 补的：此前 run.do 头部没写这个分工，且引用了一个
+#    头部引用了一个**实际不存在**的包装脚本，容易让人误判"脚本坏了"。）
+#  ===========================================================================
 #
 #  ── 本文件修掉的历史缺口（都会让用户"一跑就挂"）────────────────────────────
 #  1. ★ 只编译 `rtl/*/*.v`（子目录），**不含 `rtl/top.v`**。若有 testbench 例化
@@ -45,7 +61,11 @@ vmap work work
 # ---- 编译被测设计 -----------------------------------------------------------
 # ★ 顺序很重要：先子目录（叶子模块），再 rtl 根目录（顶层），避免"模块未定义"。
 set srcs {}
-foreach f [lsort [glob -nocomplain "$ROOT/rtl/*/*.v"]] { lappend srcs $f }
+# 排除 not_integrated（未接入的模块，不参与验收）
+foreach f [lsort [glob -nocomplain "$ROOT/rtl/*/*.v"]] {
+    if {[string match "*not_integrated*" $f]} { continue }
+    lappend srcs $f
+}
 foreach f [lsort [glob -nocomplain "$ROOT/rtl/*.v"]]   { lappend srcs $f }
 foreach f [lsort [glob -nocomplain "$ROOT/sim/tb/*.v"]] { lappend srcs $f }
 
@@ -69,8 +89,11 @@ if {$nerr > 0} {
 #   tb_pt8211_final  PASS（BCK 恒 320 ns、fs 97656.3 Hz、0 位错）
 #   tb_adsr          PASS（ADSR 状态机 9/9）
 #   tb_spectrum      PASS（32/32 谱峰、0 杂散）—— 另需 check_peaks.py 判频谱
+#   tb_interaction   PASS（交互通路 9 项：去抖/起音/释放/换音色/变调/维度独立）
 #   tb_touch_pad     已知 FAIL（touch_pad 未接入顶层、不影响主 bitstream）
-set ALL_TBS {tb_pt8211_final tb_adsr tb_spectrum tb_touch_pad}
+# 注意：tb_touch_pad 已移入 sim/tb/not_integrated/ —— touch_pad 未接入顶层，
+#       其仿真长期未通过，故不列入一键运行清单（详见 rtl/not_integrated/README.md）。
+set ALL_TBS {tb_pt8211_final tb_adsr tb_spectrum tb_interaction}
 
 if {[info exists ::env(SIM_TOP)]} {
     set ALL_TBS [list $::env(SIM_TOP)]

@@ -31,6 +31,29 @@ $Tcl  = Join-Path $ToolsDir "build_smoke.tcl"
 if (-not (Test-Path $GwSh)) { Write-Error "找不到 gw_sh.exe：$GwSh"; exit 2 }
 if (-not (Test-Path $Tcl))  { Write-Error "找不到 build_smoke.tcl：$Tcl"; exit 2 }
 
+# ---------------------------------------------------------------------------
+# ★ 修订号守卫：多 agent 并行时，别人可能【在构建过程中】改 rtl/。
+#   本项目实测踩过：7 级构建跨 4 分钟，期间 adsr.v / pt8211_tx.v / top.v
+#   在 01:41:26 被改 ⇒ S0–S4 用旧版、S5/S6 用新版，**产出一套"混合修订"的位流**，
+#   而每一级自己都 PASS，从日志上完全看不出来。
+#   ⇒ 构建前后各拍一次哈希快照，不一致就明确宣告"这批位流不可用"并给出退出码 6。
+# ---------------------------------------------------------------------------
+function Get-DepSnapshot {
+    $deps = @()
+    $deps += Get-ChildItem (Join-Path $Root "rtl") -Recurse -File -Filter *.v -ErrorAction SilentlyContinue |
+             Where-Object { $_.FullName -notlike "*\not_integrated\*" }
+    $deps += Get-ChildItem (Join-Path $Root "constr") -File -Include *.cst, *.sdc -ErrorAction SilentlyContinue
+    $snap = @{}
+    foreach ($f in $deps) { $snap[$f.FullName] = (Get-FileHash $f.FullName -Algorithm SHA256).Hash }
+    return $snap
+}
+
+$snapBefore = Get-DepSnapshot
+Write-Host "[guard] 构建前依赖快照：$($snapBefore.Count) 个文件"
+foreach ($k in ($snapBefore.Keys | Sort-Object)) {
+    Write-Host ("[guard]   {0}  {1}" -f (Split-Path $k -Leaf), $snapBefore[$k].Substring(0, 16))
+}
+
 $results = @()
 foreach ($s in $Stages) {
     $log = Join-Path $LogDir "build_s$s.log"
@@ -56,9 +79,34 @@ Remove-Item Env:\SMOKE_STAGE -ErrorAction SilentlyContinue
 Write-Host ""
 Write-Host "==================== 汇总 ====================" -ForegroundColor Cyan
 $results | Format-Table -AutoSize | Out-String | Write-Host
+
+# ---- 修订号守卫：构建后复核 ----------------------------------------------
+$snapAfter = Get-DepSnapshot
+$changed = @()
+foreach ($k in $snapBefore.Keys) {
+    if (-not $snapAfter.ContainsKey($k)) { $changed += "DELETED  $k" }
+    elseif ($snapAfter[$k] -ne $snapBefore[$k]) { $changed += "MODIFIED $k" }
+}
+foreach ($k in $snapAfter.Keys) {
+    if (-not $snapBefore.ContainsKey($k)) { $changed += "ADDED    $k" }
+}
+
 $bad = ($results | Where-Object { -not $_.Bitstream }).Count
+Write-Host ""
+if ($changed.Count -gt 0) {
+    Write-Host "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" -ForegroundColor Red
+    Write-Host "!! 构建期间 RTL/约束被改动 —— 这批位流是【混合修订】，不可交付！" -ForegroundColor Red
+    Write-Host "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" -ForegroundColor Red
+    foreach ($c in $changed) { Write-Host "!!   $c" -ForegroundColor Red }
+    Write-Host "!! 请让所有人在构建期间停止编辑 rtl/，然后整批重建。" -ForegroundColor Red
+    exit 6
+}
 if ($bad -eq 0) {
     Write-Host "全部 $($results.Count) 级都产出了 bitstream" -ForegroundColor Green
+    Write-Host "修订号守卫：构建前后依赖哈希一致 ✅（这批位流是同一修订，可用）" -ForegroundColor Green
+    foreach ($k in ($snapAfter.Keys | Sort-Object)) {
+        Write-Host ("   {0,-34} {1}" -f (Split-Path $k -Leaf), $snapAfter[$k].Substring(0, 16))
+    }
     exit 0            # 明确以 0 退出，避免被 gw_sh 的 stderr 噪声带成 1
 } else {
     Write-Host "$bad 级没有产出 bitstream，见上面的日志" -ForegroundColor Red

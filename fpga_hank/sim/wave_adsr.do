@@ -23,14 +23,16 @@ if {[llength [dataset list]] == 0} {
 
 # 窗口大小给成适合截屏的尺寸（用户是直接 Win+Shift+S 截屏，太宽会截不清）
 catch {wm geometry . 1600x900}
-proc wg {title radix sigs} {
+proc wg {title radix sigs {extra {}}} {
     catch {add wave -divider $title}
-    catch {eval add wave -radix $radix $sigs} msg
+    if {[catch {eval add wave -radix $radix $extra $sigs} msg]} {
+        catch {eval add wave -radix $radix $sigs} msg2
+    }
 }
 
 wg "Stimulus" binary   [list /$TB/rst_n /$TB/gate]
 wg "Control"  hex      [list /$TB/dut/en_div_cnt /$TB/dut/en_phase]
-wg "Data"     unsigned [list /$TB/level]
+wg "Data"     unsigned [list /$TB/level] {-format analog-interpolated -min 0 -max 65536 -height 220}
 
 catch {configure wave -namecolwidth 190 -valuecolwidth 110 -timelineunits ms}
 # 0~290 ms：三段都看得见（起音斜坡 ~10.5 ms、保持平台、释放斜坡 ~62.9 ms）
@@ -74,3 +76,34 @@ puts "\[wave\]     gate 拉低 -> 长斜坡回落 = release"
 puts "\[wave\] 数值：起音 10.49 ms / 衰减 20.97 ms / 释放 62.91 ms"
 puts "\[wave\] 若想看清起音段，把时间轴放大到 0~15 ms 即可（工具栏 Zoom）"
 puts "\[wave\] 现在可以 Win+Shift+S 截图"
+
+
+
+# ---- 游标：用官方语法 wave cursor add -time <t> -name <n> -------------------
+# （不用 WaveRestoreCursors —— 那是旧式/别名，官方命令参考里 wave 命令族是
+#   `wave cursor add|configure|delete|see|active`。见 liaison/MODELSIM-GUIDE.md）
+ztry "cursor 0ns" {wave cursor add -time 0ns -name "gate拉高(起音开始)"}
+ztry "cursor 10.49ms" {wave cursor add -time 10.49ms -name "起音爬满"}
+ztry "wave refresh" {wave refresh}
+
+# 游标读回：自证 —— 不是"我说放了游标"，而是把工具里的实际值打印出来
+set _ncur 0
+foreach _ci {1 2 3} {
+    if {[catch {set _cv [wave cursor configure $_ci]} _ce]} {
+        if {$_ncur > 0} { puts "\[cursor\] cursor$_ci 读回失败: $_ce" }
+    } else {
+        incr _ncur
+        puts "\[cursor\] cursor$_ci = $_cv"
+    }
+}
+puts "\[cursor\] 可用游标数 = $_ncur"
+
+# ---- 最终再打印一次时间范围：放【末尾】才不会被 Transcript 滚动遮住 ----
+# 之前把查询放在缩放之后、但后面还有一串 [wave] 输出，于是查询结果被顶出可视区，
+# 看截图的人根本看不到缩放到底有没有生效（本项目实测踩过）。
+after 300
+if {[catch {set _r2 [wave zoom range]} _m2]} {
+    puts "\[zoom\] 最终范围查询失败: $_m2"
+} else {
+    puts "\[zoom\] 最终时间范围 = $_r2"
+}
