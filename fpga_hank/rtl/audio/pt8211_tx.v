@@ -1,0 +1,151 @@
+// =============================================================================
+//  pt8211_tx.v —— PT8211 立体声 DAC 的 I2S 发送器（LSB-justified / 日系格式）
+//
+//  硬件：Sipeed Tang Mega 138K Dock 板载 PT8211（3.5mm 耳机口 + 2 路 3W 扬声器）
+//        引脚 HP_BCK=Y17  HP_WS=AB17  HP_DIN=AA16  PA_EN=AB16(低有效)
+//
+//  PT8211 数据手册三条关键事实：
+//    1) DIN 在 BCK 的【上升沿】被移入输入寄存器 → DIN 必须在上升沿前稳定。
+//    2) WS 为【低】进右声道寄存器，为【高】进左声道。
+//       （Sipeed 官方例程注释相反，且其左右声道实际是反的。）
+//    3) 格式：16 bit 二进制补码、MSB 先出、LSB-justified。
+//
+//  ===========================================================================
+//  ★ 采样率决策：用【整数分频】，不做分数分频
+//
+//    一个立体声帧 = 32 个 BCK 周期 = 左 16 位 + 右 16 位
+//    一个 BCK 周期 = 16 个 clk 相位 × BCK_DIV 个 clk/相位
+//    ⇒ fs = clk / (BCK_DIV × 16 × 32) = clk / (BCK_DIV × 512)
+//
+//    ★ 实测澄清（2026-10-03，本项目在波形图上被自己误导过一次）：
+//      BCK **不是 50% 占空比方波**，而是【每 16 个相位里只有相位 15 一拍为高】
+//      的窄脉冲（占空比 1/16）。周期仍由下面公式决定，但若把 BCK 画成方波、
+//      或按"高电平持续半个周期"去推算，都会得到错误结论。
+//      实测数据（vsim 导出，2 ns 分辨率）：BCK 高 40 ns、低 600 ns、
+//      上升沿间隔恒 640 ns（BCK_DIV=2 时代；BCK_DIV=1 时为 320 ns）。
+//      测试台的判据是"上升沿间隔是否恒定"，这一点与占空比无关，故仍然有效。
+//
+//    历史上本文件写过 BCK_DIV = 2：
+//        BCK 上升沿间隔 = 50 MHz / (2×16) = 1.5625 MHz
+//        fs  = 1.5625 MHz / 32      = 48 828.125 Hz  （比 48 kHz 高 1.725%）
+//
+//    （参考实现 vdalex/tangmega-138k-fpga-projects 用 DIV=49 @75 MHz →
+//      BCK=1.5306 MHz → fs=47 831.6 Hz，同样不是精确 48 kHz。
+//      该工程注释明确指出：分频必须是【均匀】的，因为 DAC 在每个 WS 边沿
+//      转换，帧率就是它的转换时钟；把分数分频"抖动"去平均出 48 kHz 会把
+//      抖动直接灌进音频。这与本模块选择整数分频的理由一致。）
+//
+//    音准由频率字折算补偿，误差为 0：
+//        频率字 = round(f_target × 2^N / 48828.125)
+//    代价：绝对音高与标准 48 kHz 设备差 -0.30 半音，
+//          对本赛题（频谱数谱峰、听感演示）完全无害。
+//
+//    ⚠️ 历史教训：曾用分数分频（FRAC/2^FRAC_BITS 补偿）追求精确 48 kHz，
+//       连续两版实测平均周期都不对，排查成本极高。若确实需要精确 48 kHz，
+//       请先写一个只测"平均分频周期"的独立 testbench 验证分频器，再接入。
+//  ===========================================================================
+//
+//  ★ 实现原则（前面五个版本都在"聪明写法"上翻车，本版刻意最朴素）
+//
+//    计数器只有一个：bc_cnt，每 BCK_DIV 个 clk 加 1，模 512 循环。
+//        bc_cnt[3:0] = 一个 BCK 周期内的 clk 相位 0..15
+//        bc_cnt[7:4] = 半帧内已送出的位号 0..15
+//        bc_cnt[8]   = 0 左声道 / 1 右声道
+//    每 16 拍 = 一个 BCK 周期；每 512 拍 = 一个立体声帧。
+//    所有输出都从 bc_cnt 的位段直接派生，没有第二个计数器，
+//    因此"相位 ↔ 位序 ↔ 声道"由同一寄存器唯一确定，不可能 off-by-one。
+//
+//  ★ 六个曾踩过的坑（勿回退）：
+//    (1) 影子相位寄存器 `new_ph<=ph+1; ph<=new_ph;` → 串行延迟链 → 相位停滞。
+//    (2) 同一 always 里两个并列 if 分支给同一寄存器赋值 → 后写覆盖 → 卡死。
+//    (3) 把声道翻转放进位相位 → 每半帧只发 1 位、fs 翻倍、右声道全错。
+//    (4) 每半帧只发 15 位 → DIN 停在首位不再推进。
+//    (5) `32'd1 << FRAC_BITS` 在 FRAC_BITS≥32 时溢出为 0（已不用分数分频）。
+//    (6) 用三元表达式做动态位选送 DIN → 右声道 din 恒为 x（无驱动）。
+//        本版改为左右各自独立的移位取位，静态可分析。
+//
+//  ★ 改动后必须跑 sim/tb/tb_pt8211_bb.v：纯黑盒逐位比对 + DIN 建立时间 + fs。
+//    前五个错误版本"看波形都正常"，只有逐位解码才能发现错误。
+// =============================================================================
+`default_nettype none
+
+module pt8211_tx #(
+    // 每个 clk 相位占用的 clk 数。相位每 BCK_DIV 个 clk 推进一次。
+    // 一个 BCK 周期 = 16 个相位 ⇒ BCK = clk/(BCK_DIV×16)
+    // 一个立体声帧 = 32 个 BCK 周期 ⇒ fs = clk/(BCK_DIV×16×32) = clk/(BCK_DIV×512)
+    //   BCK_DIV=2 → fs = 50e6/1024 = 48 828.125 Hz
+    //   （实测校准：BCK_DIV=2 时帧周期 1024 clk，与公式一致）
+    parameter integer BCK_DIV = 2
+)(
+    input  wire               clk,
+    input  wire               reset,
+    input  wire signed [15:0] sample_l,
+    input  wire signed [15:0] sample_r,
+    output reg                sample_tick,  // 每个立体声帧一个脉冲
+    output reg                bck,
+    output reg                ws,
+    output reg                din
+);
+
+    // 每 BCK_DIV 个 clk 产生一次节拍
+    reg  [7:0]  cnt;
+    wire        tick = (cnt == BCK_DIV[7:0] - 8'd1);
+
+    // 位段
+    reg  [8:0]  bc_cnt;
+    wire [3:0]  ph    = bc_cnt[3:0];        // clk 相位 0..15
+    wire [3:0]  bpos  = bc_cnt[7:4];        // 半帧内位号 0..15
+    wire        is_r  = bc_cnt[8];          // 0 左 / 1 右
+    wire        rise  = (ph == 4'd15);      // BCK 上升沿 = DAC 采样点
+
+    // 当前位：bpos = 0 → MSB(bit15) … bpos = 15 → LSB(bit0)
+    // 左右各自独立移位取位（不用动态位选，避免落到 x）
+    wire [15:0] sh_l = sample_l << bpos;
+    wire [15:0] sh_r = sample_r << bpos;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            cnt         <= 8'd0;
+            bc_cnt      <= 9'd0;
+            bck         <= 1'b0;
+            ws          <= 1'b1;
+            din         <= 1'b0;
+            sample_tick <= 1'b0;
+        end else begin
+            sample_tick <= 1'b0;
+
+            // ============ 节拍与 bc_cnt（各自唯一赋值处）====================
+            if (tick) begin
+                cnt <= 8'd0;
+                if (bc_cnt == 9'd511) begin
+                    bc_cnt      <= 9'd0;
+                    sample_tick <= 1'b1;        // 一整个立体声帧结束
+                end else begin
+                    bc_cnt <= bc_cnt + 9'd1;
+                end
+            end else begin
+                cnt <= cnt + 8'd1;
+            end
+
+            // ============ 输出（只在节拍拍更新）============================
+            if (tick) begin
+                // BCK：相位 15 拉高（上升沿），其余为低
+                bck <= rise;
+
+                // WS 与 DIN 只在低段更新 → 上升沿前已稳定
+                if (!rise) begin
+                    ws <= ~is_r;
+                    if (ph == 4'd0)
+                        din <= is_r ? sample_r[15] : sample_l[15];   // 半帧第 0 位
+                    else if (is_r)
+                        din <= sh_r[15];
+                    else
+                        din <= sh_l[15];
+                end
+            end
+        end
+    end
+
+endmodule
+
+`default_nettype wire

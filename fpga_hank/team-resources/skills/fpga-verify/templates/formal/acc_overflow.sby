@@ -1,0 +1,20 @@
+# =============================================================================
+#  templates/formal/acc_overflow.sby —— SymbiYosys 有界模型检验任务
+#  ⚠️【未验证】本机未安装 sby，未跑通。
+#  运行： sby -f acc_overflow.sby        （或 scripts/run_formal.ps1）
+#  工具： oss-cad-suite（Windows 包内含 sby + z3/boolector/cvc5），见 INSTALL-PLAN.md P0
+# =============================================================================
+[options]
+mode bmc
+depth 20
+# 若要穷尽证明（而非有界检查）改成： mode prove
+
+[engines]
+smtbmc z3
+
+[script]
+read_verilog -formal acc_overflow_fv.v
+prep -top acc_overflow_fv
+
+[files]
+acc_overflow_fv.v

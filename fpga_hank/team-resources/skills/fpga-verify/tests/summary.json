@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-10-02T23:15:59",
+  "dump": "C:\\Users\\Danny\\Desktop\\FPGA competition\\.dsh\\skills\\fpga-verify\\tests\\tone_samples.txt",
+  "file_bytes": 385630,
+  "file_sha256_16": "ff3a8389c9973927",
+  "file_mtime": "2026-10-02T23:15:58",
+  "file_stable": true,
+  "format": "samples",
+  "fs_hz": 48828.125,
+  "fs_source": "derive_fs.py 从 RTL+SDC 推导",
+  "checker": "C:\\Users\\Danny\\Desktop\\FPGA competition\\fpga_hank\\tools\\verify\\check_peaks.py",
+  "checker_cmd": "python C:\\Users\\Danny\\Desktop\\FPGA competition\\fpga_hank\\tools\\verify\\check_peaks.py --file C:\\Users\\Danny\\Desktop\\FPGA competition\\.dsh\\skills\\fpga-verify\\tests\\tone_samples.txt --format samples --fs 48828.125 --count 32 --start 200 --step 200",
+  "n_samples": 65536,
+  "peaks_detected": 32,
+  "expected": 32,
+  "matched": 32,
+  "missing": [],
+  "spurious": [],
+  "level_spread_db": 0.821,
+  "level_min_db": -0.82,
+  "level_max_db": 0.0,
+  "criteria": {
+    "C1_all_matched": true,
+    "C2_all_audible": true,
+    "C3_no_spurious": true,
+    "C4_spread_ok": true
+  },
+  "verdict": "PASS"
+}
