@@ -44,6 +44,10 @@
 #>
 [CmdletBinding()]
 param(
+    # ★ 正确用法：.\program.ps1 -Mode sram|flash|scan|verify
+    #   ⚠️ 本脚本【没有】-Op 参数；--operation_index 2/9 是脚本【内部】传给
+    #      programmer_cli.exe 的，不是本脚本的参数。
+    #      （2026-10-05：这个混淆差点被写进交付操作卡 —— 派活方的措辞也有责任）
     [ValidateSet('sram', 'flash', 'scan', 'verify')]
     [string]$Mode = 'sram',
 
@@ -63,6 +67,52 @@ if (-not (Test-Path $CLI)) {
     Write-Host "[program] ❌ 找不到烧录工具: $CLI" -ForegroundColor Red
     Write-Host "          请确认高云 EDA V1.9.12.04 装在 F:\Gowin\Gowin_V1.9.12.04_x64" -ForegroundColor Yellow
     exit 1
+}
+
+# ---------------------------------------------------------------- 烧录凭证日志
+# ★ 2026-10-05 新增（Lead 批准）：每次烧录/校验都追加一行凭证到 docs\flash-log.txt。
+#   为什么：User Code 曾是逐次随机量、位流 SHA256 又不能当修订标识
+#   （同源码两次构建哈希就不同）⇒ 事后无法证明"这块板当时烧的是哪一版"。
+#   ⇒ 这一行把 时间 + 模式 + 操作码 + 文件名 + 大小 + SHA256 + User Code 固定下来。
+#
+#   ★ 操作码映射集中在这里，不要再散落到别处（避免再出现"把内部操作码当脚本参数"的混淆）：
+#       sram -> 2   flash -> 9   verify -> 2 (--svfcreate 只支持 2)
+$OP_MAP = @{ 'sram' = 2; 'flash' = 9; 'verify' = 2; 'scan' = 0 }
+
+function Write-FlashLog {
+    param(
+        [Parameter(Mandatory = $true)][string]$FsPath,
+        [string]$ModeName = '',
+        [string]$ToolOutput = ''
+    )
+    try {
+        $docsDir = Join-Path $ROOT 'docs'
+        if (-not (Test-Path $docsDir)) { New-Item -ItemType Directory -Force -Path $docsDir | Out-Null }
+        $logFile = Join-Path $docsDir 'flash-log.txt'
+
+        # User Code 三个来源，按可信度排序：
+        #   1) build.tcl 归档时写的 <位流>.usercode 边车文件（最可靠）
+        #   2) 烧录工具输出里的 "User Code is: 0x..."
+        #   3) '?'
+        $uc = '?'
+        $side = "$FsPath.usercode"
+        if (Test-Path -LiteralPath $side) {
+            $uc = (Get-Content -LiteralPath $side -Raw).Trim()
+        } elseif ($ToolOutput -match 'User\s*Code[^0-9A-Fa-fx]*(0x[0-9A-Fa-f]+)') {
+            $uc = $Matches[1]
+        }
+
+        $fi   = Get-Item -LiteralPath $FsPath
+        $hash = (Get-FileHash -LiteralPath $FsPath -Algorithm SHA256).Hash
+        $op   = if ($OP_MAP.ContainsKey($ModeName)) { $OP_MAP[$ModeName] } else { '?' }
+        $line = "{0} | mode={1} op={2} | {3} | {4} B | sha256={5} | user_code={6}" -f `
+                (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $ModeName, $op, $fi.Name, $fi.Length, $hash, $uc
+        Add-Content -LiteralPath $logFile -Value $line -Encoding UTF8
+        Write-Host "[program] 📝 凭证已追加 -> docs\flash-log.txt" -ForegroundColor Green
+        Write-Host "          $line"
+    } catch {
+        Write-Host "[program] ⚠️ 写凭证日志失败（不影响烧录结果）：$($_.Exception.Message)" -ForegroundColor Yellow
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($Fs)) {
@@ -125,6 +175,7 @@ if ($Mode -eq 'verify') {
         Write-Host ""
         Write-Host "         ⇒ 结论：烧录工具【成功解析】了本 bitstream 并提取出器件 ID，" -ForegroundColor Green
         Write-Host "            说明 bitstream 本身有效、器件匹配。剩下的只有'物理 JTAG 连接'一步。" -ForegroundColor Green
+        Write-FlashLog -FsPath $Fs -ModeName $Mode -ToolOutput $vo
         exit 0
     } else {
         Write-Host "[verify] ❌ 未生成 SVF —— bitstream 可能无效或器件不匹配" -ForegroundColor Red
@@ -165,18 +216,45 @@ Write-Host "      SHA256: $hash"
 #   1: Reprogram           2: SRAM Program       4: SRAM Program and Verify
 #   8: exFlash Erase,Program   9: exFlash Erase,Program,Verify
 if ($Mode -eq 'sram') {
-    $op = 4
-    Write-Host "`n      操作  : SRAM Program and Verify（易失，掉电即丢，不动 flash）"
+    # ★ 2026-10-05 真板实测：操作码 4（SRAM Program **and Verify**）在本板
+    #   （Tang Mega 138K + 板载 FT2232H 缆线）上**必然报 "Error: Verify failed of at 0"**，
+    #   但位流其实**已经正确写入** —— 证据：User Code 随位流变化而变化
+    #   （测试模式位流 → 0x0000A86D；演奏模式位流 → 0x00005093）。
+    #   ⇒ 这套硬件的**回读校验通路不可用**，不是烧录失败。
+    #   Sipeed 官方文档 `system_report/fpga_programmer.md` 用的也正是
+    #   **不含 Verify 的操作码 2**（"SRAM Program" → Result: OK）。
+    #   故默认改用操作码 2，与官方一致；耗时也从 ~106 s 降到 ~21 s。
+    $op = 2
+    Write-Host "`n      操作  : SRAM Program（易失，掉电即丢，不动 flash）"
+    Write-Host "              注：不用带 Verify 的操作码 4 —— 本板回读校验通路不可用，"
+    Write-Host "                  会误报 Verify failed（位流其实已写入，已实测证实）"
 } else {
     $op = 9
     Write-Host "`n      操作  : exFlash Erase,Program,Verify（写入外部 flash，上电自动运行）"
     Write-Host "      ⚠️ 这会改写板上的 flash。确定要写吗？" -ForegroundColor Yellow
 }
 
+$script:progOut = @()
 Write-Host "`n[program] 开始烧录 ..."
 & $CLI --device $Device --fsFile $Fs --operation_index $op --frequency $Frequency 2>&1 |
-    ForEach-Object { "      $_" }
+    ForEach-Object { "      $_"; $script:progOut += "$_" }
 $rc = $LASTEXITCODE
+
+# ★ 2026-10-05 实测踩到的坑：programmer_cli 在【回读校验失败】时
+#   依然返回【退出码 0】，只在输出里打印 "Error: Verify failed of at ..."。
+#   只看退出码会把"校验失败"误判成"烧录成功" —— 又一个"看起来成功"。
+#   所以必须再检查输出里有没有 Error / Verify failed。
+#   实测发生场景：单根 USB 供电（供电不足）时最容易出现。
+if ($rc -eq 0) {
+    $joined = ($script:progOut -join "`n")
+    if ($joined -match 'Verify failed' -or $joined -match '(?m)^\s*Error:') {
+        $rc = 97
+        Write-Host ""
+        Write-Host "      ⚠️ 工具返回退出码 0，但输出里有 Error / Verify failed ⇒ 判为【失败】" -ForegroundColor Red
+        Write-Host "         最常见原因：供电不足（单根 USB 供电会让板子不稳）" -ForegroundColor Yellow
+        Write-Host "         对策：DEBUG-USB + USB3.0 双线，或 12V DC 适配器" -ForegroundColor Yellow
+    }
+}
 
 Write-Host ""
 if ($rc -eq 0) {
@@ -193,4 +271,5 @@ if ($rc -eq 0) {
     Write-Host "          · 缆线被其它程序（Gowin Programmer GUI / 另一个脚本）占用"
     Write-Host "            ⚠️ 同一时刻只允许一个程序访问下载缆线"
 }
+Write-FlashLog -FsPath $Fs -ModeName $Mode -ToolOutput ''
 exit $rc

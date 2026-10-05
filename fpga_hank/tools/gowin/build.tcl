@@ -40,6 +40,41 @@ set RTL_DIR   [file join $ROOT rtl]
 set CONST_DIR [file join $ROOT constr]
 set PRJ_DIR   [file join $ROOT eda_proj]
 
+# ---------------------------------------------------------------------------
+# 1b. Parse MODE from rtl/top.v, then derive the User Code.
+#     (Added 2026-10-05, approved by Lead.)
+#
+# !!! KEEP THIS BLOCK ASCII-ONLY !!!
+#   Measured 2026-10-05: Gowin's Tcl reads .tcl as the SYSTEM ANSI code page
+#   (GBK on this machine), NOT as UTF-8. A Chinese char's last UTF-8 byte can be
+#   >= 0x81, which then acts as a GBK LEAD byte and EATS the following byte --
+#   including the 0x0A newline. That merges the next line into the comment and
+#   silently comments out real code. This already happened once in this file.
+#   => Chinese is only safe in comments that are followed by another comment or
+#      a blank line; never immediately before code. Safest: keep additions ASCII.
+#
+#     user_code rule: 0x1A2B000<MODE>  (last hex digit = mode number)
+#     so a bitstream's User Code identifies which MODE it was built from.
+#     Official syntax is:  set_option -user_code <default|value>   (SUG1220-2.1)
+#     NOT `set_user_code` -- that would abort the whole build.
+# ---------------------------------------------------------------------------
+set MODE 0
+set TOPV [file join $RTL_DIR "$TOP_MODULE.v"]
+if {[file exists $TOPV]} {
+    set fh [open $TOPV r]
+    set topTxt [read $fh]
+    close $fh
+    if {[regexp {parameter\s+integer\s+MODE\s*=\s*([0-9]+)} $topTxt -> mv]} {
+        set MODE $mv
+    } else {
+        puts "\[gowin\] WARN: cannot parse MODE in $TOPV, assuming 0"
+    }
+} else {
+    puts "\[gowin\] WARN: $TOPV not found, assuming MODE 0"
+}
+set USER_CODE [format "1A2B000%X" $MODE]
+puts "\[gowin\] MODE=$MODE  user_code=0x$USER_CODE"
+
 puts "=============================================================="
 puts "\[gowin\] project : $PRJ_NAME"
 puts "\[gowin\] root    : $ROOT"
@@ -115,6 +150,15 @@ set_option -output_base_name $PRJ_NAME
 set_option -verilog_std    sysv2017
 set_option -show_all_warn  1
 
+# Explicit User Code (approved 2026-10-05): turns User Code from a per-build
+# random value into a design identifier. Wrapped in catch so a tool version that
+# rejects the option can never abort the build.
+if {[catch {set_option -user_code $USER_CODE} em]} {
+    puts "\[gowin\] WARN: set_option -user_code failed: $em (continuing)"
+} else {
+    puts "\[gowin\] + user_code: 0x$USER_CODE"
+}
+
 # 便于把设计喂给 ModelSim（生成 Verilog 仿真网表）
 catch {set_option -gen_verilog_sim_netlist 1}
 
@@ -142,9 +186,15 @@ switch -- $STAGE {
 }
 
 # ---------------------------------------------------------------------------
-# 6. 汇总产物与关键告警（构建"看起来成功"不等于成功，见 README）
+# 6. Summarise products and key warnings (a build that "looks fine" is not proof).
+#
+#    FIXED 2026-10-05 (measured): the product path is
+#        eda_proj\<PRJ_NAME>\impl\...     (Gowin adds a project-named subdir)
+#    It used to be eda_proj\impl -- WHICH DOES NOT EXIST. So this whole section
+#    (product listing / resource summary / TA1132+PR1014 warning detection)
+#    silently printed NOTHING, and `glob -nocomplain` never complained.
 # ---------------------------------------------------------------------------
-set IMPL [file join $PRJ_DIR impl]
+set IMPL [file join $PRJ_DIR $PRJ_NAME impl]
 puts "--------------------------------------------------------------"
 puts "\[gowin\] 产物清单："
 foreach f [lsort [glob -nocomplain [file join $IMPL gwsynthesis *.vg] \
@@ -175,6 +225,54 @@ if {[file exists $RPT]} {
             puts "\[gowin\] ⚠️  报告中出现 $pat —— 见 fpga_hank/README.md 的告警说明"
         }
     }
+}
+
+# ---------------------------------------------------------------------------
+# 7. Auto-archive the bitstream. (Added 2026-10-05, approved by Lead.)
+#    Why: the MODE=2 bitstream was once lost because archiving relied on a human.
+#    Rules:
+#      . target: out/bitstream/MODE<n>_<tag>_<yyyyMMdd-HHmmss>.fs   (ASCII only)
+#      . if that name already exists, append _b2/_b3/... -- NEVER overwrite
+#      . also write <archive>.usercode for tools/gowin/program.ps1 to record
+#    Wrapped in catch: an archiving failure must never affect the build verdict.
+# ---------------------------------------------------------------------------
+if {[catch {
+    set SRC_FS [file join $IMPL pnr "$PRJ_NAME.fs"]
+    if {[file exists $SRC_FS]} {
+        set ARCH_DIR [file join $ROOT out bitstream]
+        file mkdir $ARCH_DIR
+        # Archive file names must be ASCII: Gowin's Tcl reads this file as GBK,
+        # so a Chinese string literal would land on disk as mojibake
+        # (e.g. MODE2_娴嬭瘯妯″紡_...). Chinese is only safe inside comments.
+        switch -- $MODE {
+            0 { set MODE_TAG "demo"     }
+            1 { set MODE_TAG "pcctrl"   }
+            2 { set MODE_TAG "test32"   }
+            3 { set MODE_TAG "freeplay" }
+            default { set MODE_TAG "mode$MODE" }
+        }
+        set STAMP [clock format [clock seconds] -format {%Y%m%d-%H%M%S}]
+        set BASE  "MODE${MODE}_${MODE_TAG}_${STAMP}"
+        set DST_FS [file join $ARCH_DIR "${BASE}.fs"]
+        set n 1
+        while {[file exists $DST_FS]} {
+            incr n
+            set DST_FS [file join $ARCH_DIR "${BASE}_b${n}.fs"]
+        }
+        file copy $SRC_FS $DST_FS
+        if {[file exists $DST_FS]} {
+            puts "\[gowin\] archived: [file tail $DST_FS]  ([file size $DST_FS] bytes)"
+            set fh [open "${DST_FS}.usercode" w]
+            puts $fh $USER_CODE
+            close $fh
+        } else {
+            puts "\[gowin\] WARN: archive target not created: $DST_FS"
+        }
+    } else {
+        puts "\[gowin\] no $PRJ_NAME.fs this run (stage=$STAGE, maybe syn only) -> archive skipped"
+    }
+} em]} {
+    puts "\[gowin\] WARN: auto-archive failed (build result unaffected): $em"
 }
 
 run close

@@ -78,3 +78,32 @@ IO_PORT "key2" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
 // =============================================================================
 IO_LOC  "key_pitch" Y22;
 IO_PORT "key_pitch" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// =============================================================================
+//  串口接收（2026-10-05 新增）—— 电脑控制链路，MODE=1 用
+// -----------------------------------------------------------------------------
+//  引脚出处：官方引脚文件 tang_mega_138K_pins.cst 的 "====== UART ======" 段：
+//      IO_LOC  "txp"           U15;    // FPGA 发出（→PC）【固定，无版本差异】
+//      //For Version 31004 or later
+//      IO_LOC  "rxp"           V14;    // FPGA 接收（←PC）  新版板子
+//      //For Version 31002
+//      //IO_LOC  "rxp"         Y14;    // FPGA 接收         旧版板子
+//  三处官方来源相互印证（引脚文件 + ddr_memory_test_uart 的 ddr3_1v4_hs.cst
+//  + riscv_hdmi.cst 均写 uart_tx=U15 / uart_rx=V14）。
+//
+//  ★ 2026-10-05 上板确证（两个独立实现交叉验证）：
+//      FPGA UART = **COM9**（FT2232H 通道 B）；**V14 正确**；双向全通
+//      （发 90 45 64 → 收 90 45 64 完全一致）。Y14 无需再试。
+//      COM8 = 通道 A（JTAG），只有伪回显噪声（FA 注入），**不是 FPGA UART**。
+//
+//  🔴 **`rxp` 不能带 DRIVE**（本工程 P&R 实测）：
+//      官方引脚文件给 rxp 写了 DRIVE=8，但本器件/版本直接报
+//        ERROR (CT1108): Illegal port attribute value specified 'DRIVE = 8' on 'rxp'
+//      ⇒ 去掉 DRIVE 后立刻通过。这与"它是输入脚"一致。
+//      （`txp` 可以带 DRIVE=8；本工程 MODE=1/2 不需要发送，故未引出 txp。）
+//
+//  ⚠️ 注意：本工程只用 `rxp`（接收）。FPGA 侧**没有 TX 通路**
+//      ⇒ 不存在"发送忙吞掉接收字节"的问题（集成清单 §12 的裁决依据）。
+// =============================================================================
+IO_LOC  "uart_rx_pin" V14;
+IO_PORT "uart_rx_pin" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;

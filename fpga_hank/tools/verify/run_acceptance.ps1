@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     fpga_hank 端到端验收 —— 一条命令跑完【构建 + 全部仿真 + 全部证据判据】并打印 PASS/FAIL 汇总
 
@@ -33,8 +33,11 @@
 .NOTES
     ⚠️ 本脚本含中文，**必须保存为 UTF-8 with BOM**，否则 PowerShell 5.1 会按 GBK 读成乱码
       并报一串语法错（本项目实测踩过这个坑）。
-    ⚠️ ModelSim 是【单席位许可证】：跑仿真前请确认没有其它 vsim 实例，
-       否则会报 "Fatal: Exiting VSIM license process" 并中途被杀。
+    ★ 2026-10-05 更正：ModelSim 【不是】单席位，本机许可证允许并发
+       （实测：6 个 ModelSim 进程同时在跑且全部空闲；若真为单席位，第 2 个会立刻
+        报 license 错误退出，而不是静静待着）。
+       ⇒ 纪律要求是"每个会话用自己独立的 work/ 库与输出目录"，不是"等空档"。
+         发现别人在跑 【不要等】，直接跑即可。
 #>
 [CmdletBinding()]
 param(
@@ -100,12 +103,17 @@ foreach ($t in @(
 Add-Result '前置：工具链与约束文件' $(if ($prereqOK) { 'PASS' } else { 'FAIL' }) `
     $(if ($prereqOK) { '全部存在' } else { '有缺失' })
 
-# ModelSim 单席位：跑仿真前必须确认没有其它实例
+# ★ 2026-10-05 更正：ModelSim 【不是】单席位 —— 实测许可证允许并发。
+#   证据：曾有 6 个 ModelSim 进程（vsim+vish+vlm 两组）同时在跑且全部空闲；
+#         按 PID 清掉后立刻又冒出新的。若真是硬性单席位，第 2 个实例会
+#         【立刻报 license 错误退出】，而不是静静地待着。
+#   ⇒ 真正要防的是"多个会话争用同一个 work/ 库"（会互相污染，本项目栽过一次"混合修订"），
+#     不是"占用席位"。⇒ 发现别人在跑 【不要等】，直接跑即可。
 $runningVsim = @(Get-Process vsim, vish, vsimk -ErrorAction SilentlyContinue)
-Write-Host ("  [--]   ModelSim 实例数 = {0}" -f $runningVsim.Count)
-if ($runningVsim.Count -gt 0 -and -not $Quick) {
-    Write-Host "         ⚠️ 检测到已有 ModelSim 实例。它是【单席位许可证】，并发会互相顶掉。" -ForegroundColor Yellow
-    Write-Host "            请先关掉其它实例，或改跑 -Quick（只复核证据）。" -ForegroundColor Yellow
+Write-Host ("  [--]   ModelSim 实例数 = {0}（并发是允许的；只要各自用独立 work/ 库即可）" -f $runningVsim.Count)
+if ($runningVsim.Count -gt 0) {
+    Write-Host "         ℹ️ 检测到已有 ModelSim 实例。本机许可证【允许并发】，不会互相顶掉。" -ForegroundColor Cyan
+    Write-Host "            只要各自使用独立的 work/ 库与输出目录即可。本脚本已在独立目录运行。" -ForegroundColor Cyan
 }
 
 if (-not $prereqOK) {

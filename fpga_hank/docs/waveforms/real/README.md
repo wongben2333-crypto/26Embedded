@@ -101,9 +101,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "..\_smoke-test\cap_window.p
 7. **⚠️ 采集脚本绝不能按进程名清场**：早期版本开头写
    `Get-Process vsim,vish,vsimk | Stop-Process -Force` 当"清理残留"，
    结果**把别人正在跑的仿真杀了**（症状：仿真总在相近样本数处
-   `Fatal: Exiting VSIM license process`）。现在 `cap_window.ps1`：
-   **发现已有 vsim 就直接中止（exit 4）**，收尾**只停自己启动的那些 PID**
-   （用启动前的 PID 快照做差集），要强制才加 `-AllowKill`。
+   `Fatal: Exiting VSIM license process`）。
+   ⇒ **收尾只停自己启动的那些 PID**（用启动前的 PID 快照做差集），要强制才加 `-AllowKill`。
+   **这条原则不变，至今有效。**
+   > 🔴 **2026-10-05 更正（后半段）**：早期版本还写了"**发现已有 vsim 就直接中止（exit 4）**" ——
+   > **这条是错的，已废止。** 实测本机 ModelSim 许可证**允许并发**
+   > （6 个 ModelSim 进程同时运行且全部空闲；若真为单席位，第 2 个会立刻报
+   > license 错误退出，而不是静静待着）。
+   > ⇒ **正确纪律**：**检测到已有 vsim 只报告、不中止，直接用自己的独立 `work/` 库跑。**
+   > 真正要防的是"多个会话争用**同一个** `work/` 库"（会互相污染，本项目栽过一次"混合修订"），
+   > 不是"占用席位"。**错误纪律会造成真实损失**：曾有计划因误信"单席位"白等 4 分钟。
 8. **★ 位宽 > 1 的信号默认 `-format literal`（一个"装着数值的方框"）⇒ 模拟量画不出斜坡！**
    `env_level` / `mix` 这类模拟量必须显式指定：
    ```tcl
