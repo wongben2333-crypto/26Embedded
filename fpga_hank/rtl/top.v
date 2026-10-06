@@ -37,7 +37,7 @@
 
 module top #(
     // 0 = 演示模式（按键放歌）；1 = 电脑控制（串口钢琴）；2 = 32峰测试
-    parameter integer MODE       = 2,
+    parameter integer MODE       = 1,
     // 采样率：BCK_DIV=1 -> fs=97656.25 Hz；BCK_DIV=2 -> 48828.125 Hz
     //   ⚠️ 改这个值必须同步重新生成 tone_bank.v / piano_rom.v（频率字按新采样率折算）
     parameter integer BCK_DIV    = 1,
@@ -71,7 +71,11 @@ module top #(
         if (!rst_n) por <= por + 19'd1;
 
     // 去抖时长：2^17 clk = 2.621 ms（控制→发声延迟的主要贡献项）
-    localparam [19:0] DB_MAX = 20'd131071;
+    localparam [19:0] DB_MAX = 20'd65536;   // ★ 2026-10-06 2^17(2.621ms)→2^16(1.311ms)
+    //   理由：拓展③要求延迟<=5ms且留裕度。2^17 时按键路径总延迟 2.98ms（裕度仅1.7x）；
+    //   2^16 后约 1.67ms（裕度 3x）。1.311ms 的去抖对好触感按键（弹跳 <1ms）足够，
+    //   但【必须在真板上验证不会双击】—— 按 50 次看有没有一次按下出两个音。
+    //   若发现双击，改回 20'd131071 即可（一行）。
 
     // ---------------------------------------------------- I2S 发送 ---------
     // ★ 必须【先例化】pt8211_tx，因为 sample_tick 由它产生，下游全靠它当节拍
@@ -129,6 +133,45 @@ module top #(
     wire k2_press  = k2_db & ~k2_db_d;        // 上升沿
     wire kp_press  = kp_db & ~kp_db_d;
 
+    // ================= 运行期模式：自由演奏 / 指定曲目（2026-10-06 新增）=================
+    //  需求（用户）：key2 进曲目模式（自动播放）；key1 在曲目模式下 = 播放/暂停；
+    //               上电默认【自由演奏】；key2 再按一下【回自由演奏】（否则回不去）。
+    //  run_mode: 1 = 自由演奏（midi_rx 驱动）, 0 = 指定曲目（song_player 驱动）
+    reg        k1_db_d;
+    always @(posedge clk) k1_db_d <= key_db;
+    wire k1_press = key_db & ~k1_db_d;          // key1 上升沿
+
+    reg run_mode = 1'b1;                        // ★ 上电默认自由演奏（防 X）
+    always @(posedge clk) begin
+        if (!rst_n)               run_mode <= 1'b1;
+        else if (MODE == 1) begin                // 只有 MODE=1（电脑控制位流）支持运行期切换
+            if (k2_press) run_mode <= ~run_mode; // ★ key2 = 切换开关
+        end else run_mode <= 1'b1;               // MODE=0/2 下不进曲目模式
+    end
+    wire run_song = (MODE == 1) ? ~run_mode : (MODE == 0);   // ★ 1 = 曲目模式
+
+    // ★ 2026-10-06（用户要求）：曲目模式下 key1 = 【换乐器播放】（按一下切一个），
+    //   不再做"暂停/播放"；暂停/播放由 key2 的进出模式承担。
+    //   乐器选择走独立寄存器 inst_song，和自由演奏的 CC20 选择的 inst_sel 互不干扰。
+    reg [1:0] inst_song = 2'd0;
+    always @(posedge clk) begin
+        if (!rst_n)                          inst_song <= 2'd0;
+        else if (run_song & k1_press)        inst_song <= inst_song + 2'd1;   // 0→1→2→3→0
+    end
+    wire [1:0] inst_sel_eff = run_song ? inst_song : inst_sel;
+    wire mode_chg = (MODE == 1) & k2_press;                  // 切换事件（一拍脉冲）
+
+    // ---- 第 3 道清音：切换后静音窗 ~5 ms（避免阶跃"咔哒"）----
+    //  ⚠️ v1 用静音窗（无乘法器/DSP）；线性淡入需要乘法器，留待后续
+    localparam integer MUTE_LEN = 488;          // 5 ms × 97656.25 Hz
+    reg [15:0] mute_cnt = 16'd0;
+    always @(posedge clk) begin
+        if (!rst_n)          mute_cnt <= 16'd0;
+        else if (mode_chg)   mute_cnt <= MUTE_LEN[15:0];
+        else if (mute_cnt != 16'd0) mute_cnt <= mute_cnt - 16'd1;
+    end
+    wire audio_muted = (mute_cnt != 16'd0);
+
     // 变调（MODE=2 用；上电必须是原调 ⇒ 初值 8 ⇒ pitch_semi=0）
     reg  [3:0] pitch_step = 4'd8;
     always @(posedge clk)
@@ -161,8 +204,11 @@ module top #(
         .clk        (clk),
         .rst_n      (rst_n),
         .sample_tick(sample_tick),
-        .key_play   (key_held),      // 电平输入，边沿由 song_player 内部处理
-        .key_next   (k2_db),         // 同上
+        // ★ 2026-10-06 运行期模式：进入曲目模式由 run_en 上升沿自动播放 ⇒ key_play 不再需要
+        .key_play   (1'b0),
+        .key_next   (1'b0),          // 用户已定：不做切歌
+        .key_pause  (1'b0),          // ★ 取消：曲目模式下 key1 改为【换乐器】（不在播放器里做暂停）
+        .run_en     (run_song),      // ★ 电平使能：0 ⇒ 强制停止 + 走完 128 拍全关
         .on_valid   (s_on_valid),
         .on_note    (s_on_note),
         .on_vel     (s_on_vel),
@@ -207,31 +253,70 @@ module top #(
         .vib_depth  (m_vib_depth),
         .vib_rate   (m_vib_rate),
         .sustain    (m_sustain),
-        .reset_all  (m_reset_all)
+        .reset_all  (m_reset_all),
+        // ---- 通用 CC 直通（2026-10-06 新增）----
+        .cc_num       (m_cc_num),
+        .cc_val       (m_cc_val),
+        .cc_any_valid (m_cc_any_valid)
     );
 
+    // ================= 乐器/效果器 CC 译码（2026-10-06 新增）=================
+    //  CC20 -> 乐器选择：0=钢琴 1=吉他 2=古筝
+    //  CC21 -> 挂电量（吉他效果器强度）0..127
+    //  ⚠️ midi_rx 只做传输层（原样透传 0..127），语义在这里定 —— 见 AGENTS.md §4.1
+    wire [6:0] m_cc_num, m_cc_val;
+    wire       m_cc_any_valid;
+    reg  [1:0] inst_sel    = 2'd0;      // ★ 上电默认钢琴（防 X）
+    reg  [6:0] drive_amt   = 7'd0;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            inst_sel  <= 2'd0;
+            drive_amt <= 7'd0;
+        end else if (m_cc_any_valid) begin
+            case (m_cc_num)
+                7'd20: inst_sel  <= m_cc_val[1:0];
+                7'd21: drive_amt <= m_cc_val;
+                default: ;               // CC22~24 以后在这里补
+            endcase
+        end
+    end
     // ---- 按 MODE 选择来源 ----
     // MODE=0：song_player；MODE=1：midi_rx；MODE=2：测试模式不使用音符总线
-    assign bus_on_valid   = (MODE == 0) ? s_on_valid  : m_on_valid;
-    assign bus_on_note    = (MODE == 0) ? s_on_note   : m_on_note;
-    assign bus_on_vel     = (MODE == 0) ? s_on_vel    : m_on_vel;
-    assign bus_off_valid  = (MODE == 0) ? s_off_valid : m_off_valid;
-    assign bus_off_note   = (MODE == 0) ? s_off_note  : m_off_note;
-    assign bus_cc_valid   = (MODE == 0) ? 1'b0        : m_cc_valid;
-    assign bus_glide_on   = (MODE == 0) ? 1'b0        : m_glide_on;
-    assign bus_glide_time = (MODE == 0) ? 7'd0        : m_glide_time;
-    assign bus_vib_on     = (MODE == 0) ? 1'b0        : m_vib_on;
-    assign bus_vib_depth  = (MODE == 0) ? 7'd0        : m_vib_depth;
-    assign bus_vib_rate   = (MODE == 0) ? 7'd50       : m_vib_rate;
-    assign bus_sustain    = (MODE == 0) ? 1'b0        : m_sustain;
-    assign bus_reset_all  = (MODE == 0) ? 1'b0        : m_reset_all;
+    //  ★ 2026-10-06：由【运行期】run_song 选择（MODE=0 恒曲目 / MODE=1 运行期 / MODE=2 不用）
+    //  第 2 道清音：切换瞬间给 piano_engine 一个 reset_all 一拍脉冲（释放所有声部）
+    wire bus_reset_all_w = (MODE == 2) ? 1'b0 : (run_song ? 1'b0 : (m_reset_all | mode_chg));
+    assign bus_on_valid   = (MODE == 2) ? 1'b0        : (run_song ? s_on_valid  : m_on_valid);
+    assign bus_on_note    = (MODE == 2) ? 7'd0        : (run_song ? s_on_note   : m_on_note);
+    assign bus_on_vel     = (MODE == 2) ? 7'd0        : (run_song ? s_on_vel    : m_on_vel);
+    assign bus_off_valid  = (MODE == 2) ? 1'b0        : (run_song ? s_off_valid : m_off_valid);
+    assign bus_off_note   = (MODE == 2) ? 7'd0        : (run_song ? s_off_note  : m_off_note);
+    assign bus_cc_valid   = (MODE == 2) ? 1'b0        : (run_song ? 1'b0        : m_cc_valid);
+    assign bus_glide_on   = (MODE == 2) ? 1'b0        : (run_song ? 1'b0        : m_glide_on);
+    assign bus_glide_time = (MODE == 2) ? 7'd0        : (run_song ? 7'd0        : m_glide_time);
+    assign bus_vib_on     = (MODE == 2) ? 1'b0        : (run_song ? 1'b0        : m_vib_on);
+    assign bus_vib_depth  = (MODE == 2) ? 7'd0        : (run_song ? 7'd0        : m_vib_depth);
+    assign bus_vib_rate   = (MODE == 2) ? 7'd50       : (run_song ? 7'd50       : m_vib_rate);
+    assign bus_sustain    = (MODE == 2) ? 1'b0        : (run_song ? 1'b0        : m_sustain);
+    assign bus_reset_all  = bus_reset_all_w;
 
+    // ★ 2026-10-06：把"曲目模式强制值"寄存一拍 —— 修上一版 −0.074 ns（mux 直连关键路径）
+    reg [1:0] inst_sel_eff_r  = 2'd0;
+    reg [6:0] bow_speed_eff_r = 7'd0;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            inst_sel_eff_r  <= 2'd0;
+            bow_speed_eff_r <= 7'd0;
+        end else begin
+            inst_sel_eff_r  <= inst_sel_eff;
+            bow_speed_eff_r <= run_song ? 7'd0 : drive_amt;
+        end
+    end
     // ---------------------------------------------------- 钢琴引擎 ---------
     wire signed [15:0] mix_piano;
     wire [7:0]         piano_active;
 
     piano_engine #(
-        .N_VOICES  (8),
+        .N_VOICES  (8),           // ★ 2026-10-06 曾试 20 ⇒ 时序失败(13203 违例/−6.774ns, BSRAM 219/340) 已回退；32 声部走 TDM 方案
         .CLK_HZ    (50_000_000),
         .OUT_SHIFT (1)
     ) u_piano (
@@ -249,6 +334,10 @@ module top #(
         .vib_depth  (bus_vib_depth),
         .vib_rate   (bus_vib_rate),
         .sustain    (bus_sustain),
+        // ★ 2026-10-06：曲目模式下【强制钢琴 + 弓速 0】
+        //   （否则若用户上次选在二胡且 CC21>0，drive 会让每个音持续不衰减 ⇒ 整首歌变成一堵噪音 ✗）
+        .inst_sel   (inst_sel_eff_r),          // ★ 曲目模式下由 key1 切换（已寄存，修时序）
+        .bow_speed  (bow_speed_eff_r),         // ★ 曲目模式下强制 0（走内部中速兜底）
         .mix_out    (mix_piano),
         .active     (piano_active)
     );
@@ -306,7 +395,8 @@ module top #(
     reg  [1:0] fx_sel_user = FX_DEFAULT[1:0];
     always @(posedge clk)
         if (!rst_n)              fx_sel_user <= FX_DEFAULT[1:0];
-        else if (k2_press && MODE == 1) fx_sel_user <= fx_sel_user + 2'd1;
+        // ★ 2026-10-06：key2 在 MODE=1 下已经是【模式切换】⇒ 不再改效果器选择
+        //   （原行为会让 fx_sel 越界到 3 > N_FX-1 ⇒ audio_fx 输出垃圾噪声 ✗）
     wire [1:0] fx_sel = (MODE == 0) ? FX_DEFAULT[1:0] : fx_sel_user;
 
     wire signed [15:0] fx_out;
@@ -327,7 +417,8 @@ module top #(
     // ---------------------------------------------------- 音频输出 mux ----
     // MODE=2：纯 tone_bank（32 路恒发声，供频谱取证）
     // MODE=0/1：钢琴引擎 → 效果器
-    assign audio_mix = (MODE == 2) ? mix_bank : fx_out;
+    wire signed [15:0] audio_mix_raw = (MODE == 2) ? mix_bank : fx_out;
+    assign audio_mix = audio_muted ? 16'sd0 : audio_mix_raw;   // ★ 第 3 道清音
 
     // ---------------------------------------------------- 功放使能 ---------
     assign PA_EN = 1'b0;               // 低有效 ⇒ 常开

@@ -1,0 +1,10 @@
+﻿=== TB 常量与文件名 ===
+    localparam integer NWAIT  = 15000;    // 鈮?.307 s 绛夊緟锛堣捣鎸?+ 鍒扮ǔ鎬侊級
+    localparam integer NDUMP  = 48828;   // 鈮?.23 s 绋虫€佺獥
+        fd = $fopen($sformatf("out/steady_n%d.txt", `NOTE), "w");
+        $display("[STEADY] NOTE=%0d  wait=%0d ticks  dump=%0d ticks", `NOTE, NWAIT, NDUMP);
+        wait_ticks(NWAIT);
+        for (g = 0; g < NDUMP; g = g + 1) begin
+        $display("[STEADY] done, wrote %0d samples", NDUMP);
+note=62  tmpBOM=False (must be False)
+note=62  compile_ok=True

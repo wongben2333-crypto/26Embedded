@@ -118,7 +118,15 @@ module song_player #(
 
     input  wire        key_play,      // 按键1（已同步去抖后的电平，按下=1）
     input  wire        key_next,      // 按键2（同上）
-
+    // ---- ★ 2026-10-06 新增：运行期模式切换需要的两个端口 ----
+    //  ⚠️ key_play / key_next 的语义【一字未改】⇒ 原有 48 条 TB 断言与 top.v 旧接线仍有效
+    input  wire        key_pause,     // ★ 暂停/恢复（电平，本模块内部取上升沿，与 key_play 同风格）
+    input  wire        run_en,        // ★ 曲目模式使能（电平）：
+                                      //    0 ⇒ 强制停止 + 走完 128 拍全关扫描 + 位置复位
+                                      //    0→1 ⇒ **自动从头播放**（⇒ top.v 不必在外面造脉冲）
+                                      //  ⚠️ 为什么必须是【电平】而不是复用 key_play 拉低：
+                                      //     play_press 是【上升沿】(key_play & ~key_play_d)，
+                                      //     电平 1→0 什么都不会发生 ⇒ "离开模式即停"必须有电平使能。
     // ---- 音符命令总线（与 piano_engine / midi_rx 共用语义）----
     output reg         on_valid,      // note-on 脉冲（1 个 clk）
     output reg  [6:0]  on_note,       // MIDI 音符号 0..127
@@ -128,6 +136,7 @@ module song_player #(
 
     // ---- 状态输出（给 LED 与调试）----
     output wire        playing,       // 正在播放
+    output wire        paused,        // ★ 暂停中（note_idx/dur_cnt 已冻结、当前音已释放）
     output wire [3:0]  song_index,    // 当前第几首（0 起）
     output wire [3:0]  song_count     // 共几首
 );
@@ -138,7 +147,8 @@ module song_player #(
                      S_LATCH  = 3'd2,   // 锁存音符 / 发 note-on
                      S_WAIT   = 3'd3,   // 数槽长
                      S_OFF    = 3'd4,   // 发逐音 off
-                     S_ALLOFF = 3'd5;   // 发 all-notes-off 扫描（128 拍）
+                     S_ALLOFF = 3'd5,   // 发 all-notes-off 扫描（128 拍）
+                     S_PAUSE  = 3'd6;   // ★ 暂停（位置冻结；当前音已释放）
 
     // 休止符编码。⚠️ 注意：7'h7F 在 off 总线上【不再】代表"全部松开"——
     // 全关是用 128 拍扫描表达的（见文件头）。这里的 7'h7F 只是 song_rom 里
@@ -170,6 +180,10 @@ module song_player #(
     reg [6:0]  active_note;     // 正在响的音（用于 off）
     reg        has_active;      // 1 = 有音正在响、还没发过 off
     reg        key_play_d, key_next_d;
+    reg        key_pause_d, run_en_d;   // ★ 新增
+    reg        paused_r;                // ★ 1 = 暂停中
+    reg [6:0]  active_vel;              // ★ 正在响的音的力度（恢复时要重发 note-on）
+    reg        pause_had_note;          // ★ 暂停时那一刻"是否有音在响"（休止符上暂停 ⇒ 恢复也不发 note-on）
     reg [6:0]  alloff_cnt;      // all-notes-off 扫描计数 0..127
 
     // ------------------------------------------------------------- 曲目 ROM ----
@@ -194,6 +208,7 @@ module song_player #(
     // song_count 直接透传 ROM 的 n_songs ⇒ 生成器改了歌数，这里自动跟上，
     // 不存在"两处硬编码不同步"的可能。
     assign playing    = playing_r;
+    assign paused     = paused_r;
     assign song_index = song_index_r;
     assign song_count = rom_n_songs;
 
@@ -201,11 +216,15 @@ module song_player #(
     // key_play / key_next 是【顶层已同步去抖后的电平】。本模块只取上升沿：
     // 机械按键会被按住很久，电平驱动会导致反复切换（见文件头决策 (1)）。
     always @(posedge clk) begin
-        key_play_d <= key_play;
-        key_next_d <= key_next;
+        key_play_d  <= key_play;
+        key_next_d  <= key_next;
+        key_pause_d <= key_pause;      // ★
+        run_en_d    <= run_en;         // ★
     end
-    wire play_press = key_play & ~key_play_d;
-    wire next_press = key_next & ~key_next_d;
+    wire play_press  = key_play  & ~key_play_d;
+    wire next_press  = key_next  & ~key_next_d;
+    wire pause_press = key_pause & ~key_pause_d;   // ★ 暂停/恢复切换
+    wire run_rise    = run_en    & ~run_en_d;      // ★ 0→1：进入曲目模式 ⇒ 自动从头播放
 
     // ------------------------------------------------------- 槽长组合比较 ----
     // cur_dur 至少按 1 处理：ROM 里 dur 恒 ≥1（生成器已断言），这里是防御性的。
@@ -225,7 +244,10 @@ module song_player #(
             dur_cnt      <= 20'd0;
             cur_dur      <= 20'd0;
             active_note  <= 7'd0;
+            active_vel   <= 7'd0;          // ★
             has_active   <= 1'b0;
+            paused_r     <= 1'b0;          // ★
+            pause_had_note <= 1'b0;        // ★
             alloff_cnt   <= 7'd0;
             on_valid     <= 1'b0;
             on_note      <= 7'd0;
@@ -237,6 +259,26 @@ module song_player #(
             on_valid  <= 1'b0;
             off_valid <= 1'b0;
 
+            // ★★★ 全局最高优先级（2026-10-06 新增）：运行期模式使能 run_en ★★★
+            //   run_en = 0（离开曲目模式）⇒ 强制停止，且**只发起一次**：
+            //     发起后必须让 S_OFF → S_ALLOFF **自然走完** 128 拍全关扫描，
+            //     否则扫描会被反复打断、总线上留下半套 all-off（比不停更危险）。
+            //     所以这里的条件里显式排除 S_OFF / S_ALLOFF / S_IDLE。
+            if (!run_en && (state != S_IDLE) && (state != S_OFF) && (state != S_ALLOFF)) begin
+                playing_r <= 1'b0;
+                paused_r  <= 1'b0;
+                state     <= S_OFF;
+            end
+            // run_en 0→1 = 进入曲目模式 ⇒ **自动从头播放**（⇒ top.v 不必在外面造脉冲）
+            else if (run_rise && (state == S_IDLE)) begin
+                playing_r  <= 1'b1;
+                paused_r   <= 1'b0;
+                note_idx   <= 9'd0;
+                dur_cnt    <= 20'd0;
+                has_active <= 1'b0;
+                state      <= S_LOAD;
+            end
+            else begin
             case (state)
 
             // ------------------------------------------------------- 停止 ----
@@ -278,6 +320,7 @@ module song_player #(
                         on_note     <= r_note;
                         on_vel      <= r_vel;
                         active_note <= r_note;
+                        active_vel  <= r_vel;      // ★ 恢复时要重发 note-on，力度也要留住
                         has_active  <= 1'b1;
                         state       <= S_WAIT;
                     end
@@ -292,6 +335,19 @@ module song_player #(
                 if (play_press) begin
                     playing_r <= 1'b0;                 // 立刻反映到 playing/LED
                     state     <= S_OFF;                // 逐音 off 后再走 128 拍全关扫描
+                end else if (pause_press) begin
+                    // ★ 暂停：**先释放当前音**（否则暂停后那个音会一直挂着响），
+                    //   **但 note_idx / dur_cnt【一个都不动】** ⇒ 位置被冻结，
+                    //   恢复时从冻结的 dur_cnt 接着数 ⇒ "接着放，不是从头"。
+                    if (has_active) begin
+                        off_valid  <= 1'b1;
+                        off_note   <= active_note;
+                        has_active <= 1'b0;
+                    end
+                    pause_had_note <= has_active;      // 记下"暂停这一刻是否有音"
+                    playing_r      <= 1'b0;
+                    paused_r       <= 1'b1;
+                    state          <= S_PAUSE;
                 end else if (next_press) begin
                     // 按键2：切下一首（放完最后一首回到第一首）
                     song_index_r <= (song_index_r + 4'd1 >= rom_n_songs)
@@ -343,8 +399,36 @@ module song_player #(
                 end
             end
 
+            // ------------------------------------------- 暂停（位置冻结）----
+            //  进入本状态时：当前音**已释放**、note_idx 与 dur_cnt **都已冻结**
+            //  ⇒ 这里只等"恢复"或"停止"。
+            //  · pause_press ⇒ 恢复：重发当前音的 note-on，**从冻结的 dur_cnt 继续**
+            //                  （这就是用户要的"暂停/恢复：能接着放，不是从头"）
+            //  · play_press  ⇒ 停止（与其它状态一致：key_play 仍是"播放/停止"开关，
+            //                  语义未改 ⇒ 不影响原有 48 条断言）
+            //  · next_press  ⇒ **刻意不响应**：暂停中切歌会让"恢复哪个音"变得含糊
+            S_PAUSE: begin
+                if (pause_press) begin
+                    paused_r  <= 1'b0;
+                    playing_r <= 1'b1;
+                    if (pause_had_note) begin
+                        on_valid   <= 1'b1;
+                        on_note    <= active_note;   // 用锁存下来的音，不是 ROM 的预取音
+                        on_vel     <= active_vel;
+                        has_active <= 1'b1;
+                    end
+                    // ⚠️ dur_cnt【不写】⇒ 保持冻结值，恢复后接着数 ✓
+                    state <= S_WAIT;
+                end else if (play_press) begin
+                    paused_r  <= 1'b0;
+                    playing_r <= 1'b0;
+                    state     <= S_OFF;              // 走完 128 拍全关后回 S_IDLE
+                end
+            end
+
             default: state <= S_IDLE;
             endcase
+            end   // ★ 与上面的 `else begin`（run_en / run_rise 全局优先级）配对
 
             // ⚠️ 已知的"死窗口"：停止流程要经过 S_OFF（1 拍）+ S_ALLOFF（128 拍）
             //    才回 S_IDLE，这 129 个 clk（2.58 µs @50 MHz）内新按下的 key_play

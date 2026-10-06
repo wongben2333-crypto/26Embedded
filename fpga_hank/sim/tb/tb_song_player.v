@@ -3,7 +3,7 @@
 //
 //  验证目标（逐条对应 task 的验收要求）：
 //    1. 按按键1 开始播放，发出**按时间顺序正确**的 note-on 命令
-//       —— 逐音比对 song 0 全部 29 个音符的 MIDI 号与力度
+//       —— 逐音比对 song 0 全部 62 个音符的 MIDI 号与力度
 //       —— 并用"相邻 note-on 的 tick 间隔"反推每个音符槽长，
 //          与 song_rom 里的 dur 对照（槽长必须严格等于 ROM 里的时值）
 //    2. 曲末【单曲循环】回到第 1 个音符
@@ -47,12 +47,22 @@ module tb_song_player;
     reg key_play    = 1'b0;
     reg key_next    = 1'b0;
     reg sample_tick = 1'b0;
+    // ★ 2026-10-06 新增：运行期模式切换用
+    //   run_en 默认【1】——否则新加的"run_en=0 强制停止"会把原有 48 条断言全拦掉
+    reg key_pause   = 1'b0;
+    reg run_en      = 1'b1;
+    // 阶段 10 用：冻结判据的现场快照
+    reg [8:0]  nb_idx  = 9'd0;      // note_idx 快照
+    reg [19:0] db_cnt  = 20'd0;     // dur_cnt  快照
+    reg [6:0]  nb_note = 7'd0;      // active_note 快照
+    integer    t_off0  = 0, t_sw0 = 0;
 
     wire        on_valid;
     wire [6:0]  on_note, on_vel;
     wire        off_valid;
     wire [6:0]  off_note;
     wire        playing;
+    wire        paused;                       // ★
     wire [3:0]  song_index;
     wire [3:0]  song_count;
 
@@ -66,12 +76,15 @@ module tb_song_player;
         .sample_tick(sample_tick),
         .key_play   (key_play),
         .key_next   (key_next),
+        .key_pause  (key_pause),              // ★
+        .run_en     (run_en),                 // ★
         .on_valid   (on_valid),
         .on_note    (on_note),
         .on_vel     (on_vel),
         .off_valid  (off_valid),
         .off_note   (off_note),
         .playing    (playing),
+        .paused     (paused),                 // ★
         .song_index (song_index),
         .song_count (song_count)
     );
@@ -91,13 +104,15 @@ module tb_song_player;
     end
 
     // ------------------------------------------------------------ 期望值 -----
-    // song 0 = 《Faded》(Alan Walker) **副歌第 1 次**，29 个音符。
+    // song 0 = 《我落泪情绪零碎》副歌 m.29-31，18 个音符（⛔ 未获授权，用户提供乐谱）。
     // ★ 数据来源：tools/gen/gen_song_rom.py --write 生成的 _research/songs/song_table.txt
     //   （即 song_rom.v 里 case 表的同一个真值来源；这里是**独立抄一份**当期望值，
     //     而不是反过来去读 DUT 用的 ROM —— 否则就是自己验证自己）
-    // ★ 2026-10-05 更新：旋律整条换过 —— 旧数据误取了吉他分解和弦伴奏层
+    // ★ 2026-10-06 更新：**Faded 已按 Lead 裁决彻底删除** ⇒ 下标整体前移，song0 变成《欢乐颂》。旧沿革：数据曾误取吉他分解和弦伴奏层
     //   （用户上板试听指出"Faded 旋律不对"，复核证实那一层 92% 都是和弦音）。
-    //   音符数 47 → 29，首音 B4(71) → G5(79)，BPM 90 → 120。
+//   ★ 2026-10-06 二次调整：**《我落泪情绪零碎》移到 [0]** —— song_player 进曲目模式
+//     后从头放 [0]，而用户点名的曲目就是这一首，故必须占 [0]；4 首 PD 顺次后移。
+    //   音符数 29 → 62，首音 G5(79) → E4(64)，BPM 120 → 100。
     //
     // ⛔⚠️ 维护提醒（很容易漏）：本 TB 的期望值是**硬编码**的。若在
     //   `gen_song_rom.py` 的 SONGS 里**增删或调换曲目顺序**（例如按用户决定
@@ -108,7 +123,7 @@ module tb_song_player;
     //     ④ 阶段 4 的切歌链（首数变了就要加减 press_next）
     //   否则 TB 会报一堆 FAIL —— 那是 TB 过期，不是 DUT 坏了。
     localparam [3:0] SONG_COUNT_EXP = 4'd5;   // 与 song_rom.v 的 n_songs 一致
-    localparam integer S0_N = 29;
+    localparam integer S0_N = 18;
     reg [6:0]  exp_midi [0:S0_N-1];
     reg [19:0] exp_dur  [0:S0_N-1];
 
@@ -117,7 +132,7 @@ module tb_song_player;
     localparam [6:0] S2_FIRST = 7'd60;        // 小星星：C4
     localparam [6:0] S3_FIRST = 7'd64;        // 铃儿响叮当：E4
     localparam [6:0] S4_FIRST = 7'd76;        // 致爱丽丝：E5
-
+    
     // ------------------------------------------------------------ 记分板 -----
     integer   err        = 0;
     integer   on_cnt     = 0;
@@ -257,18 +272,17 @@ module tb_song_player;
     // ------------------------------------------------------------- 主体 ----
     initial begin
 
-        // ---- song 0 期望值（29 个音符：MIDI 号 / 槽长 tick）----
+        // ---- song 0 期望值（18 个音符：MIDI 号 / 槽长 tick）----
         // ⚠️ 由 gen_song_rom.py 的 song_table.txt 机械生成，不要手改
-        exp_midi[ 0]=7'd 79; exp_dur[ 0]=20'd 48828; exp_midi[ 1]=7'd 83; exp_dur[ 1]=20'd 48828; exp_midi[ 2]=7'd 86; exp_dur[ 2]=20'd146484;
-        exp_midi[ 3]=7'd 88; exp_dur[ 3]=20'd 48828; exp_midi[ 4]=7'd 86; exp_dur[ 4]=20'd 48828; exp_midi[ 5]=7'd 83; exp_dur[ 5]=20'd 48828;
-        exp_midi[ 6]=7'd 81; exp_dur[ 6]=20'd 48828; exp_midi[ 7]=7'd 79; exp_dur[ 7]=20'd 48828; exp_midi[ 8]=7'd 76; exp_dur[ 8]=20'd 97656;
-        exp_midi[ 9]=7'd 76; exp_dur[ 9]=20'd 48828; exp_midi[10]=7'd 78; exp_dur[10]=20'd 48828; exp_midi[11]=7'd 79; exp_dur[11]=20'd146484;
-        exp_midi[12]=7'd 83; exp_dur[12]=20'd 48828; exp_midi[13]=7'd 86; exp_dur[13]=20'd146484; exp_midi[14]=7'd 88; exp_dur[14]=20'd 48828;
-        exp_midi[15]=7'd 86; exp_dur[15]=20'd 48828; exp_midi[16]=7'd 83; exp_dur[16]=20'd 48828; exp_midi[17]=7'd 81; exp_dur[17]=20'd 48828;
-        exp_midi[18]=7'd 79; exp_dur[18]=20'd 48828; exp_midi[19]=7'd 81; exp_dur[19]=20'd292969; exp_midi[20]=7'd 79; exp_dur[20]=20'd 48828;
-        exp_midi[21]=7'd 83; exp_dur[21]=20'd 48828; exp_midi[22]=7'd 86; exp_dur[22]=20'd146484; exp_midi[23]=7'd 88; exp_dur[23]=20'd 48828;
-        exp_midi[24]=7'd 86; exp_dur[24]=20'd 48828; exp_midi[25]=7'd 83; exp_dur[25]=20'd 48828; exp_midi[26]=7'd 81; exp_dur[26]=20'd 48828;
-        exp_midi[27]=7'd 79; exp_dur[27]=20'd 48828; exp_midi[28]=7'd 76; exp_dur[28]=20'd 95011;
+        // ★ 2026-10-06：《我落泪情绪零碎》已按 Lead 裁决移到 [0]
+        //   （song_player 进曲目模式后从头放 [0] ⇒ 用户按 key2 直接听到它），
+        //   原 4 首公有领域曲目顺次后移为 [1]~[4]。
+        exp_midi[ 0]=7'd 63; exp_dur[ 0]=20'd174907; exp_midi[ 1]=7'd 61; exp_dur[ 1]=20'd 43727; exp_midi[ 2]=7'd 63; exp_dur[ 2]=20'd 43727;
+        exp_midi[ 3]=7'd 64; exp_dur[ 3]=20'd 43727; exp_midi[ 4]=7'd 63; exp_dur[ 4]=20'd 43727; exp_midi[ 5]=7'd 63; exp_dur[ 5]=20'd174907;
+        exp_midi[ 6]=7'd 61; exp_dur[ 6]=20'd 43727; exp_midi[ 7]=7'd 63; exp_dur[ 7]=20'd 43727; exp_midi[ 8]=7'd 64; exp_dur[ 8]=20'd 43727;
+        exp_midi[ 9]=7'd 63; exp_dur[ 9]=20'd 43727; exp_midi[10]=7'd 63; exp_dur[10]=20'd 43727; exp_midi[11]=7'd 61; exp_dur[11]=20'd 43727;
+        exp_midi[12]=7'd 59; exp_dur[12]=20'd 43727; exp_midi[13]=7'd 63; exp_dur[13]=20'd 43727; exp_midi[14]=7'd 63; exp_dur[14]=20'd 43727;
+        exp_midi[15]=7'd 68; exp_dur[15]=20'd 43727; exp_midi[16]=7'd 68; exp_dur[16]=20'd 43727; exp_midi[17]=7'd 66; exp_dur[17]=20'd 43727;
 
         $display("");
         $display("=========================================================");
@@ -289,13 +303,13 @@ module tb_song_player;
         chk("复位后没有 off",           off_cnt == 0);
 
         // ========================= 阶段 1: 播放 + 逐音比对 =================
-        $display("\n--- 阶段 1: 按键1 按下 → 从头播放，逐音比对 29 个音符 ---");
+        $display("\n--- 阶段 1: 按键1 按下 → 从头播放，逐音比对 18 个音符 ---");
         chk_notes = 1;
         chk_delta = 1;
         press_play();
         chk("按 key_play 后 playing==1", playing === 1'b1);
         wait (on_cnt >= 1);
-        chk("按 key_play 后第 1 个音符 = G5(79)（《Faded》副歌首音）",
+        chk("按 key_play 后第 1 个音符 = D#4(63)（《我落泪情绪零碎》首音）",
             on_seen[0] === exp_midi[0]);
         // ★ 控制→发声延迟：本模块自身的贡献。
         //   ⚠️ 这不含顶层去抖窗口（2.621 ms，属 top.v）；本模块只负责
@@ -307,14 +321,14 @@ module tb_song_player;
         chk("本模块控制→发声延迟 < 10 ms（赛题硬指标，含顶层去抖后仍满足）",
             lat_ns >= 0 && lat_ns < 10_000_000);
 
-        // 等到 29 个音符全部走完，再多看 3 个（证明单曲循环）
+        // 等到 18 个音符全部走完，再多看 3 个（证明单曲循环）
         wait (on_cnt >= S0_N + 3);
         chk_notes = 0;
         chk_delta = 0;
-        chk("song 0 的 29 个音符全部发出", on_cnt >= S0_N);
-        chk("曲末循环回第 1 个音符 (G5=79)", on_seen[S0_N]     === exp_midi[0]);
-        chk("曲末循环回第 2 个音符 (B5=83)", on_seen[S0_N + 1] === exp_midi[1]);
-        chk("曲末循环回第 3 个音符 (D6=86)", on_seen[S0_N + 2] === exp_midi[2]);
+        chk("song 0 的 18 个音符全部发出", on_cnt >= S0_N);
+        chk("曲末循环回第 1 个音符 (D#4=63)", on_seen[S0_N]     === exp_midi[0]);
+        chk("曲末循环回第 2 个音符 (C#4=61)", on_seen[S0_N + 1] === exp_midi[1]);
+        chk("曲末循环回第 3 个音符 (D#4=63)", on_seen[S0_N + 2] === exp_midi[2]);
         $display("[info] 槽长常数 K = 间隔 - ROM时值 = %0d tick (生产环境该常数为 2/512 tick)", delta_k);
         chk("槽长常数在合理范围 0..4", (delta_k >= 0) && (delta_k <= 4));
 
@@ -346,7 +360,7 @@ module tb_song_player;
         press_play();
         chk("重新按 key_play 后 playing==1", playing === 1'b1);
         wait (on_cnt >= i + 1);
-        chk("重新播放从第 1 个音符开始 (G5=79)", on_seen[i] === exp_midi[0]);
+        chk("重新播放从第 1 个音符开始 (D#4=63)", on_seen[i] === exp_midi[0]);
 
         // ==================== 阶段 4: 按键2 切歌（含循环） =================
         $display("\n--- 阶段 4: 按键2 切歌 0→1→2→3→4→0 ---");
@@ -355,31 +369,31 @@ module tb_song_player;
         repeat (4) @(posedge clk);
         chk("切歌后 song_index==1", song_index === 4'd1);
         wait (on_cnt >= i + 1);
-        chk("song1 第 1 个音符 = E4(64)", on_seen[i] === S1_FIRST);
+        chk("song1(欢乐颂) 第 1 个音符 = E4(64)", on_seen[i] === S1_FIRST);
 
         press_next();
         repeat (4) @(posedge clk);
         chk("切歌后 song_index==2", song_index === 4'd2);
         wait (on_cnt >= i + 2);
-        chk("song2 第 1 个音符 = C4(60)", on_seen[i+1] === S2_FIRST);
+        chk("song2(小星星) 第 1 个音符 = C4(60)", on_seen[i+1] === S2_FIRST);
 
         press_next();
         repeat (4) @(posedge clk);
         chk("切歌后 song_index==3", song_index === 4'd3);
         wait (on_cnt >= i + 3);
-        chk("song3 第 1 个音符 = E4(64)", on_seen[i+2] === S3_FIRST);
+        chk("song3(铃儿响叮当) 第 1 个音符 = E4(64)", on_seen[i+2] === S3_FIRST);
 
         press_next();
         repeat (4) @(posedge clk);
         chk("切歌后 song_index==4", song_index === 4'd4);
         wait (on_cnt >= i + 4);
-        chk("song4 第 1 个音符 = E5(76)", on_seen[i+3] === S4_FIRST);
+        chk("song4(致爱丽丝) 第 1 个音符 = E5(76)", on_seen[i+3] === S4_FIRST);
 
         press_next();
         repeat (4) @(posedge clk);
         chk("放完最后一首回到第一首 song_index==0", song_index === 4'd0);
         wait (on_cnt >= i + 5);
-        chk("回到 song0 第 1 个音符 = G5(79)", on_seen[i+4] === exp_midi[0]);
+        chk("回到 song0 第 1 个音符 = E4(64)", on_seen[i+4] === exp_midi[0]);
 
         // ============== 阶段 5: 停止状态下按键2 必须无效 ==================
         $display("\n--- 阶段 5: 停止状态下按键2 无效 ---");
@@ -467,9 +481,90 @@ module tb_song_player;
         press_play();
         repeat (400) @(posedge clk);
 
-        // 全测试累计的停止次数 = 阶段 2 / 5 / 6 / 8 / 9(两次) = 6 次，
-        // 每次一条完整扫描 ⇒ 必须恰好 6 条。
-        chk("累计 6 次停止 → 恰好 6 条完整的 off_note=0..127 扫描", sweep_cnt == 6);
+        // ⚠️ 这里是【阶段 10 之前】的累计数：阶段 2/5/6/8/9(两次) = 6 次。
+        //   阶段 10 的 run_en=0 还会再加 1 条 ⇒ 全测试总数是 7（在阶段 10 末尾断言）。
+        chk("阶段 9 止累计 6 次停止 → 6 条完整扫描", sweep_cnt == 6);
+
+        // ========== 阶段 10: 运行期模式切换四态（run_en + key_pause）==========
+        //  对应 2026-10-06 新增的端口。四条要求逐条钉死：
+        //    ① run_en 0→1 = 进入曲目模式 ⇒ **自动从头播放**（top.v 不必造脉冲）
+        //    ② key_pause ↑ 且播放中 ⇒ **暂停**：释放当前音（否则一直挂着响）+ 冻结位置
+        //    ③ 暂停期间 **note_idx / dur_cnt 一个都不许动**（这是"冻结"的唯一硬证据）
+        //    ④ 再按 key_pause ⇒ **恢复：接着放，不是从头**（用户要的语义）
+        //    ⑤ run_en=0 ⇒ 强制停止 + **恰好一条**完整 128 拍全关扫描
+        //    ⑥ 非曲目模式下 key_pause 无效
+        $display("\n--- 阶段 10: 四态 播放/暂停/恢复/停止（run_en + key_pause）---");
+
+        // 前置：把 run_en 拉低建立低电平（此时 S_IDLE，拉低无副作用）
+        run_en = 1'b0;
+        repeat (20) @(posedge clk);
+        chk("[前置] run_en=0 且已停止（playing=0 paused=0）",
+            (playing === 1'b0) && (paused === 1'b0));
+
+        // ---- ① run_en 上升沿 ⇒ 自动从头播放 ----
+        i = on_cnt;
+        run_en = 1'b1;
+        repeat (6) @(posedge clk);
+        wait (on_cnt >= i + 1);
+        chk("[①] run_en 上升沿 → 自动播放 playing==1", playing === 1'b1);
+        chk("[①] 从第 1 个音符开始（D#4=63）", on_seen[i] === exp_midi[0]);
+
+        // 让它走到中段（不是第 1 个音），并确保停在 S_WAIT（暂停只在该状态响应）
+        wait (on_cnt >= i + 5);
+        repeat (3000) @(posedge clk);
+        while (dut.state !== 3'd3) @(posedge clk);   // 3'd3 = S_WAIT
+        j          = on_cnt;
+        nb_idx     = dut.note_idx;
+        db_cnt     = dut.dur_cnt;
+        nb_note    = dut.active_note;
+        t_off0     = off_cnt;
+        // ⚠️ 判据用【位置】而不是【音高】：本曲只有 18 个音且音高反复出现
+        //   （如第 6 个音也是 D#4=63，与首音相同）⇒ 比音高会误判。
+        chk("[①] 已走到中段（note_idx 已越过第 1 个音）", dut.note_idx > 9'd1);
+
+        // ---- ② key_pause ↑ ⇒ 暂停：释放当前音 + 冻结 ----
+        key_pause = 1'b1; @(posedge clk); key_pause = 1'b0;
+        repeat (6) @(posedge clk);
+        chk("[②] 暂停后 paused==1",  paused  === 1'b1);
+        chk("[②] 暂停后 playing==0", playing === 1'b0);
+        chk("[②] 暂停时【释放了当前音】（发了 off_valid）", off_cnt > t_off0);
+
+        // ---- ③ 冻结：暂停期间位置一动不动 ----
+        repeat (6000) @(posedge clk);                // 远超一个 tick（512 clk）
+        chk("[③] 冻结：note_idx 不变",        dut.note_idx === nb_idx);
+        chk("[③] 冻结：dur_cnt  不变",        dut.dur_cnt  === db_cnt);
+        chk("[③] 冻结：暂停期间无新 note-on", on_cnt == j);
+        chk("[③] 冻结：暂停期间 paused 保持 1", paused === 1'b1);
+
+        // ---- ④ key_pause 再按 ⇒ 恢复：接着放，不是从头 ----
+        i = on_cnt;
+        key_pause = 1'b1; @(posedge clk); key_pause = 1'b0;
+        repeat (6) @(posedge clk);
+        chk("[④] 恢复后 paused==0",  paused  === 1'b0);
+        chk("[④] 恢复后 playing==1", playing === 1'b1);
+        chk("[④] 恢复时重发了 note-on", on_cnt == i + 1);
+        chk("[④] 恢复的是【暂停时那个音】，不是从头", on_seen[i] === nb_note);
+        chk("[④] 确实不是从第 1 个音开始（位置已被保留、且不在开头）",
+            (dut.note_idx === nb_idx) && (nb_idx > 9'd1));
+
+        // ---- ⑤ run_en=0 ⇒ 强制停止 + 恰好一条完整全关扫描 ----
+        t_sw0 = sweep_cnt;
+        run_en = 1'b0;
+        repeat (400) @(posedge clk);                  // 1 + 128 拍扫描足够跑完
+        chk("[⑤] run_en=0 → 强制停止 playing==0", playing === 1'b0);
+        chk("[⑤] run_en=0 → paused 同时清零",     paused  === 1'b0);
+        chk("[⑤] run_en=0 → 恰好一条完整 128 拍全关扫描", sweep_cnt == t_sw0 + 1);
+
+        // ---- ⑥ 非曲目模式（run_en=0）下 key_pause 无效 ----
+        j = on_cnt;
+        key_pause = 1'b1; @(posedge clk); key_pause = 1'b0;
+        repeat (20) @(posedge clk);
+        chk("[⑥] run_en=0 时 key_pause 无效（仍停止）",
+            (playing === 1'b0) && (paused === 1'b0));
+        chk("[⑥] run_en=0 时 key_pause 不产生 note-on", on_cnt == j);
+
+        // 全测试累计：阶段 2/5/6/8/9(两次) = 6 次 + 阶段 10 的 run_en=0 = **7 次**
+        chk("全测试累计 7 次停止 → 恰好 7 条完整的 off_note=0..127 扫描", sweep_cnt == 7);
 
         // ============================ 汇总 ===============================
         $display("");

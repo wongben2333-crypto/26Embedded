@@ -1,6 +1,7 @@
 // =============================================================================
 //  midi_rx.v —— 标准 MIDI 3 字节消息解析（串口承载）
 //                ① 音符命令（原有）  ② 表情参数 CC（2026-10-05 新增）
+//                ③ 通用 CC 直通（2026-10-06 新增：CC20 乐器 / CC21 挂电 / CC22-24 效果器）
 //
 //  接口契约（Lead 固定，签名不可改）：
 //      midi_rx (clk, rst_n, byte_data[7:0], byte_valid,
@@ -65,7 +66,21 @@ module midi_rx (
     output reg  [6:0] vib_depth,     // CC77 或 CC1（**两个都收，取后到的**）
     output reg  [6:0] vib_rate,      // CC76
     output reg        sustain,       // CC64 ≥64
-    output reg        reset_all      // CC120/CC121：一次性复位全部表情参数（1 clk 脉冲）
+    output reg        reset_all,     // CC120/CC121：一次性复位全部表情参数（1 clk 脉冲）
+
+    // ---- ★ 通用 CC 直通（2026-10-06 新增：CC20 乐器 / CC21 挂电 / CC22-24 效果器）----
+    //  ★ 选「通用直通」而不是「每个 CC 加专用端口」的理由：
+    //    1) **符合既定铁律**：RTL 只做传输层、原样透传 0..127，语义与换算在下游
+    //       （AGENTS.md §4.1）。加 `instrument[1:0]`/`drive[6:0]` 会让本模块第一次"懂语义"。
+    //    2) **一次到位**：以后再加 CC（效果器、音色、控制）**不用改本模块、不用重跑验收**。
+    //    3) **风险最小**：只在 CC 分支里新增一条 latch，**不动任何既有分支**
+    //       ⇒ 原有 45 项 PASS 在结构上不受影响。
+    //    4) `top.v` 侧成本极低（一个 `case (cc_num)` 约 6 行），且把"哪个 CC 是什么意思"
+    //       的策略**集中在一个文件**里。
+    //  ⚠️ 现有 8 个表情端口**原样保留**（它们已 45 项 PASS 验证过），本直通是**附加**通道。
+    output reg  [6:0] cc_num,        // 最近一个 CC 的编号（原样 0..127）
+    output reg  [6:0] cc_val,        // 最近一个 CC 的值（原样 0..127）
+    output reg        cc_any_valid   // **任一** CC 收到就打 1 拍（含未支持的 CC）
 );
 
     // ---- CC 编号（与 host/piano_gui.py 严格一致，勿单方修改）----
@@ -120,12 +135,16 @@ module midi_rx (
             reset_all  <= 1'b0;
             sweep_act  <= 1'b0;
             sweep_idx  <= 8'd0;
+            cc_num        <= 7'd0;       // ★ 通用 CC 直通
+            cc_val        <= 7'd0;
+            cc_any_valid  <= 1'b0;
         end else begin
             // 默认：所有脉冲都是单拍
             on_valid  <= 1'b0;
             off_valid <= 1'b0;
             cc_valid  <= 1'b0;
             reset_all <= 1'b0;
+            cc_any_valid <= 1'b0;        // ★ 通用直通脉冲也是单拍
 
             // ------------------------------------------------------------------
             // ① All Notes Off 扫描（低优先级；与下面字节解析**并行**，互不丢信息）
@@ -189,6 +208,12 @@ module midi_rx (
 
                                 // ================= Control Change =========
                                 4'hB: begin
+                                    // ★ 通用 CC 直通：**任何** CC（含未支持的）都先原样暴露，
+                                    //   供 top.v 自行译码（CC20 乐器 / CC21 挂电 / CC22-24 …）。
+                                    //   ⚠️ 放在 `case (d1)` **之前**，且**不改**下面任何既有分支。
+                                    cc_num       <= d1;
+                                    cc_val       <= byte_data[6:0];
+                                    cc_any_valid <= 1'b1;
                                     case (d1)
                                         // ---- CC5 滑音时间 ----
                                         CC_PORTAMENTO_T: begin

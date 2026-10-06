@@ -28,7 +28,7 @@ module tb_alloc_check;
         .on_valid(on_v), .on_note(on_n), .on_vel(on_vel),
         .off_valid(off_v), .off_note(off_n),
         .glide_on(1'b0), .glide_time(7'd0), .vib_on(1'b0),
-        .vib_depth(7'd0), .vib_rate(7'd0), .sustain(1'b0),
+        .vib_depth(7'd0), .vib_rate(7'd0), .inst_sel(2'd0), .sustain(1'b0),
         .mix_out(mix), .active(act));
 
     // ---------------- 老串行分配器的参考模型（照抄改动前的代码） ----------------

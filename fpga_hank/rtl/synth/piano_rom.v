@@ -273,140 +273,397 @@ endmodule
 // -----------------------------------------------------------------------------
 module piano_vel_lut (
     input  wire [6:0]  vel,
+    input  wire [1:0]  inst,          // 0=钢琴 1=电吉他 2=古筝
     output reg  [16:0] gain_q16,
     output reg  [2:0]  lp_sh
 );
 
     always @(*) begin
-        case (vel)
-            7'd0: begin gain_q16 = 17'd7864; lp_sh = 3'd3; end
-            7'd1: begin gain_q16 = 17'd7889; lp_sh = 3'd3; end
-            7'd2: begin gain_q16 = 17'd7940; lp_sh = 3'd3; end
-            7'd3: begin gain_q16 = 17'd8008; lp_sh = 3'd3; end
-            7'd4: begin gain_q16 = 17'd8092; lp_sh = 3'd3; end
-            7'd5: begin gain_q16 = 17'd8190; lp_sh = 3'd3; end
-            7'd6: begin gain_q16 = 17'd8301; lp_sh = 3'd3; end
-            7'd7: begin gain_q16 = 17'd8423; lp_sh = 3'd3; end
-            7'd8: begin gain_q16 = 17'd8556; lp_sh = 3'd3; end
-            7'd9: begin gain_q16 = 17'd8699; lp_sh = 3'd3; end
-            7'd10: begin gain_q16 = 17'd8853; lp_sh = 3'd3; end
-            7'd11: begin gain_q16 = 17'd9015; lp_sh = 3'd3; end
-            7'd12: begin gain_q16 = 17'd9187; lp_sh = 3'd3; end
-            7'd13: begin gain_q16 = 17'd9368; lp_sh = 3'd3; end
-            7'd14: begin gain_q16 = 17'd9557; lp_sh = 3'd3; end
-            7'd15: begin gain_q16 = 17'd9755; lp_sh = 3'd3; end
-            7'd16: begin gain_q16 = 17'd9961; lp_sh = 3'd3; end
-            7'd17: begin gain_q16 = 17'd10174; lp_sh = 3'd3; end
-            7'd18: begin gain_q16 = 17'd10395; lp_sh = 3'd3; end
-            7'd19: begin gain_q16 = 17'd10624; lp_sh = 3'd3; end
-            7'd20: begin gain_q16 = 17'd10860; lp_sh = 3'd3; end
-            7'd21: begin gain_q16 = 17'd11103; lp_sh = 3'd3; end
-            7'd22: begin gain_q16 = 17'd11354; lp_sh = 3'd3; end
-            7'd23: begin gain_q16 = 17'd11611; lp_sh = 3'd3; end
-            7'd24: begin gain_q16 = 17'd11875; lp_sh = 3'd3; end
-            7'd25: begin gain_q16 = 17'd12146; lp_sh = 3'd3; end
-            7'd26: begin gain_q16 = 17'd12423; lp_sh = 3'd3; end
-            7'd27: begin gain_q16 = 17'd12707; lp_sh = 3'd3; end
-            7'd28: begin gain_q16 = 17'd12997; lp_sh = 3'd3; end
-            7'd29: begin gain_q16 = 17'd13293; lp_sh = 3'd3; end
-            7'd30: begin gain_q16 = 17'd13596; lp_sh = 3'd3; end
-            7'd31: begin gain_q16 = 17'd13905; lp_sh = 3'd3; end
-            7'd32: begin gain_q16 = 17'd14219; lp_sh = 3'd3; end
-            7'd33: begin gain_q16 = 17'd14540; lp_sh = 3'd3; end
-            7'd34: begin gain_q16 = 17'd14867; lp_sh = 3'd3; end
-            7'd35: begin gain_q16 = 17'd15199; lp_sh = 3'd3; end
-            7'd36: begin gain_q16 = 17'd15537; lp_sh = 3'd3; end
-            7'd37: begin gain_q16 = 17'd15881; lp_sh = 3'd3; end
-            7'd38: begin gain_q16 = 17'd16231; lp_sh = 3'd3; end
-            7'd39: begin gain_q16 = 17'd16586; lp_sh = 3'd3; end
-            7'd40: begin gain_q16 = 17'd16946; lp_sh = 3'd3; end
-            7'd41: begin gain_q16 = 17'd17312; lp_sh = 3'd3; end
-            7'd42: begin gain_q16 = 17'd17684; lp_sh = 3'd3; end
-            7'd43: begin gain_q16 = 17'd18060; lp_sh = 3'd3; end
-            7'd44: begin gain_q16 = 17'd18442; lp_sh = 3'd3; end
-            7'd45: begin gain_q16 = 17'd18830; lp_sh = 3'd3; end
-            7'd46: begin gain_q16 = 17'd19222; lp_sh = 3'd3; end
-            7'd47: begin gain_q16 = 17'd19620; lp_sh = 3'd3; end
-            7'd48: begin gain_q16 = 17'd20022; lp_sh = 3'd3; end
-            7'd49: begin gain_q16 = 17'd20430; lp_sh = 3'd3; end
-            7'd50: begin gain_q16 = 17'd20843; lp_sh = 3'd3; end
-            7'd51: begin gain_q16 = 17'd21261; lp_sh = 3'd3; end
-            7'd52: begin gain_q16 = 17'd21683; lp_sh = 3'd3; end
-            7'd53: begin gain_q16 = 17'd22111; lp_sh = 3'd3; end
-            7'd54: begin gain_q16 = 17'd22544; lp_sh = 3'd3; end
-            7'd55: begin gain_q16 = 17'd22981; lp_sh = 3'd3; end
-            7'd56: begin gain_q16 = 17'd23423; lp_sh = 3'd3; end
-            7'd57: begin gain_q16 = 17'd23870; lp_sh = 3'd3; end
-            7'd58: begin gain_q16 = 17'd24322; lp_sh = 3'd3; end
-            7'd59: begin gain_q16 = 17'd24778; lp_sh = 3'd3; end
-            7'd60: begin gain_q16 = 17'd25239; lp_sh = 3'd3; end
-            7'd61: begin gain_q16 = 17'd25705; lp_sh = 3'd3; end
-            7'd62: begin gain_q16 = 17'd26175; lp_sh = 3'd3; end
-            7'd63: begin gain_q16 = 17'd26650; lp_sh = 3'd3; end
-            7'd64: begin gain_q16 = 17'd27129; lp_sh = 3'd2; end
-            7'd65: begin gain_q16 = 17'd27613; lp_sh = 3'd2; end
-            7'd66: begin gain_q16 = 17'd28101; lp_sh = 3'd2; end
-            7'd67: begin gain_q16 = 17'd28594; lp_sh = 3'd2; end
-            7'd68: begin gain_q16 = 17'd29091; lp_sh = 3'd2; end
-            7'd69: begin gain_q16 = 17'd29593; lp_sh = 3'd2; end
-            7'd70: begin gain_q16 = 17'd30099; lp_sh = 3'd2; end
-            7'd71: begin gain_q16 = 17'd30610; lp_sh = 3'd2; end
-            7'd72: begin gain_q16 = 17'd31124; lp_sh = 3'd2; end
-            7'd73: begin gain_q16 = 17'd31643; lp_sh = 3'd2; end
-            7'd74: begin gain_q16 = 17'd32167; lp_sh = 3'd2; end
-            7'd75: begin gain_q16 = 17'd32694; lp_sh = 3'd2; end
-            7'd76: begin gain_q16 = 17'd33226; lp_sh = 3'd2; end
-            7'd77: begin gain_q16 = 17'd33762; lp_sh = 3'd2; end
-            7'd78: begin gain_q16 = 17'd34302; lp_sh = 3'd2; end
-            7'd79: begin gain_q16 = 17'd34847; lp_sh = 3'd2; end
-            7'd80: begin gain_q16 = 17'd35395; lp_sh = 3'd2; end
-            7'd81: begin gain_q16 = 17'd35948; lp_sh = 3'd2; end
-            7'd82: begin gain_q16 = 17'd36505; lp_sh = 3'd2; end
-            7'd83: begin gain_q16 = 17'd37066; lp_sh = 3'd2; end
-            7'd84: begin gain_q16 = 17'd37631; lp_sh = 3'd2; end
-            7'd85: begin gain_q16 = 17'd38200; lp_sh = 3'd2; end
-            7'd86: begin gain_q16 = 17'd38773; lp_sh = 3'd2; end
-            7'd87: begin gain_q16 = 17'd39350; lp_sh = 3'd2; end
-            7'd88: begin gain_q16 = 17'd39931; lp_sh = 3'd2; end
-            7'd89: begin gain_q16 = 17'd40516; lp_sh = 3'd2; end
-            7'd90: begin gain_q16 = 17'd41105; lp_sh = 3'd2; end
-            7'd91: begin gain_q16 = 17'd41698; lp_sh = 3'd2; end
-            7'd92: begin gain_q16 = 17'd42294; lp_sh = 3'd2; end
-            7'd93: begin gain_q16 = 17'd42895; lp_sh = 3'd2; end
-            7'd94: begin gain_q16 = 17'd43500; lp_sh = 3'd2; end
-            7'd95: begin gain_q16 = 17'd44108; lp_sh = 3'd2; end
-            7'd96: begin gain_q16 = 17'd44721; lp_sh = 3'd2; end
-            7'd97: begin gain_q16 = 17'd45337; lp_sh = 3'd2; end
-            7'd98: begin gain_q16 = 17'd45957; lp_sh = 3'd2; end
-            7'd99: begin gain_q16 = 17'd46581; lp_sh = 3'd2; end
-            7'd100: begin gain_q16 = 17'd47208; lp_sh = 3'd1; end
-            7'd101: begin gain_q16 = 17'd47840; lp_sh = 3'd1; end
-            7'd102: begin gain_q16 = 17'd48475; lp_sh = 3'd1; end
-            7'd103: begin gain_q16 = 17'd49114; lp_sh = 3'd1; end
-            7'd104: begin gain_q16 = 17'd49756; lp_sh = 3'd1; end
-            7'd105: begin gain_q16 = 17'd50403; lp_sh = 3'd1; end
-            7'd106: begin gain_q16 = 17'd51053; lp_sh = 3'd1; end
-            7'd107: begin gain_q16 = 17'd51706; lp_sh = 3'd1; end
-            7'd108: begin gain_q16 = 17'd52364; lp_sh = 3'd1; end
-            7'd109: begin gain_q16 = 17'd53025; lp_sh = 3'd1; end
-            7'd110: begin gain_q16 = 17'd53690; lp_sh = 3'd1; end
-            7'd111: begin gain_q16 = 17'd54358; lp_sh = 3'd1; end
-            7'd112: begin gain_q16 = 17'd55030; lp_sh = 3'd1; end
-            7'd113: begin gain_q16 = 17'd55706; lp_sh = 3'd1; end
-            7'd114: begin gain_q16 = 17'd56385; lp_sh = 3'd1; end
-            7'd115: begin gain_q16 = 17'd57068; lp_sh = 3'd1; end
-            7'd116: begin gain_q16 = 17'd57754; lp_sh = 3'd1; end
-            7'd117: begin gain_q16 = 17'd58444; lp_sh = 3'd1; end
-            7'd118: begin gain_q16 = 17'd59137; lp_sh = 3'd1; end
-            7'd119: begin gain_q16 = 17'd59834; lp_sh = 3'd1; end
-            7'd120: begin gain_q16 = 17'd60535; lp_sh = 3'd1; end
-            7'd121: begin gain_q16 = 17'd61239; lp_sh = 3'd1; end
-            7'd122: begin gain_q16 = 17'd61946; lp_sh = 3'd1; end
-            7'd123: begin gain_q16 = 17'd62657; lp_sh = 3'd1; end
-            7'd124: begin gain_q16 = 17'd63372; lp_sh = 3'd1; end
-            7'd125: begin gain_q16 = 17'd64090; lp_sh = 3'd1; end
-            7'd126: begin gain_q16 = 17'd64811; lp_sh = 3'd1; end
-            7'd127: begin gain_q16 = 17'd65536; lp_sh = 3'd1; end
+        case ({inst, vel})
+            10'd0: begin gain_q16 = 17'd7864; lp_sh = 3'd3; end
+            10'd1: begin gain_q16 = 17'd7889; lp_sh = 3'd3; end
+            10'd2: begin gain_q16 = 17'd7940; lp_sh = 3'd3; end
+            10'd3: begin gain_q16 = 17'd8008; lp_sh = 3'd3; end
+            10'd4: begin gain_q16 = 17'd8092; lp_sh = 3'd3; end
+            10'd5: begin gain_q16 = 17'd8190; lp_sh = 3'd3; end
+            10'd6: begin gain_q16 = 17'd8301; lp_sh = 3'd3; end
+            10'd7: begin gain_q16 = 17'd8423; lp_sh = 3'd3; end
+            10'd8: begin gain_q16 = 17'd8556; lp_sh = 3'd3; end
+            10'd9: begin gain_q16 = 17'd8699; lp_sh = 3'd3; end
+            10'd10: begin gain_q16 = 17'd8853; lp_sh = 3'd3; end
+            10'd11: begin gain_q16 = 17'd9015; lp_sh = 3'd3; end
+            10'd12: begin gain_q16 = 17'd9187; lp_sh = 3'd3; end
+            10'd13: begin gain_q16 = 17'd9368; lp_sh = 3'd3; end
+            10'd14: begin gain_q16 = 17'd9557; lp_sh = 3'd3; end
+            10'd15: begin gain_q16 = 17'd9755; lp_sh = 3'd3; end
+            10'd16: begin gain_q16 = 17'd9961; lp_sh = 3'd3; end
+            10'd17: begin gain_q16 = 17'd10174; lp_sh = 3'd3; end
+            10'd18: begin gain_q16 = 17'd10395; lp_sh = 3'd3; end
+            10'd19: begin gain_q16 = 17'd10624; lp_sh = 3'd3; end
+            10'd20: begin gain_q16 = 17'd10860; lp_sh = 3'd3; end
+            10'd21: begin gain_q16 = 17'd11103; lp_sh = 3'd3; end
+            10'd22: begin gain_q16 = 17'd11354; lp_sh = 3'd3; end
+            10'd23: begin gain_q16 = 17'd11611; lp_sh = 3'd3; end
+            10'd24: begin gain_q16 = 17'd11875; lp_sh = 3'd3; end
+            10'd25: begin gain_q16 = 17'd12146; lp_sh = 3'd3; end
+            10'd26: begin gain_q16 = 17'd12423; lp_sh = 3'd3; end
+            10'd27: begin gain_q16 = 17'd12707; lp_sh = 3'd3; end
+            10'd28: begin gain_q16 = 17'd12997; lp_sh = 3'd3; end
+            10'd29: begin gain_q16 = 17'd13293; lp_sh = 3'd3; end
+            10'd30: begin gain_q16 = 17'd13596; lp_sh = 3'd3; end
+            10'd31: begin gain_q16 = 17'd13905; lp_sh = 3'd3; end
+            10'd32: begin gain_q16 = 17'd14219; lp_sh = 3'd3; end
+            10'd33: begin gain_q16 = 17'd14540; lp_sh = 3'd3; end
+            10'd34: begin gain_q16 = 17'd14867; lp_sh = 3'd3; end
+            10'd35: begin gain_q16 = 17'd15199; lp_sh = 3'd3; end
+            10'd36: begin gain_q16 = 17'd15537; lp_sh = 3'd3; end
+            10'd37: begin gain_q16 = 17'd15881; lp_sh = 3'd3; end
+            10'd38: begin gain_q16 = 17'd16231; lp_sh = 3'd3; end
+            10'd39: begin gain_q16 = 17'd16586; lp_sh = 3'd3; end
+            10'd40: begin gain_q16 = 17'd16946; lp_sh = 3'd3; end
+            10'd41: begin gain_q16 = 17'd17312; lp_sh = 3'd3; end
+            10'd42: begin gain_q16 = 17'd17684; lp_sh = 3'd3; end
+            10'd43: begin gain_q16 = 17'd18060; lp_sh = 3'd3; end
+            10'd44: begin gain_q16 = 17'd18442; lp_sh = 3'd3; end
+            10'd45: begin gain_q16 = 17'd18830; lp_sh = 3'd3; end
+            10'd46: begin gain_q16 = 17'd19222; lp_sh = 3'd3; end
+            10'd47: begin gain_q16 = 17'd19620; lp_sh = 3'd3; end
+            10'd48: begin gain_q16 = 17'd20022; lp_sh = 3'd3; end
+            10'd49: begin gain_q16 = 17'd20430; lp_sh = 3'd3; end
+            10'd50: begin gain_q16 = 17'd20843; lp_sh = 3'd3; end
+            10'd51: begin gain_q16 = 17'd21261; lp_sh = 3'd3; end
+            10'd52: begin gain_q16 = 17'd21683; lp_sh = 3'd3; end
+            10'd53: begin gain_q16 = 17'd22111; lp_sh = 3'd3; end
+            10'd54: begin gain_q16 = 17'd22544; lp_sh = 3'd3; end
+            10'd55: begin gain_q16 = 17'd22981; lp_sh = 3'd3; end
+            10'd56: begin gain_q16 = 17'd23423; lp_sh = 3'd3; end
+            10'd57: begin gain_q16 = 17'd23870; lp_sh = 3'd3; end
+            10'd58: begin gain_q16 = 17'd24322; lp_sh = 3'd3; end
+            10'd59: begin gain_q16 = 17'd24778; lp_sh = 3'd3; end
+            10'd60: begin gain_q16 = 17'd25239; lp_sh = 3'd3; end
+            10'd61: begin gain_q16 = 17'd25705; lp_sh = 3'd3; end
+            10'd62: begin gain_q16 = 17'd26175; lp_sh = 3'd3; end
+            10'd63: begin gain_q16 = 17'd26650; lp_sh = 3'd3; end
+            10'd64: begin gain_q16 = 17'd27129; lp_sh = 3'd2; end
+            10'd65: begin gain_q16 = 17'd27613; lp_sh = 3'd2; end
+            10'd66: begin gain_q16 = 17'd28101; lp_sh = 3'd2; end
+            10'd67: begin gain_q16 = 17'd28594; lp_sh = 3'd2; end
+            10'd68: begin gain_q16 = 17'd29091; lp_sh = 3'd2; end
+            10'd69: begin gain_q16 = 17'd29593; lp_sh = 3'd2; end
+            10'd70: begin gain_q16 = 17'd30099; lp_sh = 3'd2; end
+            10'd71: begin gain_q16 = 17'd30610; lp_sh = 3'd2; end
+            10'd72: begin gain_q16 = 17'd31124; lp_sh = 3'd2; end
+            10'd73: begin gain_q16 = 17'd31643; lp_sh = 3'd2; end
+            10'd74: begin gain_q16 = 17'd32167; lp_sh = 3'd2; end
+            10'd75: begin gain_q16 = 17'd32694; lp_sh = 3'd2; end
+            10'd76: begin gain_q16 = 17'd33226; lp_sh = 3'd2; end
+            10'd77: begin gain_q16 = 17'd33762; lp_sh = 3'd2; end
+            10'd78: begin gain_q16 = 17'd34302; lp_sh = 3'd2; end
+            10'd79: begin gain_q16 = 17'd34847; lp_sh = 3'd2; end
+            10'd80: begin gain_q16 = 17'd35395; lp_sh = 3'd2; end
+            10'd81: begin gain_q16 = 17'd35948; lp_sh = 3'd2; end
+            10'd82: begin gain_q16 = 17'd36505; lp_sh = 3'd2; end
+            10'd83: begin gain_q16 = 17'd37066; lp_sh = 3'd2; end
+            10'd84: begin gain_q16 = 17'd37631; lp_sh = 3'd2; end
+            10'd85: begin gain_q16 = 17'd38200; lp_sh = 3'd2; end
+            10'd86: begin gain_q16 = 17'd38773; lp_sh = 3'd2; end
+            10'd87: begin gain_q16 = 17'd39350; lp_sh = 3'd2; end
+            10'd88: begin gain_q16 = 17'd39931; lp_sh = 3'd2; end
+            10'd89: begin gain_q16 = 17'd40516; lp_sh = 3'd2; end
+            10'd90: begin gain_q16 = 17'd41105; lp_sh = 3'd2; end
+            10'd91: begin gain_q16 = 17'd41698; lp_sh = 3'd2; end
+            10'd92: begin gain_q16 = 17'd42294; lp_sh = 3'd2; end
+            10'd93: begin gain_q16 = 17'd42895; lp_sh = 3'd2; end
+            10'd94: begin gain_q16 = 17'd43500; lp_sh = 3'd2; end
+            10'd95: begin gain_q16 = 17'd44108; lp_sh = 3'd2; end
+            10'd96: begin gain_q16 = 17'd44721; lp_sh = 3'd2; end
+            10'd97: begin gain_q16 = 17'd45337; lp_sh = 3'd2; end
+            10'd98: begin gain_q16 = 17'd45957; lp_sh = 3'd2; end
+            10'd99: begin gain_q16 = 17'd46581; lp_sh = 3'd2; end
+            10'd100: begin gain_q16 = 17'd47208; lp_sh = 3'd1; end
+            10'd101: begin gain_q16 = 17'd47840; lp_sh = 3'd1; end
+            10'd102: begin gain_q16 = 17'd48475; lp_sh = 3'd1; end
+            10'd103: begin gain_q16 = 17'd49114; lp_sh = 3'd1; end
+            10'd104: begin gain_q16 = 17'd49756; lp_sh = 3'd1; end
+            10'd105: begin gain_q16 = 17'd50403; lp_sh = 3'd1; end
+            10'd106: begin gain_q16 = 17'd51053; lp_sh = 3'd1; end
+            10'd107: begin gain_q16 = 17'd51706; lp_sh = 3'd1; end
+            10'd108: begin gain_q16 = 17'd52364; lp_sh = 3'd1; end
+            10'd109: begin gain_q16 = 17'd53025; lp_sh = 3'd1; end
+            10'd110: begin gain_q16 = 17'd53690; lp_sh = 3'd1; end
+            10'd111: begin gain_q16 = 17'd54358; lp_sh = 3'd1; end
+            10'd112: begin gain_q16 = 17'd55030; lp_sh = 3'd1; end
+            10'd113: begin gain_q16 = 17'd55706; lp_sh = 3'd1; end
+            10'd114: begin gain_q16 = 17'd56385; lp_sh = 3'd1; end
+            10'd115: begin gain_q16 = 17'd57068; lp_sh = 3'd1; end
+            10'd116: begin gain_q16 = 17'd57754; lp_sh = 3'd1; end
+            10'd117: begin gain_q16 = 17'd58444; lp_sh = 3'd1; end
+            10'd118: begin gain_q16 = 17'd59137; lp_sh = 3'd1; end
+            10'd119: begin gain_q16 = 17'd59834; lp_sh = 3'd1; end
+            10'd120: begin gain_q16 = 17'd60535; lp_sh = 3'd1; end
+            10'd121: begin gain_q16 = 17'd61239; lp_sh = 3'd1; end
+            10'd122: begin gain_q16 = 17'd61946; lp_sh = 3'd1; end
+            10'd123: begin gain_q16 = 17'd62657; lp_sh = 3'd1; end
+            10'd124: begin gain_q16 = 17'd63372; lp_sh = 3'd1; end
+            10'd125: begin gain_q16 = 17'd64090; lp_sh = 3'd1; end
+            10'd126: begin gain_q16 = 17'd64811; lp_sh = 3'd1; end
+            10'd127: begin gain_q16 = 17'd65536; lp_sh = 3'd1; end
+            10'd128: begin gain_q16 = 17'd7864; lp_sh = 3'd2; end
+            10'd129: begin gain_q16 = 17'd7889; lp_sh = 3'd2; end
+            10'd130: begin gain_q16 = 17'd7940; lp_sh = 3'd2; end
+            10'd131: begin gain_q16 = 17'd8008; lp_sh = 3'd2; end
+            10'd132: begin gain_q16 = 17'd8092; lp_sh = 3'd2; end
+            10'd133: begin gain_q16 = 17'd8190; lp_sh = 3'd2; end
+            10'd134: begin gain_q16 = 17'd8301; lp_sh = 3'd2; end
+            10'd135: begin gain_q16 = 17'd8423; lp_sh = 3'd2; end
+            10'd136: begin gain_q16 = 17'd8556; lp_sh = 3'd2; end
+            10'd137: begin gain_q16 = 17'd8699; lp_sh = 3'd2; end
+            10'd138: begin gain_q16 = 17'd8853; lp_sh = 3'd2; end
+            10'd139: begin gain_q16 = 17'd9015; lp_sh = 3'd2; end
+            10'd140: begin gain_q16 = 17'd9187; lp_sh = 3'd2; end
+            10'd141: begin gain_q16 = 17'd9368; lp_sh = 3'd2; end
+            10'd142: begin gain_q16 = 17'd9557; lp_sh = 3'd2; end
+            10'd143: begin gain_q16 = 17'd9755; lp_sh = 3'd2; end
+            10'd144: begin gain_q16 = 17'd9961; lp_sh = 3'd2; end
+            10'd145: begin gain_q16 = 17'd10174; lp_sh = 3'd2; end
+            10'd146: begin gain_q16 = 17'd10395; lp_sh = 3'd2; end
+            10'd147: begin gain_q16 = 17'd10624; lp_sh = 3'd2; end
+            10'd148: begin gain_q16 = 17'd10860; lp_sh = 3'd2; end
+            10'd149: begin gain_q16 = 17'd11103; lp_sh = 3'd2; end
+            10'd150: begin gain_q16 = 17'd11354; lp_sh = 3'd2; end
+            10'd151: begin gain_q16 = 17'd11611; lp_sh = 3'd2; end
+            10'd152: begin gain_q16 = 17'd11875; lp_sh = 3'd2; end
+            10'd153: begin gain_q16 = 17'd12146; lp_sh = 3'd2; end
+            10'd154: begin gain_q16 = 17'd12423; lp_sh = 3'd2; end
+            10'd155: begin gain_q16 = 17'd12707; lp_sh = 3'd2; end
+            10'd156: begin gain_q16 = 17'd12997; lp_sh = 3'd2; end
+            10'd157: begin gain_q16 = 17'd13293; lp_sh = 3'd2; end
+            10'd158: begin gain_q16 = 17'd13596; lp_sh = 3'd2; end
+            10'd159: begin gain_q16 = 17'd13905; lp_sh = 3'd2; end
+            10'd160: begin gain_q16 = 17'd14219; lp_sh = 3'd2; end
+            10'd161: begin gain_q16 = 17'd14540; lp_sh = 3'd2; end
+            10'd162: begin gain_q16 = 17'd14867; lp_sh = 3'd2; end
+            10'd163: begin gain_q16 = 17'd15199; lp_sh = 3'd2; end
+            10'd164: begin gain_q16 = 17'd15537; lp_sh = 3'd2; end
+            10'd165: begin gain_q16 = 17'd15881; lp_sh = 3'd2; end
+            10'd166: begin gain_q16 = 17'd16231; lp_sh = 3'd2; end
+            10'd167: begin gain_q16 = 17'd16586; lp_sh = 3'd2; end
+            10'd168: begin gain_q16 = 17'd16946; lp_sh = 3'd2; end
+            10'd169: begin gain_q16 = 17'd17312; lp_sh = 3'd2; end
+            10'd170: begin gain_q16 = 17'd17684; lp_sh = 3'd2; end
+            10'd171: begin gain_q16 = 17'd18060; lp_sh = 3'd2; end
+            10'd172: begin gain_q16 = 17'd18442; lp_sh = 3'd2; end
+            10'd173: begin gain_q16 = 17'd18830; lp_sh = 3'd2; end
+            10'd174: begin gain_q16 = 17'd19222; lp_sh = 3'd2; end
+            10'd175: begin gain_q16 = 17'd19620; lp_sh = 3'd2; end
+            10'd176: begin gain_q16 = 17'd20022; lp_sh = 3'd2; end
+            10'd177: begin gain_q16 = 17'd20430; lp_sh = 3'd2; end
+            10'd178: begin gain_q16 = 17'd20843; lp_sh = 3'd2; end
+            10'd179: begin gain_q16 = 17'd21261; lp_sh = 3'd2; end
+            10'd180: begin gain_q16 = 17'd21683; lp_sh = 3'd2; end
+            10'd181: begin gain_q16 = 17'd22111; lp_sh = 3'd2; end
+            10'd182: begin gain_q16 = 17'd22544; lp_sh = 3'd2; end
+            10'd183: begin gain_q16 = 17'd22981; lp_sh = 3'd2; end
+            10'd184: begin gain_q16 = 17'd23423; lp_sh = 3'd2; end
+            10'd185: begin gain_q16 = 17'd23870; lp_sh = 3'd2; end
+            10'd186: begin gain_q16 = 17'd24322; lp_sh = 3'd2; end
+            10'd187: begin gain_q16 = 17'd24778; lp_sh = 3'd2; end
+            10'd188: begin gain_q16 = 17'd25239; lp_sh = 3'd2; end
+            10'd189: begin gain_q16 = 17'd25705; lp_sh = 3'd2; end
+            10'd190: begin gain_q16 = 17'd26175; lp_sh = 3'd2; end
+            10'd191: begin gain_q16 = 17'd26650; lp_sh = 3'd2; end
+            10'd192: begin gain_q16 = 17'd27129; lp_sh = 3'd1; end
+            10'd193: begin gain_q16 = 17'd27613; lp_sh = 3'd1; end
+            10'd194: begin gain_q16 = 17'd28101; lp_sh = 3'd1; end
+            10'd195: begin gain_q16 = 17'd28594; lp_sh = 3'd1; end
+            10'd196: begin gain_q16 = 17'd29091; lp_sh = 3'd1; end
+            10'd197: begin gain_q16 = 17'd29593; lp_sh = 3'd1; end
+            10'd198: begin gain_q16 = 17'd30099; lp_sh = 3'd1; end
+            10'd199: begin gain_q16 = 17'd30610; lp_sh = 3'd1; end
+            10'd200: begin gain_q16 = 17'd31124; lp_sh = 3'd1; end
+            10'd201: begin gain_q16 = 17'd31643; lp_sh = 3'd1; end
+            10'd202: begin gain_q16 = 17'd32167; lp_sh = 3'd1; end
+            10'd203: begin gain_q16 = 17'd32694; lp_sh = 3'd1; end
+            10'd204: begin gain_q16 = 17'd33226; lp_sh = 3'd1; end
+            10'd205: begin gain_q16 = 17'd33762; lp_sh = 3'd1; end
+            10'd206: begin gain_q16 = 17'd34302; lp_sh = 3'd1; end
+            10'd207: begin gain_q16 = 17'd34847; lp_sh = 3'd1; end
+            10'd208: begin gain_q16 = 17'd35395; lp_sh = 3'd1; end
+            10'd209: begin gain_q16 = 17'd35948; lp_sh = 3'd1; end
+            10'd210: begin gain_q16 = 17'd36505; lp_sh = 3'd1; end
+            10'd211: begin gain_q16 = 17'd37066; lp_sh = 3'd1; end
+            10'd212: begin gain_q16 = 17'd37631; lp_sh = 3'd1; end
+            10'd213: begin gain_q16 = 17'd38200; lp_sh = 3'd1; end
+            10'd214: begin gain_q16 = 17'd38773; lp_sh = 3'd1; end
+            10'd215: begin gain_q16 = 17'd39350; lp_sh = 3'd1; end
+            10'd216: begin gain_q16 = 17'd39931; lp_sh = 3'd1; end
+            10'd217: begin gain_q16 = 17'd40516; lp_sh = 3'd1; end
+            10'd218: begin gain_q16 = 17'd41105; lp_sh = 3'd1; end
+            10'd219: begin gain_q16 = 17'd41698; lp_sh = 3'd1; end
+            10'd220: begin gain_q16 = 17'd42294; lp_sh = 3'd1; end
+            10'd221: begin gain_q16 = 17'd42895; lp_sh = 3'd1; end
+            10'd222: begin gain_q16 = 17'd43500; lp_sh = 3'd1; end
+            10'd223: begin gain_q16 = 17'd44108; lp_sh = 3'd1; end
+            10'd224: begin gain_q16 = 17'd44721; lp_sh = 3'd1; end
+            10'd225: begin gain_q16 = 17'd45337; lp_sh = 3'd1; end
+            10'd226: begin gain_q16 = 17'd45957; lp_sh = 3'd1; end
+            10'd227: begin gain_q16 = 17'd46581; lp_sh = 3'd1; end
+            10'd228: begin gain_q16 = 17'd47208; lp_sh = 3'd0; end
+            10'd229: begin gain_q16 = 17'd47840; lp_sh = 3'd0; end
+            10'd230: begin gain_q16 = 17'd48475; lp_sh = 3'd0; end
+            10'd231: begin gain_q16 = 17'd49114; lp_sh = 3'd0; end
+            10'd232: begin gain_q16 = 17'd49756; lp_sh = 3'd0; end
+            10'd233: begin gain_q16 = 17'd50403; lp_sh = 3'd0; end
+            10'd234: begin gain_q16 = 17'd51053; lp_sh = 3'd0; end
+            10'd235: begin gain_q16 = 17'd51706; lp_sh = 3'd0; end
+            10'd236: begin gain_q16 = 17'd52364; lp_sh = 3'd0; end
+            10'd237: begin gain_q16 = 17'd53025; lp_sh = 3'd0; end
+            10'd238: begin gain_q16 = 17'd53690; lp_sh = 3'd0; end
+            10'd239: begin gain_q16 = 17'd54358; lp_sh = 3'd0; end
+            10'd240: begin gain_q16 = 17'd55030; lp_sh = 3'd0; end
+            10'd241: begin gain_q16 = 17'd55706; lp_sh = 3'd0; end
+            10'd242: begin gain_q16 = 17'd56385; lp_sh = 3'd0; end
+            10'd243: begin gain_q16 = 17'd57068; lp_sh = 3'd0; end
+            10'd244: begin gain_q16 = 17'd57754; lp_sh = 3'd0; end
+            10'd245: begin gain_q16 = 17'd58444; lp_sh = 3'd0; end
+            10'd246: begin gain_q16 = 17'd59137; lp_sh = 3'd0; end
+            10'd247: begin gain_q16 = 17'd59834; lp_sh = 3'd0; end
+            10'd248: begin gain_q16 = 17'd60535; lp_sh = 3'd0; end
+            10'd249: begin gain_q16 = 17'd61239; lp_sh = 3'd0; end
+            10'd250: begin gain_q16 = 17'd61946; lp_sh = 3'd0; end
+            10'd251: begin gain_q16 = 17'd62657; lp_sh = 3'd0; end
+            10'd252: begin gain_q16 = 17'd63372; lp_sh = 3'd0; end
+            10'd253: begin gain_q16 = 17'd64090; lp_sh = 3'd0; end
+            10'd254: begin gain_q16 = 17'd64811; lp_sh = 3'd0; end
+            10'd255: begin gain_q16 = 17'd65536; lp_sh = 3'd0; end
+            10'd256: begin gain_q16 = 17'd7864; lp_sh = 3'd3; end
+            10'd257: begin gain_q16 = 17'd7889; lp_sh = 3'd3; end
+            10'd258: begin gain_q16 = 17'd7940; lp_sh = 3'd3; end
+            10'd259: begin gain_q16 = 17'd8008; lp_sh = 3'd3; end
+            10'd260: begin gain_q16 = 17'd8092; lp_sh = 3'd3; end
+            10'd261: begin gain_q16 = 17'd8190; lp_sh = 3'd3; end
+            10'd262: begin gain_q16 = 17'd8301; lp_sh = 3'd3; end
+            10'd263: begin gain_q16 = 17'd8423; lp_sh = 3'd3; end
+            10'd264: begin gain_q16 = 17'd8556; lp_sh = 3'd3; end
+            10'd265: begin gain_q16 = 17'd8699; lp_sh = 3'd3; end
+            10'd266: begin gain_q16 = 17'd8853; lp_sh = 3'd3; end
+            10'd267: begin gain_q16 = 17'd9015; lp_sh = 3'd3; end
+            10'd268: begin gain_q16 = 17'd9187; lp_sh = 3'd3; end
+            10'd269: begin gain_q16 = 17'd9368; lp_sh = 3'd3; end
+            10'd270: begin gain_q16 = 17'd9557; lp_sh = 3'd3; end
+            10'd271: begin gain_q16 = 17'd9755; lp_sh = 3'd3; end
+            10'd272: begin gain_q16 = 17'd9961; lp_sh = 3'd3; end
+            10'd273: begin gain_q16 = 17'd10174; lp_sh = 3'd3; end
+            10'd274: begin gain_q16 = 17'd10395; lp_sh = 3'd3; end
+            10'd275: begin gain_q16 = 17'd10624; lp_sh = 3'd3; end
+            10'd276: begin gain_q16 = 17'd10860; lp_sh = 3'd3; end
+            10'd277: begin gain_q16 = 17'd11103; lp_sh = 3'd3; end
+            10'd278: begin gain_q16 = 17'd11354; lp_sh = 3'd3; end
+            10'd279: begin gain_q16 = 17'd11611; lp_sh = 3'd3; end
+            10'd280: begin gain_q16 = 17'd11875; lp_sh = 3'd3; end
+            10'd281: begin gain_q16 = 17'd12146; lp_sh = 3'd3; end
+            10'd282: begin gain_q16 = 17'd12423; lp_sh = 3'd3; end
+            10'd283: begin gain_q16 = 17'd12707; lp_sh = 3'd3; end
+            10'd284: begin gain_q16 = 17'd12997; lp_sh = 3'd3; end
+            10'd285: begin gain_q16 = 17'd13293; lp_sh = 3'd3; end
+            10'd286: begin gain_q16 = 17'd13596; lp_sh = 3'd3; end
+            10'd287: begin gain_q16 = 17'd13905; lp_sh = 3'd3; end
+            10'd288: begin gain_q16 = 17'd14219; lp_sh = 3'd3; end
+            10'd289: begin gain_q16 = 17'd14540; lp_sh = 3'd3; end
+            10'd290: begin gain_q16 = 17'd14867; lp_sh = 3'd3; end
+            10'd291: begin gain_q16 = 17'd15199; lp_sh = 3'd3; end
+            10'd292: begin gain_q16 = 17'd15537; lp_sh = 3'd3; end
+            10'd293: begin gain_q16 = 17'd15881; lp_sh = 3'd3; end
+            10'd294: begin gain_q16 = 17'd16231; lp_sh = 3'd3; end
+            10'd295: begin gain_q16 = 17'd16586; lp_sh = 3'd3; end
+            10'd296: begin gain_q16 = 17'd16946; lp_sh = 3'd3; end
+            10'd297: begin gain_q16 = 17'd17312; lp_sh = 3'd3; end
+            10'd298: begin gain_q16 = 17'd17684; lp_sh = 3'd3; end
+            10'd299: begin gain_q16 = 17'd18060; lp_sh = 3'd3; end
+            10'd300: begin gain_q16 = 17'd18442; lp_sh = 3'd3; end
+            10'd301: begin gain_q16 = 17'd18830; lp_sh = 3'd3; end
+            10'd302: begin gain_q16 = 17'd19222; lp_sh = 3'd3; end
+            10'd303: begin gain_q16 = 17'd19620; lp_sh = 3'd3; end
+            10'd304: begin gain_q16 = 17'd20022; lp_sh = 3'd3; end
+            10'd305: begin gain_q16 = 17'd20430; lp_sh = 3'd3; end
+            10'd306: begin gain_q16 = 17'd20843; lp_sh = 3'd3; end
+            10'd307: begin gain_q16 = 17'd21261; lp_sh = 3'd3; end
+            10'd308: begin gain_q16 = 17'd21683; lp_sh = 3'd3; end
+            10'd309: begin gain_q16 = 17'd22111; lp_sh = 3'd3; end
+            10'd310: begin gain_q16 = 17'd22544; lp_sh = 3'd3; end
+            10'd311: begin gain_q16 = 17'd22981; lp_sh = 3'd3; end
+            10'd312: begin gain_q16 = 17'd23423; lp_sh = 3'd3; end
+            10'd313: begin gain_q16 = 17'd23870; lp_sh = 3'd3; end
+            10'd314: begin gain_q16 = 17'd24322; lp_sh = 3'd3; end
+            10'd315: begin gain_q16 = 17'd24778; lp_sh = 3'd3; end
+            10'd316: begin gain_q16 = 17'd25239; lp_sh = 3'd3; end
+            10'd317: begin gain_q16 = 17'd25705; lp_sh = 3'd3; end
+            10'd318: begin gain_q16 = 17'd26175; lp_sh = 3'd3; end
+            10'd319: begin gain_q16 = 17'd26650; lp_sh = 3'd3; end
+            10'd320: begin gain_q16 = 17'd27129; lp_sh = 3'd2; end
+            10'd321: begin gain_q16 = 17'd27613; lp_sh = 3'd2; end
+            10'd322: begin gain_q16 = 17'd28101; lp_sh = 3'd2; end
+            10'd323: begin gain_q16 = 17'd28594; lp_sh = 3'd2; end
+            10'd324: begin gain_q16 = 17'd29091; lp_sh = 3'd2; end
+            10'd325: begin gain_q16 = 17'd29593; lp_sh = 3'd2; end
+            10'd326: begin gain_q16 = 17'd30099; lp_sh = 3'd2; end
+            10'd327: begin gain_q16 = 17'd30610; lp_sh = 3'd2; end
+            10'd328: begin gain_q16 = 17'd31124; lp_sh = 3'd2; end
+            10'd329: begin gain_q16 = 17'd31643; lp_sh = 3'd2; end
+            10'd330: begin gain_q16 = 17'd32167; lp_sh = 3'd2; end
+            10'd331: begin gain_q16 = 17'd32694; lp_sh = 3'd2; end
+            10'd332: begin gain_q16 = 17'd33226; lp_sh = 3'd2; end
+            10'd333: begin gain_q16 = 17'd33762; lp_sh = 3'd2; end
+            10'd334: begin gain_q16 = 17'd34302; lp_sh = 3'd2; end
+            10'd335: begin gain_q16 = 17'd34847; lp_sh = 3'd2; end
+            10'd336: begin gain_q16 = 17'd35395; lp_sh = 3'd2; end
+            10'd337: begin gain_q16 = 17'd35948; lp_sh = 3'd2; end
+            10'd338: begin gain_q16 = 17'd36505; lp_sh = 3'd2; end
+            10'd339: begin gain_q16 = 17'd37066; lp_sh = 3'd2; end
+            10'd340: begin gain_q16 = 17'd37631; lp_sh = 3'd2; end
+            10'd341: begin gain_q16 = 17'd38200; lp_sh = 3'd2; end
+            10'd342: begin gain_q16 = 17'd38773; lp_sh = 3'd2; end
+            10'd343: begin gain_q16 = 17'd39350; lp_sh = 3'd2; end
+            10'd344: begin gain_q16 = 17'd39931; lp_sh = 3'd2; end
+            10'd345: begin gain_q16 = 17'd40516; lp_sh = 3'd2; end
+            10'd346: begin gain_q16 = 17'd41105; lp_sh = 3'd2; end
+            10'd347: begin gain_q16 = 17'd41698; lp_sh = 3'd2; end
+            10'd348: begin gain_q16 = 17'd42294; lp_sh = 3'd2; end
+            10'd349: begin gain_q16 = 17'd42895; lp_sh = 3'd2; end
+            10'd350: begin gain_q16 = 17'd43500; lp_sh = 3'd2; end
+            10'd351: begin gain_q16 = 17'd44108; lp_sh = 3'd2; end
+            10'd352: begin gain_q16 = 17'd44721; lp_sh = 3'd2; end
+            10'd353: begin gain_q16 = 17'd45337; lp_sh = 3'd2; end
+            10'd354: begin gain_q16 = 17'd45957; lp_sh = 3'd2; end
+            10'd355: begin gain_q16 = 17'd46581; lp_sh = 3'd2; end
+            10'd356: begin gain_q16 = 17'd47208; lp_sh = 3'd1; end
+            10'd357: begin gain_q16 = 17'd47840; lp_sh = 3'd1; end
+            10'd358: begin gain_q16 = 17'd48475; lp_sh = 3'd1; end
+            10'd359: begin gain_q16 = 17'd49114; lp_sh = 3'd1; end
+            10'd360: begin gain_q16 = 17'd49756; lp_sh = 3'd1; end
+            10'd361: begin gain_q16 = 17'd50403; lp_sh = 3'd1; end
+            10'd362: begin gain_q16 = 17'd51053; lp_sh = 3'd1; end
+            10'd363: begin gain_q16 = 17'd51706; lp_sh = 3'd1; end
+            10'd364: begin gain_q16 = 17'd52364; lp_sh = 3'd1; end
+            10'd365: begin gain_q16 = 17'd53025; lp_sh = 3'd1; end
+            10'd366: begin gain_q16 = 17'd53690; lp_sh = 3'd1; end
+            10'd367: begin gain_q16 = 17'd54358; lp_sh = 3'd1; end
+            10'd368: begin gain_q16 = 17'd55030; lp_sh = 3'd1; end
+            10'd369: begin gain_q16 = 17'd55706; lp_sh = 3'd1; end
+            10'd370: begin gain_q16 = 17'd56385; lp_sh = 3'd1; end
+            10'd371: begin gain_q16 = 17'd57068; lp_sh = 3'd1; end
+            10'd372: begin gain_q16 = 17'd57754; lp_sh = 3'd1; end
+            10'd373: begin gain_q16 = 17'd58444; lp_sh = 3'd1; end
+            10'd374: begin gain_q16 = 17'd59137; lp_sh = 3'd1; end
+            10'd375: begin gain_q16 = 17'd59834; lp_sh = 3'd1; end
+            10'd376: begin gain_q16 = 17'd60535; lp_sh = 3'd1; end
+            10'd377: begin gain_q16 = 17'd61239; lp_sh = 3'd1; end
+            10'd378: begin gain_q16 = 17'd61946; lp_sh = 3'd1; end
+            10'd379: begin gain_q16 = 17'd62657; lp_sh = 3'd1; end
+            10'd380: begin gain_q16 = 17'd63372; lp_sh = 3'd1; end
+            10'd381: begin gain_q16 = 17'd64090; lp_sh = 3'd1; end
+            10'd382: begin gain_q16 = 17'd64811; lp_sh = 3'd1; end
+            10'd383: begin gain_q16 = 17'd65536; lp_sh = 3'd1; end
             default: begin gain_q16 = 17'd7864; lp_sh = 3'd3; end
         endcase
     end
@@ -424,6 +681,8 @@ endmodule
 // -----------------------------------------------------------------------------
 module piano_partial_lut (
     input  wire [2:0]  n,
+    input  wire [2:0]  band,
+    input  wire [1:0]  inst,          // 0=钢琴 1=电吉他 2=古筝
     output reg  [16:0] amp_q16,
     output reg  [15:0] k_q12,
     output reg  [4:0]  s_ring,
@@ -432,18 +691,82 @@ module piano_partial_lut (
     output reg  [4:0]  st2
 );
 
+    //  ⚠️ amp/k/st1/st2 随乐器变；**s_ring/s_damp 三个乐器给同一组值**
+    //     —— 因为它们在声部里是【常量索引查表 ⇒ 综合时折叠成常数移位】，
+    //        一旦随乐器变就会在每采样路径长出桶形移位器（MODE=1 裕量只有 +0.009 ns）。
+    //        乐器的衰减差异改由 ksh_ofs（piano_inst_lut）表达。
     always @(*) begin
-        case (n)
-            3'd0: begin amp_q16 = 17'd27594; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd13; st2 = 5'd14; end
-            3'd1: begin amp_q16 = 17'd8278; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd10; st2 = 5'd11; end
-            3'd2: begin amp_q16 = 17'd3311; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd8; st2 = 5'd9; end
-            3'd3: begin amp_q16 = 17'd1380; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd7; st2 = 5'd8; end
-            3'd4: begin amp_q16 = 17'd552; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd6; st2 = 5'd7; end
-            3'd5: begin amp_q16 = 17'd276; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd5; st2 = 5'd6; end
+        case ({inst, band, n})
+            8'd0: begin amp_q16 = 17'd27594; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd13; st2 = 5'd14; end
+            8'd1: begin amp_q16 = 17'd8278; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd10; st2 = 5'd11; end
+            8'd2: begin amp_q16 = 17'd3311; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd8; st2 = 5'd9; end
+            8'd3: begin amp_q16 = 17'd1380; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd7; st2 = 5'd8; end
+            8'd4: begin amp_q16 = 17'd552; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd6; st2 = 5'd7; end
+            8'd5: begin amp_q16 = 17'd276; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd5; st2 = 5'd6; end
+            8'd64: begin amp_q16 = 17'd8685; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd15; st2 = 5'd16; end
+            8'd65: begin amp_q16 = 17'd6709; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd12; st2 = 5'd13; end
+            8'd66: begin amp_q16 = 17'd5451; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
+            8'd67: begin amp_q16 = 17'd4409; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd9; st2 = 5'd10; end
+            8'd68: begin amp_q16 = 17'd3468; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd8; st2 = 5'd9; end
+            8'd69: begin amp_q16 = 17'd2603; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
+            8'd128: begin amp_q16 = 17'd503; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
+            8'd129: begin amp_q16 = 17'd11896; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
+            8'd130: begin amp_q16 = 17'd9101; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
+            8'd131: begin amp_q16 = 17'd3608; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
+            8'd132: begin amp_q16 = 17'd98; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
+            8'd133: begin amp_q16 = 17'd26; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
+            8'd136: begin amp_q16 = 17'd3185; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
+            8'd137: begin amp_q16 = 17'd9702; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
+            8'd138: begin amp_q16 = 17'd10603; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
+            8'd139: begin amp_q16 = 17'd4572; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
+            8'd140: begin amp_q16 = 17'd92; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
+            8'd141: begin amp_q16 = 17'd11; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
+            8'd144: begin amp_q16 = 17'd3893; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
+            8'd145: begin amp_q16 = 17'd7377; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
+            8'd146: begin amp_q16 = 17'd11988; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
+            8'd147: begin amp_q16 = 17'd4932; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
+            8'd148: begin amp_q16 = 17'd28; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
+            8'd149: begin amp_q16 = 17'd7; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
+            8'd152: begin amp_q16 = 17'd4258; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
+            8'd153: begin amp_q16 = 17'd8494; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
+            8'd154: begin amp_q16 = 17'd12063; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
+            8'd155: begin amp_q16 = 17'd1350; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
+            8'd156: begin amp_q16 = 17'd24; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
+            8'd157: begin amp_q16 = 17'd11; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
+            8'd160: begin amp_q16 = 17'd4257; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
+            8'd161: begin amp_q16 = 17'd9339; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
+            8'd162: begin amp_q16 = 17'd11483; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
+            8'd163: begin amp_q16 = 17'd646; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
+            8'd164: begin amp_q16 = 17'd34; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
+            8'd165: begin amp_q16 = 17'd12; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
             default: begin
                 amp_q16 = 17'd0; k_q12 = 16'd0;
                 s_ring = 5'd18; s_damp = 5'd13; st1 = 5'd31; st2 = 5'd31;
             end
+        endcase
+    end
+
+endmodule
+
+// -----------------------------------------------------------------------------
+//  piano_inst_lut —— 乐器级参数（2026-10-06 多乐器）
+//    ham_gain_q16 : 激励（琴槌/拨片/指甲）的初始能量。钢琴 = 原来的 HAM_GAIN_Q16 = 19661
+//    ksh_ofs      : 包络更新速率的乐器偏移（2 bit 编码：0→−1, 1→0, 2→+1）
+//                   ⇒ 古筝 +1（木共鸣箱衰减更长）、吉他 −1（本体短，延音靠音箱）
+//  ⚠️ 钢琴行必须与原值逐位相同（回归要求）
+// -----------------------------------------------------------------------------
+module piano_inst_lut (
+    input  wire [1:0]  inst,
+    output reg  [16:0] ham_gain_q16,
+    output reg  [1:0]  ksh_ofs_enc
+);
+
+    always @(*) begin
+        case (inst)
+            2'd0: begin ham_gain_q16 = 17'd19661; ksh_ofs_enc = 2'd1; end // piano
+            2'd1: begin ham_gain_q16 = 17'd24000; ksh_ofs_enc = 2'd0; end // guitar
+            2'd2: begin ham_gain_q16 = 17'd12000; ksh_ofs_enc = 2'd1; end // erhu
+            default: begin ham_gain_q16 = 17'd19661; ksh_ofs_enc = 2'd1; end
         endcase
     end
 

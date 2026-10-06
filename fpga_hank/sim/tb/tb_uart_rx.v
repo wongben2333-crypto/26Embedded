@@ -42,6 +42,8 @@ module tb_uart_rx;
     wire       on_valid;  wire [6:0] on_note;  wire [6:0] on_vel;
     wire       off_valid; wire [6:0] off_note;
     wire       cc_valid;  wire       reset_all;
+    // ★ 通用 CC 直通（2026-10-06 新增）
+    wire [6:0] cc_num;    wire [6:0] cc_val;   wire cc_any_valid;
     wire       glide_on;  wire [6:0] glide_time;
     wire       vib_on;    wire [6:0] vib_depth;  wire [6:0] vib_rate;
     wire       sustain;
@@ -68,7 +70,9 @@ module tb_uart_rx;
         .cc_valid(cc_valid), .reset_all(reset_all),
         .glide_on(glide_on), .glide_time(glide_time),
         .vib_on(vib_on), .vib_depth(vib_depth), .vib_rate(vib_rate),
-        .sustain(sustain)
+        .sustain(sustain),
+        // ★ 通用 CC 直通（2026-10-06）：**任何** CC 都原样暴露（CC20 乐器 / CC21 挂电 …）
+        .cc_num(cc_num), .cc_val(cc_val), .cc_any_valid(cc_any_valid)
     );
 
     // ---- 事件捕获 ----
@@ -76,6 +80,16 @@ module tb_uart_rx;
     integer off_cnt = 0;
     integer bcnt    = 0;
     integer cc_cnt  = 0;
+    // ★ 通用 CC 直通捕获（2026-10-06 新增）
+    integer   cc_any_cnt = 0;
+    reg [6:0] cap_cc_num = 7'd0, cap_cc_val = 7'd0;
+    always @(posedge clk) begin
+        if (cc_any_valid) begin
+            cc_any_cnt <= cc_any_cnt + 1;
+            cap_cc_num <= cc_num;
+            cap_cc_val <= cc_val;
+        end
+    end
     integer rst_cnt = 0;
     reg [6:0] cap_on_note0, cap_on_vel0, cap_on_note1;
     reg [6:0] cap_off_note;
@@ -152,6 +166,7 @@ module tb_uart_rx;
     task clear_caps;
         begin
             on_cnt = 0; off_cnt = 0; bcnt = 0; cc_cnt = 0; rst_cnt = 0;
+            cc_any_cnt = 0; cap_cc_num = 7'd0; cap_cc_val = 7'd0;   // ★ 通用直通
             sweep_cnt = 0; sweep_mono = 1'b1; sweep_min = 8'hFF; sweep_max = 8'h00;
             inj_hit_sweep = 1'b0;
         end
@@ -386,6 +401,58 @@ module tb_uart_rx;
         $display("[INFO] case16c inject@beat126 on_cnt=%0d note=0x%02h hit_sweep=%0d", r_on, r_note, r_hit);
         chk(r_hit == 1,                   "16e injection landed inside sweep window (tail)");
         chk(r_on == 1 && r_note == 7'h45, "16f NoteOn parsed inside sweep (beat 126)");
+
+        // ================= case 17: ★ 通用 CC 直通（2026-10-06 新增）=================
+        //  为什么加：CC20（乐器）/ CC21（挂电）在原有 8 个表情端口里**没有**
+        //  ⇒ 会被静默丢弃 ⇒ 用户切 F2/F3 音色永远不变。直通通道把它们原样交给 top.v。
+        clear_caps;
+        send_byte(8'hB0); send_byte(8'd20); send_byte(8'd1);      // CC20 = 1（吉他）
+        repeat (DIV) @(posedge clk);
+        chk(cc_any_cnt == 1,              "17a CC20 触发 cc_any_valid 一拍");
+        chk(cap_cc_num == 7'd20 && cap_cc_val == 7'd1,
+                                          "17b CC20 直通：cc_num=20 cc_val=1（原样）");
+        chk(cc_cnt == 0,                  "17c CC20 不触发旧的 cc_valid（未在 8 端口内）");
+        chk(sustain == 1'b0 && glide_on == 1'b0, "17d CC20 不影响既有表情端口");
+
+        clear_caps;
+        send_byte(8'hB0); send_byte(8'd21); send_byte(8'd100);    // CC21 = 100（挂电）
+        repeat (DIV) @(posedge clk);
+        chk(cap_cc_num == 7'd21 && cap_cc_val == 7'd100,
+                                          "17e CC21 直通：cc_num=21 cc_val=100（挂电）");
+
+        clear_caps;
+        send_byte(8'hB0); send_byte(8'd22); send_byte(8'd64);     // CC22 合唱
+        repeat (DIV) @(posedge clk);
+        chk(cap_cc_num == 7'd22 && cap_cc_val == 7'd64, "17f CC22 直通（合唱）");
+        clear_caps;
+        send_byte(8'hB0); send_byte(8'd23); send_byte(8'd32);     // CC23 延迟
+        repeat (DIV) @(posedge clk);
+        chk(cap_cc_num == 7'd23 && cap_cc_val == 7'd32, "17g CC23 直通（延迟）");
+        clear_caps;
+        send_byte(8'hB0); send_byte(8'd24); send_byte(8'd127);    // CC24 混响
+        repeat (DIV) @(posedge clk);
+        chk(cap_cc_num == 7'd24 && cap_cc_val == 7'd127, "17h CC24 直通（混响）");
+        chk(cc_cnt == 0,                  "17i CC22~24 也不触发旧 cc_valid（行为不变）");
+
+        clear_caps;
+        send_byte(8'hB0); send_byte(8'd74); send_byte(8'd55);     // 未支持 CC（Brightness）
+        repeat (DIV) @(posedge clk);
+        chk(cc_any_cnt == 1 && cap_cc_num == 7'd74 && cap_cc_val == 7'd55,
+                                          "17j ★**未支持**的 CC 也原样直通（直通的意义所在）");
+        chk(cc_cnt == 0,                  "17k 未支持 CC 仍不触发旧 cc_valid（不回归）");
+
+        clear_caps;
+        send_byte(8'hB0); send_byte(8'd64); send_byte(8'd127);    // 已支持的 CC64
+        repeat (DIV) @(posedge clk);
+        chk(sustain == 1'b1,              "17l 既有 CC64 语义端口照旧（sustain=1）");
+        chk(cc_any_cnt == 1 && cap_cc_num == 7'd64 && cap_cc_val == 7'd127,
+                                          "17m 已支持的 CC **同时**走直通（两路并存，互不干扰）");
+
+        clear_caps;
+        send_byte(8'hB0); send_byte(8'd21); send_byte(8'd127);
+        repeat (DIV) @(posedge clk);
+        chk(cap_cc_val == 7'd127,         "17n CC21=127 原样透传（传输层不换算、不夹位）");
+        chk(cc_any_cnt == 1,              "17o 每个 CC 恰好打一拍（不重复、不丢）");
 
         // ---------- summary ----------
         $display("================================================================");

@@ -42,7 +42,7 @@ module tb_phase_sweep;
         // ⚠️ 表情输入必须显式接 0：不接就是 Z，而本设计表情通路是电平敏感的，
         //    Z 会让 pmod_act=x → 相位增量 x → 正弦 ROM 落到 default 分支输出 0 ⇒ 静音。
         .glide_on(1'b0), .glide_time(7'd0), .vib_on(1'b0),
-        .vib_depth(7'd0), .vib_rate(7'd0), .sustain(1'b0),
+        .vib_depth(7'd0), .vib_rate(7'd0), .inst_sel(2'd0), .sustain(1'b0),
         .mix_out(mix), .active(active));
 
     integer p, i, ok, bad, firstbad;

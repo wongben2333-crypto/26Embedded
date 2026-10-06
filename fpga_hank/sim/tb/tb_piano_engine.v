@@ -97,7 +97,7 @@ module tb_piano_engine;
         .vib_on      (vib_on),
         .vib_depth   (vib_depth),
         .vib_rate    (vib_rate),
-        .sustain     (sustain),
+        .inst_sel(2'd0), .sustain(sustain),
         .mix_out     (mix_out),
         .active      (active)
     );

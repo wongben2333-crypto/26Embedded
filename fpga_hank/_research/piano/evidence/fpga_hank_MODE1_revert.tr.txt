@@ -1,0 +1,3113 @@
+//Copyright (C)2014-2026 Gowin Semiconductor Corporation.
+//All rights reserved.
+
+INTRODUCTION:
+The document contains two main sections: Timing Report Directory and Core Timing Report.
+
+============================================================
+Note:Timing Report Directory
+
+1. Timing Message
+2. Timing Summaries
+	2.1 STA Tool Run Summary
+	2.2 Clock Summary
+	2.3 Max Frequency Summary
+	2.4 Total Negative Slack Summary
+3. Timing Details
+	3.1 Path Slacks Table
+		3.1.1 Setup Paths Table
+		3.1.2 Hold Paths Table
+		3.1.3 Recovery Paths Table
+		3.1.4 Removal Paths Table
+	3.2 Minimum Pulse Width Table
+	3.3 Timing Report By Analysis Type
+		3.3.1 Setup Analysis Report
+		3.3.2 Hold Analysis Report
+		3.3.3 Recovery Analysis Report
+		3.3.4 Removal Analysis Report
+	3.4 Minimum Pulse Width Report
+	3.5 High Fanout Nets Report
+	3.6 Route Congestions Report
+	3.7 Timing Exceptions Report
+		3.7.1 Setup Analysis Report
+		3.7.2 Hold Analysis Report
+		3.7.3 Recovery Analysis Report
+		3.7.4 Recovery Analysis Report
+	3.8 Timing Constraints Report
+
+============================================================
+
+Note:Core Timing Report
+
+1. Timing Messages
+<Report Title>: Timing Analysis Report
+<Design File>: C:\Users\Danny\Desktop\FPGA competition\fpga_hank\eda_proj\fpga_hank\impl\gwsynthesis\fpga_hank.vg
+<Physical Constraints File>: C:\Users\Danny\Desktop\FPGA competition\fpga_hank\constr\fpga_hank.cst
+<Timing Constraints File>: C:\Users\Danny\Desktop\FPGA competition\fpga_hank\constr\fpga_hank.sdc
+<Tool Version>: V1.9.12.04 (64-bit)
+<Part Number>: GW5AST-LV138PG484AC1/I0
+<Device>: GW5AST-138
+<Device Version>: C
+<Created Time>: Tue Oct  6 17:34:14 2026
+
+
+2. Timing Summaries
+2.1 STA Tool Run Summary
+<Setup Delay Model>:Slow 0.873V 0C C1/I0
+<Hold Delay Model>:Fast 0.927V 85C C1/I0
+<Numbers of Paths Analyzed>:36744
+<Numbers of Endpoints Analyzed>:37689
+<Numbers of Falling Endpoints>:0
+<Numbers of Setup Violated Endpoints>:0
+<Numbers of Hold Violated Endpoints>:0
+
+2.2 Clock Summary
+  NO.   Clock Name   Type   Period   Frequency   Rise     Fall    Source   Master   Objects  
+ ===== ============ ====== ======== =========== ======= ======== ======== ======== ========= 
+  1     clk          Base   20.000   50.000MHz   0.000   10.000                     clk      
+
+2.3 Max Frequency Summary
+  NO.   Clock Name   Constraint    Actual Fmax   Level   Entity  
+ ===== ============ ============= ============= ======= ======== 
+  1     clk          50.000(MHz)   50.376(MHz)   8       TOP     
+
+2.4 Total Negative Slack Summary
+  Clock Name   Analysis Type   EndPoints TNS   Number of EndPoints  
+ ============ =============== =============== ===================== 
+  clk          setup           0.000           0                    
+  clk          hold            0.000           0                    
+
+
+3. Timing Details
+3.1 Path Slacks Table
+3.1.1 Setup Paths Table
+<Report Command>:report_timing -setup -max_paths 25 -max_common_paths 1
+  Path Number   Path Slack                         From Node                                             To Node                      From Clock   To Clock   Relation   Clock Skew   Data Delay  
+ ============= ============ ======================================================== =============================================== ============ ========== ========== ============ ============ 
+  1             0.149        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_18_s0/RESET   clk:[R]      clk:[R]    20.000     0.007        19.509      
+  2             0.149        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_19_s0/RESET   clk:[R]      clk:[R]    20.000     0.007        19.509      
+  3             0.149        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_20_s0/RESET   clk:[R]      clk:[R]    20.000     0.007        19.509      
+  4             0.149        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_21_s0/RESET   clk:[R]      clk:[R]    20.000     0.007        19.509      
+  5             0.149        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_22_s0/RESET   clk:[R]      clk:[R]    20.000     0.007        19.509      
+  6             0.149        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_23_s0/RESET   clk:[R]      clk:[R]    20.000     0.007        19.509      
+  7             0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_0_s0/RESET    clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  8             0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_1_s0/RESET    clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  9             0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_2_s0/RESET    clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  10            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_3_s0/RESET    clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  11            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_4_s0/RESET    clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  12            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_5_s0/RESET    clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  13            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_12_s0/RESET   clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  14            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_13_s0/RESET   clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  15            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_14_s0/RESET   clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  16            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_15_s0/RESET   clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  17            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_16_s0/RESET   clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  18            0.166        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_17_s0/RESET   clk:[R]      clk:[R]    20.000     -0.002       19.500      
+  19            0.183        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_6_s0/RESET    clk:[R]      clk:[R]    20.000     -0.010       19.492      
+  20            0.183        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_7_s0/RESET    clk:[R]      clk:[R]    20.000     -0.010       19.492      
+  21            0.183        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_8_s0/RESET    clk:[R]      clk:[R]    20.000     -0.010       19.492      
+  22            0.183        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_9_s0/RESET    clk:[R]      clk:[R]    20.000     -0.010       19.492      
+  23            0.183        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_10_s0/RESET   clk:[R]      clk:[R]    20.000     -0.010       19.492      
+  24            0.183        u_piano/g_voice[5].u_voice/gate_r_s0/Q                   u_piano/g_voice[3].u_voice/lfo_ph_11_s0/RESET   clk:[R]      clk:[R]    20.000     -0.010       19.492      
+  25            0.208        u_piano/g_voice[3].u_voice/env_env_RAMREG_0_G[92]_s0/Q   u_piano/mix_out_13_s0/D                         clk:[R]      clk:[R]    20.000     0.031        19.704      
+
+3.1.2 Hold Paths Table
+<Report Command>:report_timing -hold -max_paths 25 -max_common_paths 1
+  Path Number   Path Slack                        From Node                                               To Node                          From Clock   To Clock   Relation   Clock Skew   Data Delay  
+ ============= ============ ====================================================== ====================================================== ============ ========== ========== ============ ============ 
+  1             0.192        u_piano/g_voice[0].u_voice/lfo_ph_24_s0/Q              u_piano/g_voice[0].u_voice/u_lfo/lfo_cos_1_s/AD[4]     clk:[R]      clk:[R]    0.000      0.005        0.219       
+  2             0.247        u_fx/clr_cnt_0_s1/Q                                    u_fx/clr_cnt_0_s1/D                                    clk:[R]      clk:[R]    0.000      0.000        0.270       
+  3             0.247        u_piano/g_voice[7].u_voice/lfsr_0_s0/Q                 u_piano/g_voice[7].u_voice/lfsr_0_s0/D                 clk:[R]      clk:[R]    0.000      0.000        0.270       
+  4             0.247        u_piano/g_voice[6].u_voice/lfsr_0_s0/Q                 u_piano/g_voice[6].u_voice/lfsr_0_s0/D                 clk:[R]      clk:[R]    0.000      0.000        0.270       
+  5             0.247        u_piano/g_voice[4].u_voice/lfsr_0_s0/Q                 u_piano/g_voice[4].u_voice/lfsr_0_s0/D                 clk:[R]      clk:[R]    0.000      0.000        0.270       
+  6             0.247        u_piano/g_voice[2].u_voice/lfsr_0_s0/Q                 u_piano/g_voice[2].u_voice/lfsr_0_s0/D                 clk:[R]      clk:[R]    0.000      0.000        0.270       
+  7             0.247        u_piano/g_voice[1].u_voice/lfsr_0_s0/Q                 u_piano/g_voice[1].u_voice/lfsr_0_s0/D                 clk:[R]      clk:[R]    0.000      0.000        0.270       
+  8             0.247        u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0/Q   u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0/D   clk:[R]      clk:[R]    0.000      0.000        0.270       
+  9             0.247        u_piano/g_voice[0].u_voice/lfsr_0_s0/Q                 u_piano/g_voice[0].u_voice/lfsr_0_s0/D                 clk:[R]      clk:[R]    0.000      0.000        0.270       
+  10            0.247        u_midi/sweep_idx_6_s3/Q                                u_midi/sweep_idx_6_s3/D                                clk:[R]      clk:[R]    0.000      0.000        0.270       
+  11            0.247        u_midi/sweep_idx_7_s1/Q                                u_midi/sweep_idx_7_s1/D                                clk:[R]      clk:[R]    0.000      0.000        0.270       
+  12            0.247        u_uart/cnt_1_s3/Q                                      u_uart/cnt_1_s3/D                                      clk:[R]      clk:[R]    0.000      0.000        0.270       
+  13            0.247        u_uart/cnt_9_s3/Q                                      u_uart/cnt_9_s3/D                                      clk:[R]      clk:[R]    0.000      0.000        0.270       
+  14            0.247        u_uart/cnt_10_s3/Q                                     u_uart/cnt_10_s3/D                                     clk:[R]      clk:[R]    0.000      0.000        0.270       
+  15            0.250        u_midi/sweep_idx_1_s3/Q                                u_midi/sweep_idx_1_s3/D                                clk:[R]      clk:[R]    0.000      0.000        0.273       
+  16            0.250        u_uart/cnt_0_s3/Q                                      u_uart/cnt_0_s3/D                                      clk:[R]      clk:[R]    0.000      0.000        0.273       
+  17            0.250        u_dac/bc_cnt_1_s1/Q                                    u_dac/bc_cnt_1_s1/D                                    clk:[R]      clk:[R]    0.000      0.000        0.273       
+  18            0.250        u_dac/bc_cnt_8_s0/Q                                    u_dac/bc_cnt_8_s0/D                                    clk:[R]      clk:[R]    0.000      0.000        0.273       
+  19            0.250        u_dac/cnt_0_s0/Q                                       u_dac/cnt_0_s0/D                                       clk:[R]      clk:[R]    0.000      0.000        0.273       
+  20            0.250        fx_sel_user_0_s1/Q                                     fx_sel_user_0_s1/D                                     clk:[R]      clk:[R]    0.000      0.000        0.273       
+  21            0.250        k2_db_s1/Q                                             k2_db_s1/D                                             clk:[R]      clk:[R]    0.000      0.000        0.273       
+  22            0.253        u_piano/ld_busy_s2/Q                                   u_piano/ld_busy_s2/D                                   clk:[R]      clk:[R]    0.000      0.000        0.275       
+  23            0.253        u_midi/sweep_idx_0_s3/Q                                u_midi/sweep_idx_0_s3/D                                clk:[R]      clk:[R]    0.000      0.000        0.275       
+  24            0.253        u_midi/wstate_1_s2/Q                                   u_midi/wstate_1_s2/D                                   clk:[R]      clk:[R]    0.000      0.000        0.275       
+  25            0.253        u_dac/bc_cnt_6_s0/Q                                    u_dac/bc_cnt_6_s0/D                                    clk:[R]      clk:[R]    0.000      0.000        0.275       
+
+3.1.3 Recovery Paths Table
+<Report Command>:report_timing -recovery -max_paths 25 -max_common_paths 1
+Nothing to report!
+3.1.4 Removal Paths Table
+<Report Command>:report_timing -removal -max_paths 25 -max_common_paths 1
+Nothing to report!
+3.2 Minimum Pulse Width Table
+Report Command:report_min_pulse_width -nworst 10 -detail
+  Number   Slack   Actual Width   Required Width        Type         Clock                             Objects                            
+ ======== ======= ============== ================ ================= ======= ============================================================= 
+  1        6.594   7.494          0.900            Low Pulse Width   clk     u_piano/g_voice[0].u_voice/lfo_inc_0_s38                     
+  2        6.594   7.494          0.900            Low Pulse Width   clk     u_piano/g_voice[4].u_voice/u_lfo/lfo_cos_1_s                 
+  3        6.594   7.494          0.900            Low Pulse Width   clk     u_piano/g_voice[2].u_voice/u_lfo/lfo_cos_1_s                 
+  4        6.594   7.494          0.900            Low Pulse Width   clk     u_piano/g_voice[7].u_voice/g_part[1].u_sin/g_part[1].sd_0_s  
+  5        6.594   7.494          0.900            Low Pulse Width   clk     u_fx/u_echo/mem_mem_0_12_s                                   
+  6        6.594   7.494          0.900            Low Pulse Width   clk     u_fx/u_c2/mem_mem_0_1_s                                      
+  7        6.594   7.494          0.900            Low Pulse Width   clk     u_fx/u_c2/mem_mem_0_3_s                                      
+  8        6.594   7.494          0.900            Low Pulse Width   clk     u_fx/u_c3/mem_mem_0_0_s                                      
+  9        6.594   7.494          0.900            Low Pulse Width   clk     u_fx/u_c3/mem_mem_0_1_s                                      
+  10       6.594   7.494          0.900            Low Pulse Width   clk     u_fx/u_c3/mem_mem_0_3_s                                      
+
+3.3 Timing Report By Analysis Type
+3.3.1 Setup Analysis Report
+Report Command:report_timing -setup -max_paths 25 -max_common_paths 1
+						Path1						
+Path Summary:
+Slack             : 0.149
+Data Arrival Time : 24.966
+Data Required Time: 25.115
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_18_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.966   3.018   tNET   RR   1        R41C126[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_18_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.451   4.836    tNET   RR   1        R41C126[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_18_s0/CLK  
+  25.115   -0.335   tSu         1        R41C126[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_18_s0      
+
+Path Statistics:
+Clock Skew: -0.007
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.591%, 
+                    route: 15.928 81.645%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.269%, 
+                     route: 4.836 88.731%)
+
+						Path2						
+Path Summary:
+Slack             : 0.149
+Data Arrival Time : 24.966
+Data Required Time: 25.115
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_19_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.966   3.018   tNET   RR   1        R41C126[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_19_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.451   4.836    tNET   RR   1        R41C126[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_19_s0/CLK  
+  25.115   -0.335   tSu         1        R41C126[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_19_s0      
+
+Path Statistics:
+Clock Skew: -0.007
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.591%, 
+                    route: 15.928 81.645%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.269%, 
+                     route: 4.836 88.731%)
+
+						Path3						
+Path Summary:
+Slack             : 0.149
+Data Arrival Time : 24.966
+Data Required Time: 25.115
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_20_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.966   3.018   tNET   RR   1        R41C126[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_20_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.451   4.836    tNET   RR   1        R41C126[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_20_s0/CLK  
+  25.115   -0.335   tSu         1        R41C126[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_20_s0      
+
+Path Statistics:
+Clock Skew: -0.007
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.591%, 
+                    route: 15.928 81.645%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.269%, 
+                     route: 4.836 88.731%)
+
+						Path4						
+Path Summary:
+Slack             : 0.149
+Data Arrival Time : 24.966
+Data Required Time: 25.115
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_21_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.966   3.018   tNET   RR   1        R41C126[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_21_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.451   4.836    tNET   RR   1        R41C126[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_21_s0/CLK  
+  25.115   -0.335   tSu         1        R41C126[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_21_s0      
+
+Path Statistics:
+Clock Skew: -0.007
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.591%, 
+                    route: 15.928 81.645%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.269%, 
+                     route: 4.836 88.731%)
+
+						Path5						
+Path Summary:
+Slack             : 0.149
+Data Arrival Time : 24.966
+Data Required Time: 25.115
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_22_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.966   3.018   tNET   RR   1        R41C126[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_22_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.451   4.836    tNET   RR   1        R41C126[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_22_s0/CLK  
+  25.115   -0.335   tSu         1        R41C126[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_22_s0      
+
+Path Statistics:
+Clock Skew: -0.007
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.591%, 
+                    route: 15.928 81.645%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.269%, 
+                     route: 4.836 88.731%)
+
+						Path6						
+Path Summary:
+Slack             : 0.149
+Data Arrival Time : 24.966
+Data Required Time: 25.115
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_23_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.966   3.018   tNET   RR   1        R41C126[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_23_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.451   4.836    tNET   RR   1        R41C126[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_23_s0/CLK  
+  25.115   -0.335   tSu         1        R41C126[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_23_s0      
+
+Path Statistics:
+Clock Skew: -0.007
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.591%, 
+                    route: 15.928 81.645%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.269%, 
+                     route: 4.836 88.731%)
+
+						Path7						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_0_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.958   3.010   tNET   RR   1        R41C123[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_0_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.459   4.845    tNET   RR   1        R41C123[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_0_s0/CLK  
+  25.124   -0.335   tSu         1        R41C123[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_0_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path8						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_1_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.958   3.010   tNET   RR   1        R41C123[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_1_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.459   4.845    tNET   RR   1        R41C123[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_1_s0/CLK  
+  25.124   -0.335   tSu         1        R41C123[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_1_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path9						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_2_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.958   3.010   tNET   RR   1        R41C123[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_2_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.459   4.845    tNET   RR   1        R41C123[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_2_s0/CLK  
+  25.124   -0.335   tSu         1        R41C123[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_2_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path10						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_3_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.958   3.010   tNET   RR   1        R41C123[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_3_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.459   4.845    tNET   RR   1        R41C123[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_3_s0/CLK  
+  25.124   -0.335   tSu         1        R41C123[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_3_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path11						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_4_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.958   3.010   tNET   RR   1        R41C123[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_4_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.459   4.845    tNET   RR   1        R41C123[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_4_s0/CLK  
+  25.124   -0.335   tSu         1        R41C123[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_4_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path12						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_5_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.958   3.010   tNET   RR   1        R41C123[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_5_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.459   4.845    tNET   RR   1        R41C123[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_5_s0/CLK  
+  25.124   -0.335   tSu         1        R41C123[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_5_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path13						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_12_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.958   3.010   tNET   RR   1        R41C125[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_12_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.459   4.845    tNET   RR   1        R41C125[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_12_s0/CLK  
+  25.124   -0.335   tSu         1        R41C125[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_12_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path14						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_13_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.958   3.010   tNET   RR   1        R41C125[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_13_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.459   4.845    tNET   RR   1        R41C125[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_13_s0/CLK  
+  25.124   -0.335   tSu         1        R41C125[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_13_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path15						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_14_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.958   3.010   tNET   RR   1        R41C125[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_14_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.459   4.845    tNET   RR   1        R41C125[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_14_s0/CLK  
+  25.124   -0.335   tSu         1        R41C125[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_14_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path16						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_15_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.958   3.010   tNET   RR   1        R41C125[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_15_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.459   4.845    tNET   RR   1        R41C125[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_15_s0/CLK  
+  25.124   -0.335   tSu         1        R41C125[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_15_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path17						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_16_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.958   3.010   tNET   RR   1        R41C125[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_16_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.459   4.845    tNET   RR   1        R41C125[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_16_s0/CLK  
+  25.124   -0.335   tSu         1        R41C125[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_16_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path18						
+Path Summary:
+Slack             : 0.166
+Data Arrival Time : 24.958
+Data Required Time: 25.124
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_17_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.958   3.010   tNET   RR   1        R41C125[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_17_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.459   4.845    tNET   RR   1        R41C125[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_17_s0/CLK  
+  25.124   -0.335   tSu         1        R41C125[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_17_s0      
+
+Path Statistics:
+Clock Skew: 0.002
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.598%, 
+                    route: 15.919 81.637%, 
+                    tC2Q: 0.344 1.765%)
+Required Clock Path Delay: (cell: 0.614 11.252%, 
+                     route: 4.845 88.748%)
+
+						Path19						
+Path Summary:
+Slack             : 0.183
+Data Arrival Time : 24.949
+Data Required Time: 25.132
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_6_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.949   3.002   tNET   RR   1        R41C124[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_6_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.467   4.853    tNET   RR   1        R41C124[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_6_s0/CLK  
+  25.132   -0.335   tSu         1        R41C124[0][A]   u_piano/g_voice[3].u_voice/lfo_ph_6_s0      
+
+Path Statistics:
+Clock Skew: 0.010
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.605%, 
+                    route: 15.911 81.629%, 
+                    tC2Q: 0.344 1.766%)
+Required Clock Path Delay: (cell: 0.614 11.235%, 
+                     route: 4.853 88.765%)
+
+						Path20						
+Path Summary:
+Slack             : 0.183
+Data Arrival Time : 24.949
+Data Required Time: 25.132
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_7_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.949   3.002   tNET   RR   1        R41C124[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_7_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.467   4.853    tNET   RR   1        R41C124[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_7_s0/CLK  
+  25.132   -0.335   tSu         1        R41C124[0][B]   u_piano/g_voice[3].u_voice/lfo_ph_7_s0      
+
+Path Statistics:
+Clock Skew: 0.010
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.605%, 
+                    route: 15.911 81.629%, 
+                    tC2Q: 0.344 1.766%)
+Required Clock Path Delay: (cell: 0.614 11.235%, 
+                     route: 4.853 88.765%)
+
+						Path21						
+Path Summary:
+Slack             : 0.183
+Data Arrival Time : 24.949
+Data Required Time: 25.132
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_8_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.949   3.002   tNET   RR   1        R41C124[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_8_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.467   4.853    tNET   RR   1        R41C124[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_8_s0/CLK  
+  25.132   -0.335   tSu         1        R41C124[1][A]   u_piano/g_voice[3].u_voice/lfo_ph_8_s0      
+
+Path Statistics:
+Clock Skew: 0.010
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.605%, 
+                    route: 15.911 81.629%, 
+                    tC2Q: 0.344 1.766%)
+Required Clock Path Delay: (cell: 0.614 11.235%, 
+                     route: 4.853 88.765%)
+
+						Path22						
+Path Summary:
+Slack             : 0.183
+Data Arrival Time : 24.949
+Data Required Time: 25.132
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_9_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                      
+ ======== ======= ====== ==== ======== =============== ============================================== 
+  0.000    0.000                                        active clock edge time                        
+  0.000    0.000                                        clk                                           
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                    
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                    
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK      
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q        
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                 
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                  
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                 
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                  
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                           
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                            
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                  
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                   
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                  
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                   
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                  
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                   
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1       
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F        
+  24.949   3.002   tNET   RR   1        R41C124[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_9_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                     
+ ======== ======== ====== ==== ======== =============== ============================================ 
+  20.000   20.000                                        active clock edge time                      
+  20.000   0.000                                         clk                                         
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                  
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                  
+  25.467   4.853    tNET   RR   1        R41C124[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_9_s0/CLK  
+  25.132   -0.335   tSu         1        R41C124[1][B]   u_piano/g_voice[3].u_voice/lfo_ph_9_s0      
+
+Path Statistics:
+Clock Skew: 0.010
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.605%, 
+                    route: 15.911 81.629%, 
+                    tC2Q: 0.344 1.766%)
+Required Clock Path Delay: (cell: 0.614 11.235%, 
+                     route: 4.853 88.765%)
+
+						Path23						
+Path Summary:
+Slack             : 0.183
+Data Arrival Time : 24.949
+Data Required Time: 25.132
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_10_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.949   3.002   tNET   RR   1        R41C124[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_10_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.467   4.853    tNET   RR   1        R41C124[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_10_s0/CLK  
+  25.132   -0.335   tSu         1        R41C124[2][A]   u_piano/g_voice[3].u_voice/lfo_ph_10_s0      
+
+Path Statistics:
+Clock Skew: 0.010
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.605%, 
+                    route: 15.911 81.629%, 
+                    tC2Q: 0.344 1.766%)
+Required Clock Path Delay: (cell: 0.614 11.235%, 
+                     route: 4.853 88.765%)
+
+						Path24						
+Path Summary:
+Slack             : 0.183
+Data Arrival Time : 24.949
+Data Required Time: 25.132
+From              : u_piano/g_voice[5].u_voice/gate_r_s0
+To                : u_piano/g_voice[3].u_voice/lfo_ph_11_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                            NODE                       
+ ======== ======= ====== ==== ======== =============== =============================================== 
+  0.000    0.000                                        active clock edge time                         
+  0.000    0.000                                        clk                                            
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                     
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                     
+  5.457    4.843   tNET   RR   1        R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/CLK       
+  5.802    0.344   tC2Q   RR   14       R74C126[0][A]   u_piano/g_voice[5].u_voice/gate_r_s0/Q         
+  10.099   4.297   tNET   RR   1        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/I3                  
+  10.610   0.511   tINS   RR   2        R48C47[0][A]    u_piano/on_pulse_sel_5_s18/F                   
+  10.767   0.157   tNET   RR   1        R49C47[2][B]    u_piano/on_pulse_sel_5_s13/I2                  
+  11.224   0.457   tINS   RR   11       R49C47[2][B]    u_piano/on_pulse_sel_5_s13/F                   
+  12.361   1.137   tNET   RR   1        R48C66[0][A]    u_piano/n533_s24/I0                            
+  12.882   0.521   tINS   RR   5        R48C66[0][A]    u_piano/n533_s24/F                             
+  13.862   0.980   tNET   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/I3                   
+  14.373   0.511   tINS   RR   1        R49C48[1][B]    u_piano/on_pulse_sel_3_s9/F                    
+  16.319   1.946   tNET   RR   1        R49C87[2][A]    u_piano/on_pulse_sel_3_s4/I1                   
+  16.840   0.521   tINS   RR   36       R49C87[2][A]    u_piano/on_pulse_sel_3_s4/F                    
+  21.071   4.231   tNET   RR   1        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/I0                   
+  21.528   0.457   tINS   RR   3        R31C144[2][B]   u_piano/on_pulse_sel_3_s1/F                    
+  21.688   0.160   tNET   RR   1        R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/I1        
+  21.948   0.260   tINS   RR   82       R31C143[2][B]   u_piano/g_voice[3].u_voice/n11059_s1/F         
+  24.949   3.002   tNET   RR   1        R41C124[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_11_s0/RESET  
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT        LOC                           NODE                      
+ ======== ======== ====== ==== ======== =============== ============================================= 
+  20.000   20.000                                        active clock edge time                       
+  20.000   0.000                                         clk                                          
+  20.000   0.000    tCL    RR   1        IOB104[B]       clk_ibuf/I                                   
+  20.614   0.614    tINS   RR   10844    IOB104[B]       clk_ibuf/O                                   
+  25.467   4.853    tNET   RR   1        R41C124[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_11_s0/CLK  
+  25.132   -0.335   tSu         1        R41C124[2][B]   u_piano/g_voice[3].u_voice/lfo_ph_11_s0      
+
+Path Statistics:
+Clock Skew: 0.010
+Setup Relationship: 20.000
+Logic Level: 8
+Arrival Clock Path delay: (cell: 0.614 11.255%, 
+                     route: 4.843 88.745%)
+Arrival Data Path Delay: (cell: 3.237 16.605%, 
+                    route: 15.911 81.629%, 
+                    tC2Q: 0.344 1.766%)
+Required Clock Path Delay: (cell: 0.614 11.235%, 
+                     route: 4.853 88.765%)
+
+						Path25						
+Path Summary:
+Slack             : 0.208
+Data Arrival Time : 25.145
+Data Required Time: 25.353
+From              : u_piano/g_voice[3].u_voice/env_env_RAMREG_0_G[92]_s0
+To                : u_piano/mix_out_13_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+    AT     DELAY   TYPE   RF   FANOUT        LOC                                  NODE                            
+ ======== ======= ====== ==== ======== =============== ========================================================== 
+  0.000    0.000                                        active clock edge time                                    
+  0.000    0.000                                        clk                                                       
+  0.000    0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                                
+  0.614    0.614   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                                
+  5.442    4.827   tNET   RR   1        R35C140[1][B]   u_piano/g_voice[3].u_voice/env_env_RAMREG_0_G[92]_s0/CLK  
+  5.786    0.344   tC2Q   RR   6        R35C140[1][B]   u_piano/g_voice[3].u_voice/env_env_RAMREG_0_G[92]_s0/Q    
+  6.136    0.350   tNET   RR   1        R36C141[3][B]   u_piano/g_voice[3].u_voice/n7037_s9/I3                    
+  6.652    0.516   tINS   RR   1        R36C141[3][B]   u_piano/g_voice[3].u_voice/n7037_s9/F                     
+  7.164    0.512   tNET   RR   1        R34C143[3][A]   u_piano/g_voice[3].u_voice/n7037_s3/I2                    
+  7.451    0.287   tINS   RF   1        R34C143[3][A]   u_piano/g_voice[3].u_voice/n7037_s3/F                     
+  8.273    0.822   tNET   FF   1        R34C128[0][B]   u_piano/g_voice[3].u_voice/n7037_s1/I1                    
+  8.730    0.457   tINS   FR   33       R34C128[0][B]   u_piano/g_voice[3].u_voice/n7037_s1/F                     
+  10.239   1.509   tNET   RR   1        R42C104[0][B]   u_piano/n6042_s1/I0                                       
+  10.695   0.457   tINS   RR   1        R42C104[0][B]   u_piano/n6042_s1/F                                        
+  13.943   3.248   tNET   RR   2        R74C55[0][A]    u_piano/vsum_0_s0/I1                                      
+  14.434   0.490   tINS   RR   1        R74C55[0][A]    u_piano/vsum_0_s0/COUT                                    
+  14.434   0.000   tNET   RR   2        R74C55[0][B]    u_piano/vsum_1_s0/CIN                                     
+  14.479   0.045   tINS   RR   1        R74C55[0][B]    u_piano/vsum_1_s0/COUT                                    
+  14.479   0.000   tNET   RR   2        R74C55[1][A]    u_piano/vsum_2_s0/CIN                                     
+  14.524   0.045   tINS   RR   1        R74C55[1][A]    u_piano/vsum_2_s0/COUT                                    
+  14.524   0.000   tNET   RR   2        R74C55[1][B]    u_piano/vsum_3_s0/CIN                                     
+  14.569   0.045   tINS   RR   1        R74C55[1][B]    u_piano/vsum_3_s0/COUT                                    
+  14.569   0.000   tNET   RR   2        R74C55[2][A]    u_piano/vsum_4_s0/CIN                                     
+  14.614   0.045   tINS   RR   1        R74C55[2][A]    u_piano/vsum_4_s0/COUT                                    
+  14.614   0.000   tNET   RR   2        R74C55[2][B]    u_piano/vsum_5_s0/CIN                                     
+  14.659   0.045   tINS   RR   1        R74C55[2][B]    u_piano/vsum_5_s0/COUT                                    
+  14.659   0.000   tNET   RR   2        R74C56[0][A]    u_piano/vsum_6_s0/CIN                                     
+  14.878   0.219   tINS   RR   1        R74C56[0][A]    u_piano/vsum_6_s0/SUM                                     
+  15.909   1.031   tNET   RR   2        R74C50[0][A]    u_piano/vsum_6_s3/I1                                      
+  16.399   0.490   tINS   RR   1        R74C50[0][A]    u_piano/vsum_6_s3/COUT                                    
+  16.399   0.000   tNET   RR   2        R74C50[0][B]    u_piano/vsum_7_s3/CIN                                     
+  16.444   0.045   tINS   RR   1        R74C50[0][B]    u_piano/vsum_7_s3/COUT                                    
+  16.444   0.000   tNET   RR   2        R74C50[1][A]    u_piano/vsum_8_s3/CIN                                     
+  16.489   0.045   tINS   RR   1        R74C50[1][A]    u_piano/vsum_8_s3/COUT                                    
+  16.489   0.000   tNET   RR   2        R74C50[1][B]    u_piano/vsum_9_s3/CIN                                     
+  16.534   0.045   tINS   RR   1        R74C50[1][B]    u_piano/vsum_9_s3/COUT                                    
+  16.534   0.000   tNET   RR   2        R74C50[2][A]    u_piano/vsum_10_s3/CIN                                    
+  16.579   0.045   tINS   RR   1        R74C50[2][A]    u_piano/vsum_10_s3/COUT                                   
+  16.579   0.000   tNET   RR   2        R74C50[2][B]    u_piano/vsum_11_s3/CIN                                    
+  16.624   0.045   tINS   RR   1        R74C50[2][B]    u_piano/vsum_11_s3/COUT                                   
+  16.624   0.000   tNET   RR   2        R74C51[0][A]    u_piano/vsum_12_s3/CIN                                    
+  16.669   0.045   tINS   RR   1        R74C51[0][A]    u_piano/vsum_12_s3/COUT                                   
+  16.669   0.000   tNET   RR   2        R74C51[0][B]    u_piano/vsum_13_s3/CIN                                    
+  16.714   0.045   tINS   RR   1        R74C51[0][B]    u_piano/vsum_13_s3/COUT                                   
+  16.714   0.000   tNET   RR   2        R74C51[1][A]    u_piano/vsum_14_s3/CIN                                    
+  16.759   0.045   tINS   RR   1        R74C51[1][A]    u_piano/vsum_14_s3/COUT                                   
+  16.759   0.000   tNET   RR   2        R74C51[1][B]    u_piano/vsum_15_s3/CIN                                    
+  16.804   0.045   tINS   RR   1        R74C51[1][B]    u_piano/vsum_15_s3/COUT                                   
+  16.804   0.000   tNET   RR   2        R74C51[2][A]    u_piano/vsum_16_s3/CIN                                    
+  16.849   0.045   tINS   RR   1        R74C51[2][A]    u_piano/vsum_16_s3/COUT                                   
+  16.849   0.000   tNET   RR   2        R74C51[2][B]    u_piano/vsum_17_s3/CIN                                    
+  16.894   0.045   tINS   RR   1        R74C51[2][B]    u_piano/vsum_17_s3/COUT                                   
+  16.894   0.000   tNET   RR   2        R74C52[0][A]    u_piano/vsum_18_s3/CIN                                    
+  16.939   0.045   tINS   RR   1        R74C52[0][A]    u_piano/vsum_18_s3/COUT                                   
+  16.939   0.000   tNET   RR   2        R74C52[0][B]    u_piano/vsum_19_s3/CIN                                    
+  16.984   0.045   tINS   RR   1        R74C52[0][B]    u_piano/vsum_19_s3/COUT                                   
+  16.984   0.000   tNET   RR   2        R74C52[1][A]    u_piano/vsum_20_s3/CIN                                    
+  17.029   0.045   tINS   RR   1        R74C52[1][A]    u_piano/vsum_20_s3/COUT                                   
+  17.029   0.000   tNET   RR   2        R74C52[1][B]    u_piano/vsum_21_s3/CIN                                    
+  17.296   0.267   tINS   RR   1        R74C52[1][B]    u_piano/vsum_21_s3/SUM                                    
+  18.656   1.360   tNET   RR   2        R74C39[1][B]    u_piano/vsum_21_s5/I0                                     
+  19.196   0.540   tINS   RF   1        R74C39[1][B]    u_piano/vsum_21_s5/COUT                                   
+  19.196   0.000   tNET   FF   2        R74C39[2][A]    u_piano/vsum_22_s5/CIN                                    
+  19.241   0.045   tINS   FR   1        R74C39[2][A]    u_piano/vsum_22_s5/COUT                                   
+  19.241   0.000   tNET   RR   2        R74C39[2][B]    u_piano/vsum_23_s5/CIN                                    
+  19.286   0.045   tINS   RR   1        R74C39[2][B]    u_piano/vsum_23_s5/COUT                                   
+  19.286   0.000   tNET   RR   2        R74C40[0][A]    u_piano/vsum_24_s5/CIN                                    
+  19.331   0.045   tINS   RR   1        R74C40[0][A]    u_piano/vsum_24_s5/COUT                                   
+  19.331   0.000   tNET   RR   2        R74C40[0][B]    u_piano/vsum_25_s5/CIN                                    
+  19.376   0.045   tINS   RR   1        R74C40[0][B]    u_piano/vsum_25_s5/COUT                                   
+  19.376   0.000   tNET   RR   2        R74C40[1][A]    u_piano/vsum_26_s5/CIN                                    
+  19.421   0.045   tINS   RR   1        R74C40[1][A]    u_piano/vsum_26_s5/COUT                                   
+  19.421   0.000   tNET   RR   2        R74C40[1][B]    u_piano/vsum_27_s5/CIN                                    
+  19.688   0.267   tINS   RR   36       R74C40[1][B]    u_piano/vsum_27_s5/SUM                                    
+  22.300   2.613   tNET   RR   1        R75C32[2][A]    u_piano/n6625_s4/I1                                       
+  22.821   0.521   tINS   RR   1        R75C32[2][A]    u_piano/n6625_s4/F                                        
+  22.976   0.155   tNET   RR   1        R75C31[2][A]    u_piano/n6625_s6/I0                                       
+  23.487   0.511   tINS   RR   4        R75C31[2][A]    u_piano/n6625_s6/F                                        
+  23.860   0.372   tNET   RR   1        R75C29[1][A]    u_piano/n6623_s6/I1                                       
+  24.370   0.511   tINS   RR   1        R75C29[1][A]    u_piano/n6623_s6/F                                        
+  24.373   0.002   tNET   RR   1        R75C29[0][B]    u_piano/n6623_s3/I1                                       
+  24.632   0.260   tINS   RR   1        R75C29[0][B]    u_piano/n6623_s3/F                                        
+  24.635   0.002   tNET   RR   1        R75C29[2][B]    u_piano/n6623_s1/I3                                       
+  25.145   0.511   tINS   RR   1        R75C29[2][B]    u_piano/n6623_s1/F                                        
+  25.145   0.000   tNET   RR   1        R75C29[2][B]    u_piano/mix_out_13_s0/D                                   
+
+Data Required Path:
+    AT     DELAY    TYPE   RF   FANOUT       LOC                  NODE             
+ ======== ======== ====== ==== ======== ============== =========================== 
+  20.000   20.000                                       active clock edge time     
+  20.000   0.000                                        clk                        
+  20.000   0.000    tCL    RR   1        IOB104[B]      clk_ibuf/I                 
+  20.614   0.614    tINS   RR   10844    IOB104[B]      clk_ibuf/O                 
+  25.411   4.796    tNET   RR   1        R75C29[2][B]   u_piano/mix_out_13_s0/CLK  
+  25.353   -0.057   tSu         1        R75C29[2][B]   u_piano/mix_out_13_s0      
+
+Path Statistics:
+Clock Skew: -0.031
+Setup Relationship: 20.000
+Logic Level: 18
+Arrival Clock Path delay: (cell: 0.614 11.288%, 
+                     route: 4.827 88.712%)
+Arrival Data Path Delay: (cell: 7.383 37.472%, 
+                    route: 11.976 60.781%, 
+                    tC2Q: 0.344 1.747%)
+Required Clock Path Delay: (cell: 0.614 11.353%, 
+                     route: 4.796 88.647%)
+
+3.3.2 Hold Analysis Report
+Report Command:report_timing -hold -max_paths 25 -max_common_paths 1
+						Path1						
+Path Summary:
+Slack             : 0.192
+Data Arrival Time : 2.831
+Data Required Time: 2.639
+From              : u_piano/g_voice[0].u_voice/lfo_ph_24_s0
+To                : u_piano/g_voice[0].u_voice/u_lfo/lfo_cos_1_s
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                               NODE                         
+ ======= ======= ====== ==== ======== =============== ==================================================== 
+  0.000   0.000                                        active clock edge time                              
+  0.000   0.000                                        clk                                                 
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                          
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                          
+  2.612   2.004   tNET   RR   1        R45C108[0][A]   u_piano/g_voice[0].u_voice/lfo_ph_24_s0/CLK         
+  2.742   0.130   tC2Q   RR   6        R45C108[0][A]   u_piano/g_voice[0].u_voice/lfo_ph_24_s0/Q           
+  2.831   0.089   tNET   RR   1        BSRAM_R46[22]   u_piano/g_voice[0].u_voice/u_lfo/lfo_cos_1_s/AD[4]  
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                              NODE                        
+ ======= ======= ====== ==== ======== =============== ================================================== 
+  0.000   0.000                                        active clock edge time                            
+  0.000   0.000                                        clk                                               
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                        
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                        
+  2.608   2.000   tNET   RR   1        BSRAM_R46[22]   u_piano/g_voice[0].u_voice/u_lfo/lfo_cos_1_s/CLK  
+  2.639   0.032   tHld        1        BSRAM_R46[22]   u_piano/g_voice[0].u_voice/u_lfo/lfo_cos_1_s      
+
+Path Statistics:
+Clock Skew: -0.005
+Hold Relationship: 0.000
+Logic Level: 1
+Arrival Clock Path delay: (cell: 0.608 23.273%, 
+                     route: 2.004 76.727%)
+Arrival Data Path Delay: (cell: 0.000 0.000%, 
+                    route: 0.089 40.741%, 
+                    tC2Q: 0.130 59.259%)
+Required Clock Path Delay: (cell: 0.608 23.313%, 
+                     route: 2.000 76.687%)
+
+						Path2						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.880
+Data Required Time: 2.632
+From              : u_fx/clr_cnt_0_s1
+To                : u_fx/clr_cnt_0_s1
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.610   2.002   tNET   RR   1        R81C41[1][A]   u_fx/clr_cnt_0_s1/CLK   
+  2.736   0.127   tC2Q   RF   3        R81C41[1][A]   u_fx/clr_cnt_0_s1/Q     
+  2.742   0.005   tNET   FF   1        R81C41[1][A]   u_fx/n38_s3/I0          
+  2.880   0.138   tINS   FF   1        R81C41[1][A]   u_fx/n38_s3/F           
+  2.880   0.000   tNET   FF   1        R81C41[1][A]   u_fx/clr_cnt_0_s1/D     
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.610   2.002   tNET   RR   1        R81C41[1][A]   u_fx/clr_cnt_0_s1/CLK   
+  2.632   0.022   tHld        1        R81C41[1][A]   u_fx/clr_cnt_0_s1       
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.297%, 
+                     route: 2.002 76.703%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.297%, 
+                     route: 2.002 76.703%)
+
+						Path3						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.893
+Data Required Time: 2.646
+From              : u_piano/g_voice[7].u_voice/lfsr_0_s0
+To                : u_piano/g_voice[7].u_voice/lfsr_0_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                          NODE                    
+ ======= ======= ====== ==== ======== ============== ========================================== 
+  0.000   0.000                                       active clock edge time                    
+  0.000   0.000                                       clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O                                
+  2.623   2.015   tNET   RR   1        R58C55[0][A]   u_piano/g_voice[7].u_voice/lfsr_0_s0/CLK  
+  2.750   0.127   tC2Q   RF   2        R58C55[0][A]   u_piano/g_voice[7].u_voice/lfsr_0_s0/Q    
+  2.756   0.005   tNET   FF   1        R58C55[0][A]   u_piano/g_voice[7].u_voice/n6396_s0/I3    
+  2.893   0.138   tINS   FF   1        R58C55[0][A]   u_piano/g_voice[7].u_voice/n6396_s0/F     
+  2.893   0.000   tNET   FF   1        R58C55[0][A]   u_piano/g_voice[7].u_voice/lfsr_0_s0/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                          NODE                    
+ ======= ======= ====== ==== ======== ============== ========================================== 
+  0.000   0.000                                       active clock edge time                    
+  0.000   0.000                                       clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O                                
+  2.623   2.015   tNET   RR   1        R58C55[0][A]   u_piano/g_voice[7].u_voice/lfsr_0_s0/CLK  
+  2.646   0.022   tHld        1        R58C55[0][A]   u_piano/g_voice[7].u_voice/lfsr_0_s0      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.175%, 
+                     route: 2.015 76.825%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.175%, 
+                     route: 2.015 76.825%)
+
+						Path4						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.898
+Data Required Time: 2.651
+From              : u_piano/g_voice[6].u_voice/lfsr_0_s0
+To                : u_piano/g_voice[6].u_voice/lfsr_0_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                          NODE                    
+ ======= ======= ====== ==== ======== ============== ========================================== 
+  0.000   0.000                                       active clock edge time                    
+  0.000   0.000                                       clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O                                
+  2.628   2.021   tNET   RR   1        R39C88[1][A]   u_piano/g_voice[6].u_voice/lfsr_0_s0/CLK  
+  2.755   0.127   tC2Q   RF   2        R39C88[1][A]   u_piano/g_voice[6].u_voice/lfsr_0_s0/Q    
+  2.761   0.005   tNET   FF   1        R39C88[1][A]   u_piano/g_voice[6].u_voice/n6396_s0/I3    
+  2.898   0.138   tINS   FF   1        R39C88[1][A]   u_piano/g_voice[6].u_voice/n6396_s0/F     
+  2.898   0.000   tNET   FF   1        R39C88[1][A]   u_piano/g_voice[6].u_voice/lfsr_0_s0/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                          NODE                    
+ ======= ======= ====== ==== ======== ============== ========================================== 
+  0.000   0.000                                       active clock edge time                    
+  0.000   0.000                                       clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O                                
+  2.628   2.021   tNET   RR   1        R39C88[1][A]   u_piano/g_voice[6].u_voice/lfsr_0_s0/CLK  
+  2.651   0.022   tHld        1        R39C88[1][A]   u_piano/g_voice[6].u_voice/lfsr_0_s0      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.130%, 
+                     route: 2.021 76.870%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.130%, 
+                     route: 2.021 76.870%)
+
+						Path5						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.884
+Data Required Time: 2.637
+From              : u_piano/g_voice[4].u_voice/lfsr_0_s0
+To                : u_piano/g_voice[4].u_voice/lfsr_0_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                          NODE                    
+ ======= ======= ====== ==== ======== ============== ========================================== 
+  0.000   0.000                                       active clock edge time                    
+  0.000   0.000                                       clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O                                
+  2.614   2.006   tNET   RR   1        R26C51[0][A]   u_piano/g_voice[4].u_voice/lfsr_0_s0/CLK  
+  2.741   0.127   tC2Q   RF   2        R26C51[0][A]   u_piano/g_voice[4].u_voice/lfsr_0_s0/Q    
+  2.746   0.005   tNET   FF   1        R26C51[0][A]   u_piano/g_voice[4].u_voice/n6396_s0/I3    
+  2.884   0.138   tINS   FF   1        R26C51[0][A]   u_piano/g_voice[4].u_voice/n6396_s0/F     
+  2.884   0.000   tNET   FF   1        R26C51[0][A]   u_piano/g_voice[4].u_voice/lfsr_0_s0/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                          NODE                    
+ ======= ======= ====== ==== ======== ============== ========================================== 
+  0.000   0.000                                       active clock edge time                    
+  0.000   0.000                                       clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O                                
+  2.614   2.006   tNET   RR   1        R26C51[0][A]   u_piano/g_voice[4].u_voice/lfsr_0_s0/CLK  
+  2.637   0.022   tHld        1        R26C51[0][A]   u_piano/g_voice[4].u_voice/lfsr_0_s0      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.257%, 
+                     route: 2.006 76.743%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.257%, 
+                     route: 2.006 76.743%)
+
+						Path6						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.892
+Data Required Time: 2.645
+From              : u_piano/g_voice[2].u_voice/lfsr_0_s0
+To                : u_piano/g_voice[2].u_voice/lfsr_0_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                          NODE                    
+ ======= ======= ====== ==== ======== ============== ========================================== 
+  0.000   0.000                                       active clock edge time                    
+  0.000   0.000                                       clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O                                
+  2.622   2.014   tNET   RR   1        R79C76[0][A]   u_piano/g_voice[2].u_voice/lfsr_0_s0/CLK  
+  2.749   0.127   tC2Q   RF   2        R79C76[0][A]   u_piano/g_voice[2].u_voice/lfsr_0_s0/Q    
+  2.754   0.005   tNET   FF   1        R79C76[0][A]   u_piano/g_voice[2].u_voice/n6396_s0/I3    
+  2.892   0.138   tINS   FF   1        R79C76[0][A]   u_piano/g_voice[2].u_voice/n6396_s0/F     
+  2.892   0.000   tNET   FF   1        R79C76[0][A]   u_piano/g_voice[2].u_voice/lfsr_0_s0/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                          NODE                    
+ ======= ======= ====== ==== ======== ============== ========================================== 
+  0.000   0.000                                       active clock edge time                    
+  0.000   0.000                                       clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O                                
+  2.622   2.014   tNET   RR   1        R79C76[0][A]   u_piano/g_voice[2].u_voice/lfsr_0_s0/CLK  
+  2.645   0.022   tHld        1        R79C76[0][A]   u_piano/g_voice[2].u_voice/lfsr_0_s0      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.185%, 
+                     route: 2.014 76.815%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.185%, 
+                     route: 2.014 76.815%)
+
+						Path7						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.894
+Data Required Time: 2.646
+From              : u_piano/g_voice[1].u_voice/lfsr_0_s0
+To                : u_piano/g_voice[1].u_voice/lfsr_0_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                          NODE                    
+ ======= ======= ====== ==== ======== =============== ========================================== 
+  0.000   0.000                                        active clock edge time                    
+  0.000   0.000                                        clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                
+  2.624   2.016   tNET   RR   1        R57C113[0][A]   u_piano/g_voice[1].u_voice/lfsr_0_s0/CLK  
+  2.751   0.127   tC2Q   RF   2        R57C113[0][A]   u_piano/g_voice[1].u_voice/lfsr_0_s0/Q    
+  2.756   0.005   tNET   FF   1        R57C113[0][A]   u_piano/g_voice[1].u_voice/n6396_s0/I3    
+  2.894   0.138   tINS   FF   1        R57C113[0][A]   u_piano/g_voice[1].u_voice/n6396_s0/F     
+  2.894   0.000   tNET   FF   1        R57C113[0][A]   u_piano/g_voice[1].u_voice/lfsr_0_s0/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                          NODE                    
+ ======= ======= ====== ==== ======== =============== ========================================== 
+  0.000   0.000                                        active clock edge time                    
+  0.000   0.000                                        clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                
+  2.624   2.016   tNET   RR   1        R57C113[0][A]   u_piano/g_voice[1].u_voice/lfsr_0_s0/CLK  
+  2.646   0.022   tHld        1        R57C113[0][A]   u_piano/g_voice[1].u_voice/lfsr_0_s0      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.169%, 
+                     route: 2.016 76.831%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.169%, 
+                     route: 2.016 76.831%)
+
+						Path8						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.873
+Data Required Time: 2.626
+From              : u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0
+To                : u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                                 NODE                           
+ ======= ======= ====== ==== ======== =============== ======================================================== 
+  0.000   0.000                                        active clock edge time                                  
+  0.000   0.000                                        clk                                                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                              
+  2.603   1.996   tNET   RR   1        R34C113[0][A]   u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0/CLK  
+  2.730   0.127   tC2Q   RF   3        R34C113[0][A]   u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0/Q    
+  2.736   0.005   tNET   FF   1        R34C113[0][A]   u_piano/g_voice[0].u_voice/n11221_s2/I0                 
+  2.873   0.138   tINS   FF   1        R34C113[0][A]   u_piano/g_voice[0].u_voice/n11221_s2/F                  
+  2.873   0.000   tNET   FF   1        R34C113[0][A]   u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                                 NODE                           
+ ======= ======= ====== ==== ======== =============== ======================================================== 
+  0.000   0.000                                        active clock edge time                                  
+  0.000   0.000                                        clk                                                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                              
+  2.603   1.996   tNET   RR   1        R34C113[0][A]   u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0/CLK  
+  2.626   0.022   tHld        1        R34C113[0][A]   u_piano/g_voice[0].u_voice/ph_ph_RAMREG_0_G[31]_s0      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.351%, 
+                     route: 1.996 76.649%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.351%, 
+                     route: 1.996 76.649%)
+
+						Path9						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.893
+Data Required Time: 2.645
+From              : u_piano/g_voice[0].u_voice/lfsr_0_s0
+To                : u_piano/g_voice[0].u_voice/lfsr_0_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                          NODE                    
+ ======= ======= ====== ==== ======== =============== ========================================== 
+  0.000   0.000                                        active clock edge time                    
+  0.000   0.000                                        clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                
+  2.623   2.015   tNET   RR   1        R42C104[1][A]   u_piano/g_voice[0].u_voice/lfsr_0_s0/CLK  
+  2.750   0.127   tC2Q   RF   2        R42C104[1][A]   u_piano/g_voice[0].u_voice/lfsr_0_s0/Q    
+  2.755   0.005   tNET   FF   1        R42C104[1][A]   u_piano/g_voice[0].u_voice/n6396_s0/I3    
+  2.893   0.138   tINS   FF   1        R42C104[1][A]   u_piano/g_voice[0].u_voice/n6396_s0/F     
+  2.893   0.000   tNET   FF   1        R42C104[1][A]   u_piano/g_voice[0].u_voice/lfsr_0_s0/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                          NODE                    
+ ======= ======= ====== ==== ======== =============== ========================================== 
+  0.000   0.000                                        active clock edge time                    
+  0.000   0.000                                        clk                                       
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                                
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                                
+  2.623   2.015   tNET   RR   1        R42C104[1][A]   u_piano/g_voice[0].u_voice/lfsr_0_s0/CLK  
+  2.645   0.022   tHld        1        R42C104[1][A]   u_piano/g_voice[0].u_voice/lfsr_0_s0      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.179%, 
+                     route: 2.015 76.821%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.179%, 
+                     route: 2.015 76.821%)
+
+						Path10						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.890
+Data Required Time: 2.643
+From              : u_midi/sweep_idx_6_s3
+To                : u_midi/sweep_idx_6_s3
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                  NODE             
+ ======= ======= ====== ==== ======== =============== =========================== 
+  0.000   0.000                                        active clock edge time     
+  0.000   0.000                                        clk                        
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                 
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                 
+  2.620   2.012   tNET   RR   1        R57C142[1][A]   u_midi/sweep_idx_6_s3/CLK  
+  2.747   0.127   tC2Q   RF   4        R57C142[1][A]   u_midi/sweep_idx_6_s3/Q    
+  2.753   0.005   tNET   FF   1        R57C142[1][A]   u_midi/n57_s4/I3           
+  2.890   0.138   tINS   FF   1        R57C142[1][A]   u_midi/n57_s4/F            
+  2.890   0.000   tNET   FF   1        R57C142[1][A]   u_midi/sweep_idx_6_s3/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                  NODE             
+ ======= ======= ====== ==== ======== =============== =========================== 
+  0.000   0.000                                        active clock edge time     
+  0.000   0.000                                        clk                        
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                 
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                 
+  2.620   2.012   tNET   RR   1        R57C142[1][A]   u_midi/sweep_idx_6_s3/CLK  
+  2.643   0.022   tHld        1        R57C142[1][A]   u_midi/sweep_idx_6_s3      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.201%, 
+                     route: 2.012 76.799%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.201%, 
+                     route: 2.012 76.799%)
+
+						Path11						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.890
+Data Required Time: 2.643
+From              : u_midi/sweep_idx_7_s1
+To                : u_midi/sweep_idx_7_s1
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                  NODE             
+ ======= ======= ====== ==== ======== =============== =========================== 
+  0.000   0.000                                        active clock edge time     
+  0.000   0.000                                        clk                        
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                 
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                 
+  2.620   2.012   tNET   RR   1        R57C142[0][A]   u_midi/sweep_idx_7_s1/CLK  
+  2.747   0.127   tC2Q   RF   2        R57C142[0][A]   u_midi/sweep_idx_7_s1/Q    
+  2.753   0.005   tNET   FF   1        R57C142[0][A]   u_midi/n56_s1/I3           
+  2.890   0.138   tINS   FF   1        R57C142[0][A]   u_midi/n56_s1/F            
+  2.890   0.000   tNET   FF   1        R57C142[0][A]   u_midi/sweep_idx_7_s1/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                  NODE             
+ ======= ======= ====== ==== ======== =============== =========================== 
+  0.000   0.000                                        active clock edge time     
+  0.000   0.000                                        clk                        
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                 
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                 
+  2.620   2.012   tNET   RR   1        R57C142[0][A]   u_midi/sweep_idx_7_s1/CLK  
+  2.643   0.022   tHld        1        R57C142[0][A]   u_midi/sweep_idx_7_s1      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.201%, 
+                     route: 2.012 76.799%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.201%, 
+                     route: 2.012 76.799%)
+
+						Path12						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.890
+Data Required Time: 2.643
+From              : u_uart/cnt_1_s3
+To                : u_uart/cnt_1_s3
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.620   2.012   tNET   RR   1        R57C134[1][A]   u_uart/cnt_1_s3/CLK     
+  2.747   0.127   tC2Q   RF   3        R57C134[1][A]   u_uart/cnt_1_s3/Q       
+  2.753   0.005   tNET   FF   1        R57C134[1][A]   u_uart/n253_s14/I3      
+  2.890   0.138   tINS   FF   1        R57C134[1][A]   u_uart/n253_s14/F       
+  2.890   0.000   tNET   FF   1        R57C134[1][A]   u_uart/cnt_1_s3/D       
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.620   2.012   tNET   RR   1        R57C134[1][A]   u_uart/cnt_1_s3/CLK     
+  2.643   0.022   tHld        1        R57C134[1][A]   u_uart/cnt_1_s3         
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.201%, 
+                     route: 2.012 76.799%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.201%, 
+                     route: 2.012 76.799%)
+
+						Path13						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.894
+Data Required Time: 2.646
+From              : u_uart/cnt_9_s3
+To                : u_uart/cnt_9_s3
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.624   2.016   tNET   RR   1        R57C133[1][A]   u_uart/cnt_9_s3/CLK     
+  2.751   0.127   tC2Q   RF   3        R57C133[1][A]   u_uart/cnt_9_s3/Q       
+  2.756   0.005   tNET   FF   1        R57C133[1][A]   u_uart/n245_s14/I3      
+  2.894   0.138   tINS   FF   1        R57C133[1][A]   u_uart/n245_s14/F       
+  2.894   0.000   tNET   FF   1        R57C133[1][A]   u_uart/cnt_9_s3/D       
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.624   2.016   tNET   RR   1        R57C133[1][A]   u_uart/cnt_9_s3/CLK     
+  2.646   0.022   tHld        1        R57C133[1][A]   u_uart/cnt_9_s3         
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.169%, 
+                     route: 2.016 76.831%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.169%, 
+                     route: 2.016 76.831%)
+
+						Path14						
+Path Summary:
+Slack             : 0.247
+Data Arrival Time : 2.894
+Data Required Time: 2.646
+From              : u_uart/cnt_10_s3
+To                : u_uart/cnt_10_s3
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.624   2.016   tNET   RR   1        R57C133[0][A]   u_uart/cnt_10_s3/CLK    
+  2.751   0.127   tC2Q   RF   2        R57C133[0][A]   u_uart/cnt_10_s3/Q      
+  2.756   0.005   tNET   FF   1        R57C133[0][A]   u_uart/n244_s14/I1      
+  2.894   0.138   tINS   FF   1        R57C133[0][A]   u_uart/n244_s14/F       
+  2.894   0.000   tNET   FF   1        R57C133[0][A]   u_uart/cnt_10_s3/D      
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.624   2.016   tNET   RR   1        R57C133[0][A]   u_uart/cnt_10_s3/CLK    
+  2.646   0.022   tHld        1        R57C133[0][A]   u_uart/cnt_10_s3        
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.169%, 
+                     route: 2.016 76.831%)
+Arrival Data Path Delay: (cell: 0.138 51.000%, 
+                    route: 0.005 2.000%, 
+                    tC2Q: 0.127 47.000%)
+Required Clock Path Delay: (cell: 0.608 23.169%, 
+                     route: 2.016 76.831%)
+
+						Path15						
+Path Summary:
+Slack             : 0.250
+Data Arrival Time : 2.897
+Data Required Time: 2.646
+From              : u_midi/sweep_idx_1_s3
+To                : u_midi/sweep_idx_1_s3
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                  NODE             
+ ======= ======= ====== ==== ======== =============== =========================== 
+  0.000   0.000                                        active clock edge time     
+  0.000   0.000                                        clk                        
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                 
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                 
+  2.624   2.016   tNET   RR   1        R57C141[1][A]   u_midi/sweep_idx_1_s3/CLK  
+  2.751   0.127   tC2Q   RF   5        R57C141[1][A]   u_midi/sweep_idx_1_s3/Q    
+  2.759   0.008   tNET   FF   1        R57C141[1][A]   u_midi/n62_s3/I3           
+  2.897   0.138   tINS   FF   1        R57C141[1][A]   u_midi/n62_s3/F            
+  2.897   0.000   tNET   FF   1        R57C141[1][A]   u_midi/sweep_idx_1_s3/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                  NODE             
+ ======= ======= ====== ==== ======== =============== =========================== 
+  0.000   0.000                                        active clock edge time     
+  0.000   0.000                                        clk                        
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                 
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                 
+  2.624   2.016   tNET   RR   1        R57C141[1][A]   u_midi/sweep_idx_1_s3/CLK  
+  2.646   0.022   tHld        1        R57C141[1][A]   u_midi/sweep_idx_1_s3      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.169%, 
+                     route: 2.016 76.831%)
+Arrival Data Path Delay: (cell: 0.138 50.495%, 
+                    route: 0.008 2.970%, 
+                    tC2Q: 0.127 46.535%)
+Required Clock Path Delay: (cell: 0.608 23.169%, 
+                     route: 2.016 76.831%)
+
+						Path16						
+Path Summary:
+Slack             : 0.250
+Data Arrival Time : 2.895
+Data Required Time: 2.644
+From              : u_uart/cnt_0_s3
+To                : u_uart/cnt_0_s3
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.622   2.014   tNET   RR   1        R56C134[0][A]   u_uart/cnt_0_s3/CLK     
+  2.749   0.127   tC2Q   RF   4        R56C134[0][A]   u_uart/cnt_0_s3/Q       
+  2.757   0.008   tNET   FF   1        R56C134[0][A]   u_uart/n254_s14/I3      
+  2.895   0.138   tINS   FF   1        R56C134[0][A]   u_uart/n254_s14/F       
+  2.895   0.000   tNET   FF   1        R56C134[0][A]   u_uart/cnt_0_s3/D       
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.622   2.014   tNET   RR   1        R56C134[0][A]   u_uart/cnt_0_s3/CLK     
+  2.644   0.022   tHld        1        R56C134[0][A]   u_uart/cnt_0_s3         
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.187%, 
+                     route: 2.014 76.813%)
+Arrival Data Path Delay: (cell: 0.138 50.495%, 
+                    route: 0.008 2.970%, 
+                    tC2Q: 0.127 46.535%)
+Required Clock Path Delay: (cell: 0.608 23.187%, 
+                     route: 2.014 76.813%)
+
+						Path17						
+Path Summary:
+Slack             : 0.250
+Data Arrival Time : 2.882
+Data Required Time: 2.632
+From              : u_dac/bc_cnt_1_s1
+To                : u_dac/bc_cnt_1_s1
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.609   2.001   tNET   RR   1        R77C31[0][A]   u_dac/bc_cnt_1_s1/CLK   
+  2.736   0.127   tC2Q   RF   7        R77C31[0][A]   u_dac/bc_cnt_1_s1/Q     
+  2.744   0.008   tNET   FF   1        R77C31[0][A]   u_dac/n75_s4/I3         
+  2.882   0.138   tINS   FF   1        R77C31[0][A]   u_dac/n75_s4/F          
+  2.882   0.000   tNET   FF   1        R77C31[0][A]   u_dac/bc_cnt_1_s1/D     
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.609   2.001   tNET   RR   1        R77C31[0][A]   u_dac/bc_cnt_1_s1/CLK   
+  2.632   0.022   tHld        1        R77C31[0][A]   u_dac/bc_cnt_1_s1       
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.301%, 
+                     route: 2.001 76.699%)
+Arrival Data Path Delay: (cell: 0.138 50.495%, 
+                    route: 0.008 2.970%, 
+                    tC2Q: 0.127 46.535%)
+Required Clock Path Delay: (cell: 0.608 23.301%, 
+                     route: 2.001 76.699%)
+
+						Path18						
+Path Summary:
+Slack             : 0.250
+Data Arrival Time : 2.878
+Data Required Time: 2.628
+From              : u_dac/bc_cnt_8_s0
+To                : u_dac/bc_cnt_8_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.606   1.998   tNET   RR   1        R77C30[1][A]   u_dac/bc_cnt_8_s0/CLK   
+  2.732   0.127   tC2Q   RF   3        R77C30[1][A]   u_dac/bc_cnt_8_s0/Q     
+  2.741   0.008   tNET   FF   1        R77C30[1][A]   u_dac/n68_s2/I2         
+  2.878   0.138   tINS   FF   1        R77C30[1][A]   u_dac/n68_s2/F          
+  2.878   0.000   tNET   FF   1        R77C30[1][A]   u_dac/bc_cnt_8_s0/D     
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.606   1.998   tNET   RR   1        R77C30[1][A]   u_dac/bc_cnt_8_s0/CLK   
+  2.628   0.022   tHld        1        R77C30[1][A]   u_dac/bc_cnt_8_s0       
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.333%, 
+                     route: 1.998 76.667%)
+Arrival Data Path Delay: (cell: 0.138 50.495%, 
+                    route: 0.008 2.970%, 
+                    tC2Q: 0.127 46.535%)
+Required Clock Path Delay: (cell: 0.608 23.333%, 
+                     route: 1.998 76.667%)
+
+						Path19						
+Path Summary:
+Slack             : 0.250
+Data Arrival Time : 2.885
+Data Required Time: 2.635
+From              : u_dac/cnt_0_s0
+To                : u_dac/cnt_0_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.613   2.005   tNET   RR   1        R77C32[0][A]   u_dac/cnt_0_s0/CLK      
+  2.740   0.127   tC2Q   RF   3        R77C32[0][A]   u_dac/cnt_0_s0/Q        
+  2.748   0.008   tNET   FF   1        R77C32[0][A]   u_dac/n86_s2/I0         
+  2.885   0.138   tINS   FF   1        R77C32[0][A]   u_dac/n86_s2/F          
+  2.885   0.000   tNET   FF   1        R77C32[0][A]   u_dac/cnt_0_s0/D        
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.613   2.005   tNET   RR   1        R77C32[0][A]   u_dac/cnt_0_s0/CLK      
+  2.635   0.022   tHld        1        R77C32[0][A]   u_dac/cnt_0_s0          
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.269%, 
+                     route: 2.005 76.731%)
+Arrival Data Path Delay: (cell: 0.138 50.495%, 
+                    route: 0.008 2.970%, 
+                    tC2Q: 0.127 46.535%)
+Required Clock Path Delay: (cell: 0.608 23.269%, 
+                     route: 2.005 76.731%)
+
+						Path20						
+Path Summary:
+Slack             : 0.250
+Data Arrival Time : 2.888
+Data Required Time: 2.637
+From              : fx_sel_user_0_s1
+To                : fx_sel_user_0_s1
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.615   2.007   tNET   RR   1        R79C90[0][A]   fx_sel_user_0_s1/CLK    
+  2.742   0.127   tC2Q   RF   22       R79C90[0][A]   fx_sel_user_0_s1/Q      
+  2.750   0.008   tNET   FF   1        R79C90[0][A]   n756_s3/I2              
+  2.888   0.138   tINS   FF   1        R79C90[0][A]   n756_s3/F               
+  2.888   0.000   tNET   FF   1        R79C90[0][A]   fx_sel_user_0_s1/D      
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.615   2.007   tNET   RR   1        R79C90[0][A]   fx_sel_user_0_s1/CLK    
+  2.637   0.022   tHld        1        R79C90[0][A]   fx_sel_user_0_s1        
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.249%, 
+                     route: 2.007 76.751%)
+Arrival Data Path Delay: (cell: 0.138 50.495%, 
+                    route: 0.008 2.970%, 
+                    tC2Q: 0.127 46.535%)
+Required Clock Path Delay: (cell: 0.608 23.249%, 
+                     route: 2.007 76.751%)
+
+						Path21						
+Path Summary:
+Slack             : 0.250
+Data Arrival Time : 2.895
+Data Required Time: 2.644
+From              : k2_db_s1
+To                : k2_db_s1
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.622   2.014   tNET   RR   1        R56C126[0][A]   k2_db_s1/CLK            
+  2.749   0.127   tC2Q   RF   5        R56C126[0][A]   k2_db_s1/Q              
+  2.757   0.008   tNET   FF   1        R56C126[0][A]   n207_s3/I1              
+  2.895   0.138   tINS   FF   1        R56C126[0][A]   n207_s3/F               
+  2.895   0.000   tNET   FF   1        R56C126[0][A]   k2_db_s1/D              
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.622   2.014   tNET   RR   1        R56C126[0][A]   k2_db_s1/CLK            
+  2.644   0.022   tHld        1        R56C126[0][A]   k2_db_s1                
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.187%, 
+                     route: 2.014 76.813%)
+Arrival Data Path Delay: (cell: 0.138 50.495%, 
+                    route: 0.008 2.970%, 
+                    tC2Q: 0.127 46.535%)
+Required Clock Path Delay: (cell: 0.608 23.187%, 
+                     route: 2.014 76.813%)
+
+						Path22						
+Path Summary:
+Slack             : 0.253
+Data Arrival Time : 2.880
+Data Required Time: 2.627
+From              : u_piano/ld_busy_s2
+To                : u_piano/ld_busy_s2
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.604   1.996   tNET   RR   1        R52C73[1][A]   u_piano/ld_busy_s2/CLK  
+  2.731   0.127   tC2Q   RF   6        R52C73[1][A]   u_piano/ld_busy_s2/Q    
+  2.742   0.011   tNET   FF   1        R52C73[1][A]   u_piano/n3096_s10/I3    
+  2.880   0.138   tINS   FF   1        R52C73[1][A]   u_piano/n3096_s10/F     
+  2.880   0.000   tNET   FF   1        R52C73[1][A]   u_piano/ld_busy_s2/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.604   1.996   tNET   RR   1        R52C73[1][A]   u_piano/ld_busy_s2/CLK  
+  2.627   0.022   tHld        1        R52C73[1][A]   u_piano/ld_busy_s2      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.343%, 
+                     route: 1.996 76.657%)
+Arrival Data Path Delay: (cell: 0.138 50.000%, 
+                    route: 0.011 3.922%, 
+                    tC2Q: 0.127 46.078%)
+Required Clock Path Delay: (cell: 0.608 23.343%, 
+                     route: 1.996 76.657%)
+
+						Path23						
+Path Summary:
+Slack             : 0.253
+Data Arrival Time : 2.903
+Data Required Time: 2.650
+From              : u_midi/sweep_idx_0_s3
+To                : u_midi/sweep_idx_0_s3
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                  NODE             
+ ======= ======= ====== ==== ======== =============== =========================== 
+  0.000   0.000                                        active clock edge time     
+  0.000   0.000                                        clk                        
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                 
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                 
+  2.628   2.020   tNET   RR   1        R57C140[0][A]   u_midi/sweep_idx_0_s3/CLK  
+  2.754   0.127   tC2Q   RF   6        R57C140[0][A]   u_midi/sweep_idx_0_s3/Q    
+  2.765   0.011   tNET   FF   1        R57C140[0][A]   u_midi/n63_s3/I2           
+  2.903   0.138   tINS   FF   1        R57C140[0][A]   u_midi/n63_s3/F            
+  2.903   0.000   tNET   FF   1        R57C140[0][A]   u_midi/sweep_idx_0_s3/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                  NODE             
+ ======= ======= ====== ==== ======== =============== =========================== 
+  0.000   0.000                                        active clock edge time     
+  0.000   0.000                                        clk                        
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I                 
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O                 
+  2.628   2.020   tNET   RR   1        R57C140[0][A]   u_midi/sweep_idx_0_s3/CLK  
+  2.650   0.022   tHld        1        R57C140[0][A]   u_midi/sweep_idx_0_s3      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.138%, 
+                     route: 2.020 76.862%)
+Arrival Data Path Delay: (cell: 0.138 50.000%, 
+                    route: 0.011 3.922%, 
+                    tC2Q: 0.127 46.078%)
+Required Clock Path Delay: (cell: 0.608 23.138%, 
+                     route: 2.020 76.862%)
+
+						Path24						
+Path Summary:
+Slack             : 0.253
+Data Arrival Time : 2.885
+Data Required Time: 2.632
+From              : u_midi/wstate_1_s2
+To                : u_midi/wstate_1_s2
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.609   2.001   tNET   RR   1        R54C140[1][A]   u_midi/wstate_1_s2/CLK  
+  2.736   0.127   tC2Q   RF   5        R54C140[1][A]   u_midi/wstate_1_s2/Q    
+  2.747   0.011   tNET   FF   1        R54C140[1][A]   u_midi/n351_s11/I2      
+  2.885   0.138   tINS   FF   1        R54C140[1][A]   u_midi/n351_s11/F       
+  2.885   0.000   tNET   FF   1        R54C140[1][A]   u_midi/wstate_1_s2/D    
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT        LOC                 NODE           
+ ======= ======= ====== ==== ======== =============== ======================== 
+  0.000   0.000                                        active clock edge time  
+  0.000   0.000                                        clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]       clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]       clk_ibuf/O              
+  2.609   2.001   tNET   RR   1        R54C140[1][A]   u_midi/wstate_1_s2/CLK  
+  2.632   0.022   tHld        1        R54C140[1][A]   u_midi/wstate_1_s2      
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.299%, 
+                     route: 2.001 76.701%)
+Arrival Data Path Delay: (cell: 0.138 50.000%, 
+                    route: 0.011 3.922%, 
+                    tC2Q: 0.127 46.078%)
+Required Clock Path Delay: (cell: 0.608 23.299%, 
+                     route: 2.001 76.701%)
+
+						Path25						
+Path Summary:
+Slack             : 0.253
+Data Arrival Time : 2.885
+Data Required Time: 2.632
+From              : u_dac/bc_cnt_6_s0
+To                : u_dac/bc_cnt_6_s0
+Launch Clk        : clk:[R]
+Latch Clk         : clk:[R]
+
+Data Arrival Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.609   2.001   tNET   RR   1        R77C29[1][A]   u_dac/bc_cnt_6_s0/CLK   
+  2.736   0.127   tC2Q   RF   5        R77C29[1][A]   u_dac/bc_cnt_6_s0/Q     
+  2.747   0.011   tNET   FF   1        R77C29[1][A]   u_dac/n70_s2/I3         
+  2.885   0.138   tINS   FF   1        R77C29[1][A]   u_dac/n70_s2/F          
+  2.885   0.000   tNET   FF   1        R77C29[1][A]   u_dac/bc_cnt_6_s0/D     
+
+Data Required Path:
+   AT     DELAY   TYPE   RF   FANOUT       LOC                 NODE           
+ ======= ======= ====== ==== ======== ============== ======================== 
+  0.000   0.000                                       active clock edge time  
+  0.000   0.000                                       clk                     
+  0.000   0.000   tCL    RR   1        IOB104[B]      clk_ibuf/I              
+  0.608   0.608   tINS   RR   10844    IOB104[B]      clk_ibuf/O              
+  2.609   2.001   tNET   RR   1        R77C29[1][A]   u_dac/bc_cnt_6_s0/CLK   
+  2.632   0.022   tHld        1        R77C29[1][A]   u_dac/bc_cnt_6_s0       
+
+Path Statistics:
+Clock Skew: 0.000
+Hold Relationship: 0.000
+Logic Level: 2
+Arrival Clock Path delay: (cell: 0.608 23.301%, 
+                     route: 2.001 76.699%)
+Arrival Data Path Delay: (cell: 0.138 50.000%, 
+                    route: 0.011 3.922%, 
+                    tC2Q: 0.127 46.078%)
+Required Clock Path Delay: (cell: 0.608 23.301%, 
+                     route: 2.001 76.699%)
+
+3.3.3 Recovery Analysis Report
+Report Command:report_timing -recovery -max_paths 25 -max_common_paths 1
+No recovery paths to report!
+3.3.4 Removal Analysis Report
+Report Command:report_timing -removal -max_paths 25 -max_common_paths 1
+No removal paths to report!
+3.4 Minimum Pulse Width Report
+Report Command:report_min_pulse_width -nworst 10 -detail
+
+								MPW1
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_piano/g_voice[0].u_voice/lfo_inc_0_s38
+
+Late clock Path:
+    AT     DELAY   TYPE   RF                       NODE                      
+ ======== ======= ====== ==== ============================================== 
+  10.000   0.000               active clock edge time                        
+  10.000   0.000               clk                                           
+  10.000   0.000   tCL    FF   clk_ibuf/I                                    
+  10.619   0.619   tINS   FF   clk_ibuf/O                                    
+  15.115   4.496   tNET   FF   u_piano/g_voice[0].u_voice/lfo_inc_0_s38/CLK  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF                       NODE                      
+ ======== ======= ====== ==== ============================================== 
+  20.000   0.000               active clock edge time                        
+  20.000   0.000               clk                                           
+  20.000   0.000   tCL    RR   clk_ibuf/I                                    
+  20.608   0.608   tINS   RR   clk_ibuf/O                                    
+  22.609   2.001   tNET   RR   u_piano/g_voice[0].u_voice/lfo_inc_0_s38/CLK  
+
+								MPW2
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_piano/g_voice[4].u_voice/u_lfo/lfo_cos_1_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF                         NODE                        
+ ======== ======= ====== ==== ================================================== 
+  10.000   0.000               active clock edge time                            
+  10.000   0.000               clk                                               
+  10.000   0.000   tCL    FF   clk_ibuf/I                                        
+  10.619   0.619   tINS   FF   clk_ibuf/O                                        
+  15.115   4.496   tNET   FF   u_piano/g_voice[4].u_voice/u_lfo/lfo_cos_1_s/CLK  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF                         NODE                        
+ ======== ======= ====== ==== ================================================== 
+  20.000   0.000               active clock edge time                            
+  20.000   0.000               clk                                               
+  20.000   0.000   tCL    RR   clk_ibuf/I                                        
+  20.608   0.608   tINS   RR   clk_ibuf/O                                        
+  22.609   2.001   tNET   RR   u_piano/g_voice[4].u_voice/u_lfo/lfo_cos_1_s/CLK  
+
+								MPW3
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_piano/g_voice[2].u_voice/u_lfo/lfo_cos_1_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF                         NODE                        
+ ======== ======= ====== ==== ================================================== 
+  10.000   0.000               active clock edge time                            
+  10.000   0.000               clk                                               
+  10.000   0.000   tCL    FF   clk_ibuf/I                                        
+  10.619   0.619   tINS   FF   clk_ibuf/O                                        
+  15.115   4.496   tNET   FF   u_piano/g_voice[2].u_voice/u_lfo/lfo_cos_1_s/CLK  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF                         NODE                        
+ ======== ======= ====== ==== ================================================== 
+  20.000   0.000               active clock edge time                            
+  20.000   0.000               clk                                               
+  20.000   0.000   tCL    RR   clk_ibuf/I                                        
+  20.608   0.608   tINS   RR   clk_ibuf/O                                        
+  22.609   2.001   tNET   RR   u_piano/g_voice[2].u_voice/u_lfo/lfo_cos_1_s/CLK  
+
+								MPW4
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_piano/g_voice[7].u_voice/g_part[1].u_sin/g_part[1].sd_0_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF                                NODE                                
+ ======== ======= ====== ==== ================================================================= 
+  10.000   0.000               active clock edge time                                           
+  10.000   0.000               clk                                                              
+  10.000   0.000   tCL    FF   clk_ibuf/I                                                       
+  10.619   0.619   tINS   FF   clk_ibuf/O                                                       
+  15.115   4.496   tNET   FF   u_piano/g_voice[7].u_voice/g_part[1].u_sin/g_part[1].sd_0_s/CLK  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF                                NODE                                
+ ======== ======= ====== ==== ================================================================= 
+  20.000   0.000               active clock edge time                                           
+  20.000   0.000               clk                                                              
+  20.000   0.000   tCL    RR   clk_ibuf/I                                                       
+  20.608   0.608   tINS   RR   clk_ibuf/O                                                       
+  22.609   2.001   tNET   RR   u_piano/g_voice[7].u_voice/g_part[1].u_sin/g_part[1].sd_0_s/CLK  
+
+								MPW5
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_fx/u_echo/mem_mem_0_12_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF                NODE                
+ ======== ======= ====== ==== ================================= 
+  10.000   0.000               active clock edge time           
+  10.000   0.000               clk                              
+  10.000   0.000   tCL    FF   clk_ibuf/I                       
+  10.619   0.619   tINS   FF   clk_ibuf/O                       
+  15.115   4.496   tNET   FF   u_fx/u_echo/mem_mem_0_12_s/CLKA  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF                NODE                
+ ======== ======= ====== ==== ================================= 
+  20.000   0.000               active clock edge time           
+  20.000   0.000               clk                              
+  20.000   0.000   tCL    RR   clk_ibuf/I                       
+  20.608   0.608   tINS   RR   clk_ibuf/O                       
+  22.609   2.001   tNET   RR   u_fx/u_echo/mem_mem_0_12_s/CLKA  
+
+								MPW6
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_fx/u_c2/mem_mem_0_1_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  10.000   0.000               active clock edge time        
+  10.000   0.000               clk                           
+  10.000   0.000   tCL    FF   clk_ibuf/I                    
+  10.619   0.619   tINS   FF   clk_ibuf/O                    
+  15.115   4.496   tNET   FF   u_fx/u_c2/mem_mem_0_1_s/CLKB  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  20.000   0.000               active clock edge time        
+  20.000   0.000               clk                           
+  20.000   0.000   tCL    RR   clk_ibuf/I                    
+  20.608   0.608   tINS   RR   clk_ibuf/O                    
+  22.609   2.001   tNET   RR   u_fx/u_c2/mem_mem_0_1_s/CLKB  
+
+								MPW7
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_fx/u_c2/mem_mem_0_3_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  10.000   0.000               active clock edge time        
+  10.000   0.000               clk                           
+  10.000   0.000   tCL    FF   clk_ibuf/I                    
+  10.619   0.619   tINS   FF   clk_ibuf/O                    
+  15.115   4.496   tNET   FF   u_fx/u_c2/mem_mem_0_3_s/CLKA  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  20.000   0.000               active clock edge time        
+  20.000   0.000               clk                           
+  20.000   0.000   tCL    RR   clk_ibuf/I                    
+  20.608   0.608   tINS   RR   clk_ibuf/O                    
+  22.609   2.001   tNET   RR   u_fx/u_c2/mem_mem_0_3_s/CLKA  
+
+								MPW8
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_fx/u_c3/mem_mem_0_0_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  10.000   0.000               active clock edge time        
+  10.000   0.000               clk                           
+  10.000   0.000   tCL    FF   clk_ibuf/I                    
+  10.619   0.619   tINS   FF   clk_ibuf/O                    
+  15.115   4.496   tNET   FF   u_fx/u_c3/mem_mem_0_0_s/CLKB  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  20.000   0.000               active clock edge time        
+  20.000   0.000               clk                           
+  20.000   0.000   tCL    RR   clk_ibuf/I                    
+  20.608   0.608   tINS   RR   clk_ibuf/O                    
+  22.609   2.001   tNET   RR   u_fx/u_c3/mem_mem_0_0_s/CLKB  
+
+								MPW9
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_fx/u_c3/mem_mem_0_1_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  10.000   0.000               active clock edge time        
+  10.000   0.000               clk                           
+  10.000   0.000   tCL    FF   clk_ibuf/I                    
+  10.619   0.619   tINS   FF   clk_ibuf/O                    
+  15.115   4.496   tNET   FF   u_fx/u_c3/mem_mem_0_1_s/CLKA  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  20.000   0.000               active clock edge time        
+  20.000   0.000               clk                           
+  20.000   0.000   tCL    RR   clk_ibuf/I                    
+  20.608   0.608   tINS   RR   clk_ibuf/O                    
+  22.609   2.001   tNET   RR   u_fx/u_c3/mem_mem_0_1_s/CLKA  
+
+								MPW10
+MPW Summary:
+Slack:          6.594
+Actual Width:   7.494
+Required Width: 0.900
+Type:           Low Pulse Width
+Clock:          clk
+Objects:        u_fx/u_c3/mem_mem_0_3_s
+
+Late clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  10.000   0.000               active clock edge time        
+  10.000   0.000               clk                           
+  10.000   0.000   tCL    FF   clk_ibuf/I                    
+  10.619   0.619   tINS   FF   clk_ibuf/O                    
+  15.115   4.496   tNET   FF   u_fx/u_c3/mem_mem_0_3_s/CLKB  
+
+Early clock Path:
+    AT     DELAY   TYPE   RF               NODE              
+ ======== ======= ====== ==== ============================== 
+  20.000   0.000               active clock edge time        
+  20.000   0.000               clk                           
+  20.000   0.000   tCL    RR   clk_ibuf/I                    
+  20.608   0.608   tINS   RR   clk_ibuf/O                    
+  22.609   2.001   tNET   RR   u_fx/u_c3/mem_mem_0_3_s/CLKB  
+
+3.5 High Fanout Nets Report
+Report Command:report_high_fanout_nets -max_nets 10
+  FANOUT     NET NAME      WORST SLACK   MAX DELAY  
+ ======== =============== ============= =========== 
+  10844    clk_d           0.149         4.904      
+  5630     por_17_8        12.598        4.648      
+  1203     sample_tick_Z   2.174         10.236     
+  617      rst_n           1.985         8.614      
+  616      rst_n_11        3.405         8.967      
+  516      m_on_vel[2]     3.388         3.988      
+  516      m_on_vel[3]     3.669         3.541      
+  515      m_on_vel[0]     3.590         2.457      
+  515      m_on_vel[1]     4.235         2.747      
+  302      lpsh_r_0_117    0.759         6.700      
+
+3.6 Route Congestions Report
+Report Command:report_route_congestion -max_grids 10
+  GRID LOC   ROUTE CONGESTIONS  
+ ========== =================== 
+  R40C96     0.806              
+  R60C49     0.792              
+  R36C51     0.778              
+  R36C50     0.750              
+  R45C137    0.750              
+  R42C115    0.750              
+  R43C98     0.736              
+  R62C66     0.722              
+  R39C69     0.708              
+  R35C94     0.708              
+
+3.7 Timing Exceptions Report
+3.7.1 Setup Analysis Report
+Report Command:report_exceptions -setup -max_paths 5 -max_common_paths 1
+No timing exceptions to report!
+
+3.7.2 Hold Analysis Report
+Report Command:report_exceptions -hold -max_paths 5 -max_common_paths 1
+No timing exceptions to report!
+
+3.7.3 Recovery Analysis Report
+Report Command:report_exceptions -recovery -max_paths 5 -max_common_paths 1
+No timing exceptions to report!
+
+3.7.4 Removal Analysis Report
+Report Command:report_exceptions -removal -max_paths 5 -max_common_paths 1
+No timing exceptions to report!
+
+3.8 Timing Constraints Report
+  SDC Command Type    State                               Detail Command                             
+ ================== ========= ====================================================================== 
+  TC_CLOCK           Actived   create_clock -name clk -period 20 -waveform {0 10} [get_ports {clk}]  
+  TC_FALSE_PATH      Actived   set_false_path -to [get_ports {HP_BCK HP_WS HP_DIN PA_EN}]            
+  TC_FALSE_PATH      Actived   set_false_path -to [get_ports {led[*]}]                               
+

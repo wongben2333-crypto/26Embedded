@@ -1,0 +1,71 @@
+{
+ "schematics": {
+  "b1c2d3e4f5061728394a5b6c7d8e9f01": {
+   "name": "Schematic1",
+   "sheets": [
+    {
+     "name": "P1",
+     "id": 1,
+     "uuid": "c1d2e3f405162738495a6b7c8d9e0f12"
+    }
+   ]
+  }
+ },
+ "pcbs": {
+  "a1b2c3d4e5f60718293a4b5c6d7e8f90": "PCB1"
+ },
+ "panels": {},
+ "symbols": {
+  "f102132435465768798a9b0c1d2e3f45": {
+   "source": "",
+   "desc": "",
+   "tags": {
+    "parent_tag": [],
+    "child_tag": []
+   },
+   "custom_tags": "[\"\"]",
+   "title": "TOUCHPAD",
+   "version": "1",
+   "type": 2
+  }
+ },
+ "footprints": {
+  "d1e2f30415263748596a7b8c9d0e1f23": {
+   "title": "TOUCHPAD",
+   "source": "",
+   "version": "1",
+   "type": 4,
+   "desc": "",
+   "tags": {
+    "parent_tag": [],
+    "child_tag": []
+   },
+   "custom_tags": "[\"TOUCHPAD\"]"
+  }
+ },
+ "devices": {
+  "e1f2031425364758697a8b9c0d1e2f34": {
+   "title": "TOUCHPAD",
+   "attributes": {
+    "Symbol": "f102132435465768798a9b0c1d2e3f45",
+    "Footprint": "d1e2f30415263748596a7b8c9d0e1f23",
+    "Device": "TOUCHPAD"
+   },
+   "description": "",
+   "tags": {
+    "parent_tag": [],
+    "child_tag": []
+   },
+   "custom_tags": "[\"\"]"
+  }
+ },
+ "boards": {
+  "Board1": {
+   "schematic": "b1c2d3e4f5061728394a5b6c7d8e9f01",
+   "pcb": "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+  }
+ },
+ "config": {
+  "title": "MinimalOutlinePad"
+ }
+}

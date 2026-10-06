@@ -182,13 +182,16 @@ def pitch_k(note: int) -> int:
 INHARM_B = 0.0004
 
 
-def inharm_shifts(n: int):
+def inharm_shifts(n: int, B: float = None):
     """返回 (st1, st2)：inc_n = n·f0 + (f0>>st1) + (f0>>st2)
 
     要求 (2^-st1 + 2^-st2) ≈ n·(sqrt(1+B·n²) - 1)，用暴力搜索最接近的两项组合。
     st = 31 表示该项为 0（f0>>31 在 32 位下可忽略）。
+    B 可传参：多乐器时吉他（钢弦高张力）比钢琴小、古筝居中（见 INSTRUMENTS）。
     """
-    target = n * (math.sqrt(1.0 + INHARM_B * n * n) - 1.0)
+    if B is None:
+        B = INHARM_B
+    target = n * (math.sqrt(1.0 + B * n * n) - 1.0)
     best = (31, 31)
     best_err = abs(target)
     for s1 in range(4, 32):
@@ -202,6 +205,134 @@ def inharm_shifts(n: int):
                 best_err = err
                 best = (s1, s2)
     return best
+
+
+# ============================================================================
+#        多乐器（2026-10-06）：三个乐器的系数差异表
+# ============================================================================
+#  三者同源（弦振动 + 激励 + 共鸣），差异全部落在"系数"上：
+#    ① 泛音幅度谱  amp_n：弦的基础谱包络 (1/n^exp) × 默认拨弦位置梳状 |sin(nπx/L)|
+#         · 钢琴：沿用原有实测拟合表（AMP_Q16），**不动** ⇒ 回归逐样本不变
+#         · 吉他/古筝：由公式生成（公式写在这里，评审可复核）
+#    ② 非谐性 B：吉他(钢弦高张力) < 古筝(中等) < 钢琴
+#    ③ 激励亮度 lp_sh：拨片/指甲比毛毡琴槌亮 ⇒ 一阶低通移位更小
+#    ④ 激励增益 ham_gain_q16：拨片"咔哒"最强，指甲居中，毛毡最柔
+#    ⑤ 衰减档位 ksh_ofs：古筝 +1（木共鸣箱更长）；吉他 −1（本体短，
+#         延音由音箱/过载提供 —— 那是 audio_fx 的活）
+#  依据见 _research/piano/MULTI-INSTRUMENT-RESEARCH.md（Jaffe-Smith 拨弦位置梳状、
+#  拾音器实测频谱、古筝声学实测）。
+#  ⚠️ B / τ / 幅度指数目前是【文献量级估计】，不是实测 ⇒ 全部写在这里，
+#     上板听感微调时只改这一张表，并保留改动记录。
+# ---------------------------------------------------------------------------
+INSTRUMENTS = [
+    # name       B        幅度指数  默认位置x/L  明亮度K缩放  激励亮度偏移 激励增益  衰减档位偏移  弓弦驱动(预留)
+    dict(name="piano",  B=0.0004, exp=None, xL=None, k_scale=1.00, lp_ofs=0,  ham=19661, ksh_ofs=0,  drive=0),
+    # ⚠️ 2026-10-06 实测整定：吉他 exp 0.70→**1.30**、k_scale 1.20→**1.00**
+    #    原因：理想三角拨弦的谐波幅度 ≈ sin(nπx/L)/n² ⇒ 用 0.70 会让【基频变成最弱泛音】
+    #    （实测 A2~A5 是 A1 的 2~3.7 倍 ⇒ 又薄又空）。1.30 兼顾"基频主导"与"比钢琴更亮"。
+    #    2026-10-06 二轮：xL 0.12→**0.10** —— 参考工程实测：0.12 零点在 8/17/25，
+    #    |sin(8π·0.12)|=0.125 ⇒ −18 dB；0.10 零点在 10/20/30 ⇒ −4.6 dB；最优平台 0.08~0.12。
+    dict(name="guitar", B=0.0001, exp=1.30, xL=0.10, k_scale=1.00, lp_ofs=-1, ham=24000, ksh_ofs=-1, drive=0,
+         amp_lin=None, trim=0.577),
+    # ★ 第三槽：古筝 → **二胡（弓弦）**（2026-10-06，用户要求，Lead 批准）
+    #    ① exp = **1.0**：这是弓弦的物理签名 —— Helmholtz 运动（平弓稳音）的谐波幅度 ∝ **1/n**，
+    #       而拨弦是 ∝ 1/n²（三角激励）。**两者差一个 1/n 因子，正是"拉"与"拨"最大的频谱差别**。
+    #       ⇒ 所以二胡【不该】沿用古筝的 0.90/吉他的 1.30，而应取 1.0（更亮、更"有芯"）。
+    #    ② xL = **0.12**：弓毛触弦点 ≈ 弦长 1/7~1/10（取中值）。**梳状数学与拨弦位置完全相同**
+    #       （`sin(nπβ)`），所以复用同一个参数，不新增机制。
+    #    ③ k_scale = **0.80**：弓压 → 亮度变化比拨弦力度温和（不是"越用力越亮"那种强耦合）。
+    #    ④ ham = **12000**：起弓是"渐入"而非拨片的瞬态尖峰 ⇒ 激励弱一些、让持续音主导。
+    #       （真正的"连续激励"要靠下面的 `drive` 项，见下。）
+    #    ⑤ ksh_ofs = **0**：参考工程实测把低音弦 T60 从 7.2 s 砍到 2.4 s（"低音拖太久就没有
+    #       颗粒感与冲击力"）⇒ 我原来"木共鸣箱 ⇒ 衰减更长"的前提是【错的】，这里取中性。
+    #    ⚠️ drive=0【预留不启用】：弓弦与拨弦最本质的区别是"能量持续输入 ⇒ 稳幅振动"，
+    #       在我们的加法架构里它对应的就是包络里的一个【驱动项】（env -= decay; env += drive）
+    #       ⇒ 字段先留在这里，等输出级时序问题解决后再启用（合并进 `piano_vel_lut`/装载通路）。
+    #       ⚠️ 启用时必须门控 inst_sel==2/3，保证钢琴与吉他逐位不变。
+    dict(name="erhu",   B=0.0002, exp=1.00, xL=0.12, k_scale=0.80, lp_ofs=0,  ham=12000, ksh_ofs=0,  drive=0,
+         # ★ 实测谐波权重（真二胡 D4=293.0 Hz）：H1 基准、H2 +15.2 dB、H3 +20.5（最强）、H4 +12.0、
+         #   H5 −17、H6 −26 ⇒ 10^(dB/20) = 1 / 5.75 / 10.6 / 3.98 / 0.141 / 0.050
+         #   ⚠️ 非单调 ⇒ 单一 exp 拟合不了（见 inst_amp_table 注释）
+         #   ⚠️ xL=0.12【未校准】（采样集只有一个演奏位置）—— 如实标注
+         amp_lin=(1.0, 5.75, 10.6, 3.98, 0.141, 0.050), trim=0.324),
+]
+# ksh_ofs 用 2 bit 有符号编码（RTL 侧解码）：0 → −1、1 → 0、2 → +1
+KSH_OFS_ENC = {-1: 0, 0: 1, 1: 2}
+
+# ============================================================================
+#  ★ A 路线（2026-10-06）：二胡 5 档谐波倍数（相对增益）
+#    由实测琴体曲线在 n*f0 处的增益算出，已按各档 6 泛音【均值归零】、
+#    再整体除以 1.068（不改该档总电平）。
+#    验证（对照专业《赛马》实测）：D4 -> H2 主导(+4.8dB)、A4 -> H1 最强(-1.9)、
+#                                  D5 -> H1 主导(-4.4)  ✓ 三个目标全中
+#    含高频滚降：5kHz -9.1dB / 8kHz -15.1dB / 12kHz -22.3dB
+#    ⚠️ 档 0 对【低于 D4】的音是【外推，无实测支撑】。
+# ============================================================================
+BAND_MUL = [
+    (0.5430, 2.2337, 0.9270, 0.9789, 0.7491, 0.5683),   # band0  D4  293.7 Hz  (H4 adjusted)
+    (2.4182, 1.2812, 0.7595, 0.8722, 0.4957, 0.1731),   # band1  F4  349.2 Hz  (H4 adjusted)
+    (2.9624, 0.9762, 0.8605, 0.9428, 0.1488, 0.1094),   # band2  A4  440.0 Hz  (H4 adjusted)
+    (3.3609, 1.1660, 0.8982, 0.2678, 0.1348, 0.1723),   # band3  C5  523.2 Hz  (untouched)
+    (3.3586, 1.2813, 0.8546, 0.1280, 0.1918, 0.1857),   # band4  D5  587.3 Hz  (untouched)
+]
+#  (alpha = 0.65 mild start is already baked in; each row's mean == 1.000
+#   so the per-band total level is unchanged -- do NOT divide again.)
+N_BAND = len(BAND_MUL)
+
+
+def inst_amp_table(inst: int, band: int = 0):
+    """返回该乐器 6 个泛音的 Q16 幅度表
+
+    钢琴：直接用原有 AMP_Q16（**保证逐位不变**）。
+    其它：amp_n = (1/n^exp) × |sin(nπ·x/L)|
+          ⚠️ 归一化按【RMS】而不是【系数和】（2026-10-06 实测整定）：
+             按"系数和"归一会让吉他输出 RMS 比钢琴高 **+60%** ⇒ 切乐器音量跳变、听感像 bug。
+             正确做法：sqrt(Σamp²) 与钢琴对齐（不相干泛音的合成 RMS 正比于该量），
+             并按激励增益差 19661/ham 再补偿一次（激励初值也影响响度）。
+          古筝的拨弦位置零点（x/L=0.22 ⇒ n≈4.5 处零点）是【比值】特征，
+          整体缩放不会改变它 ⇒ 不会把 4~5 泛音零点调没。
+    """
+    if inst == 0:
+        return list(AMP_Q16)
+    cfg = INSTRUMENTS[inst]
+    if cfg.get("amp_lin") is not None:
+        # ★ 二胡：直接用【实测谐波权重】，不用 1/n^exp 公式
+        #   实测（真二胡 D4=293.0 Hz，2.0 s 窗 / 0.5 Hz 分辨率，见 _research/pc-link/ERHU-SPECTRUM.md）：
+        #     H1 基准（**很弱**）、H2 +15.2 dB、**H3 +20.5 dB（最强）**、H4 +12.0、H5 −17、H6 −26
+        #   ⇒ 线性比 = 10^(dB/20)：1 / 5.75 / 10.6 / 3.98 / 0.141 / 0.050
+        #   ⚠️ 这个形状【先升后降、非单调】⇒ **任何单一 exp 都拟合不了**
+        #     （这正是"二胡空/鼻音/像人声"的物理来源：基频弱、2~3 次撑着）
+        #   ⚠️ 真二胡【高音区】基频是主导的（d6/D5 样本）⇒ 完整方案要"随音高档变化的表"，
+        #      本轮先落地【低音区】形状（二胡主要音域），分档留作下一步。
+        raw = [float(v) for v in cfg["amp_lin"]]
+        # ★ A 路线：形状改由 BAND_MUL[band] 决定（RMS 归一在后面统一做）
+        _bm = BAND_MUL[band] if (0 <= band < N_BAND) else BAND_MUL[0]
+        raw = [raw[_i] * _bm[_i] for _i in range(len(raw))]
+    else:
+        raw = []
+        for n in range(1, len(AMP_Q16) + 1):
+            base = 1.0 / (n ** cfg["exp"])
+            comb = abs(math.sin(n * math.pi * cfg["xL"]))     # 默认拨弦位置梳状
+            raw.append(base * comb)
+    rms_raw   = math.sqrt(sum(v * v for v in raw))
+    rms_piano = math.sqrt(sum(v * v for v in AMP_Q16))
+    gain_comp = INSTRUMENTS[0]["ham"] / float(cfg["ham"])   # 激励增益差补偿
+    # ★ trim（2026-10-06 实测标定）：三种乐器在【同一窗口 200~1000 采样点】的 RMS 对齐到钢琴。
+    #   实测（未加 trim 前）：钢琴 3074.3 / 吉他 5326.9（+73%）/ 二胡 9488.8（+209%）
+    #   ⇒ trim = 3074.3 / 该乐器实测 RMS ⇒ 吉他 0.577、二胡 0.324
+    #   ⚠️ 必须在【加了 amp_lin 的新表】下重测确认（表变了 RMS 也会变）
+    trim      = float(cfg.get("trim", 1.0))
+    scale     = rms_piano / rms_raw * gain_comp * trim
+    return [int(round(v * scale)) for v in raw]
+
+
+def inst_k_table(inst: int):
+    """明亮度 K（Q12）按乐器缩放（拨片/指甲更亮 ⇒ 力度对音色的影响更大）"""
+    if inst == 0:
+        return list(K_Q12)
+    cfg = INSTRUMENTS[inst]
+    return [int(round(min(65535, v * cfg["k_scale"]))) for v in K_Q12]
+
 
 
 def inharm_realized(n: int):
@@ -368,12 +499,13 @@ endmodule
 // -----------------------------------------------------------------------------
 module piano_vel_lut (
     input  wire [6:0]  vel,
+    input  wire [1:0]  inst,          // 0=钢琴 1=电吉他 2=古筝
     output reg  [16:0] gain_q16,
     output reg  [2:0]  lp_sh
 );
 
     always @(*) begin
-        case (vel)
+        case ({inst, vel})
 %VELS%
             default: begin gain_q16 = 17'd7864; lp_sh = 3'd3; end
         endcase
@@ -392,6 +524,8 @@ endmodule
 // -----------------------------------------------------------------------------
 module piano_partial_lut (
     input  wire [2:0]  n,
+    input  wire [2:0]  band,
+    input  wire [1:0]  inst,          // 0=钢琴 1=电吉他 2=古筝
     output reg  [16:0] amp_q16,
     output reg  [15:0] k_q12,
     output reg  [4:0]  s_ring,
@@ -400,13 +534,39 @@ module piano_partial_lut (
     output reg  [4:0]  st2
 );
 
+    //  ⚠️ amp/k/st1/st2 随乐器变；**s_ring/s_damp 三个乐器给同一组值**
+    //     —— 因为它们在声部里是【常量索引查表 ⇒ 综合时折叠成常数移位】，
+    //        一旦随乐器变就会在每采样路径长出桶形移位器（MODE=1 裕量只有 +0.009 ns）。
+    //        乐器的衰减差异改由 ksh_ofs（piano_inst_lut）表达。
     always @(*) begin
-        case (n)
+        case ({inst, band, n})
 %PARTS%
             default: begin
                 amp_q16 = 17'd0; k_q12 = 16'd0;
                 s_ring = 5'd18; s_damp = 5'd13; st1 = 5'd31; st2 = 5'd31;
             end
+        endcase
+    end
+
+endmodule
+
+// -----------------------------------------------------------------------------
+//  piano_inst_lut —— 乐器级参数（2026-10-06 多乐器）
+//    ham_gain_q16 : 激励（琴槌/拨片/指甲）的初始能量。钢琴 = 原来的 HAM_GAIN_Q16 = 19661
+//    ksh_ofs      : 包络更新速率的乐器偏移（2 bit 编码：0→−1, 1→0, 2→+1）
+//                   ⇒ 古筝 +1（木共鸣箱衰减更长）、吉他 −1（本体短，延音靠音箱）
+//  ⚠️ 钢琴行必须与原值逐位相同（回归要求）
+// -----------------------------------------------------------------------------
+module piano_inst_lut (
+    input  wire [1:0]  inst,
+    output reg  [16:0] ham_gain_q16,
+    output reg  [1:0]  ksh_ofs_enc
+);
+
+    always @(*) begin
+        case (inst)
+%INSTS%
+            default: begin ham_gain_q16 = 17'd19661; ksh_ofs_enc = 2'd1; end
         endcase
     end
 
@@ -476,17 +636,36 @@ def build() -> str:
         f = f_of_note(n)
         nlines.append("            7'd%d: begin f0_step = 32'd%d; beat_step = 32'd%d; end // %.2f Hz, beat %.4f Hz\n"
                       % (n, step_of_hz(f), step_of_hz(detune_hz(n)), f, detune_hz(n)))
-    # 力度表
+    # 力度表（多乐器：case 索引是 {inst, vel}，共 3×128）
+    #   ⚠️ 钢琴行（inst=0）必须与原表逐位相同 —— 换乐器不能动钢琴
+    #   grep 关键字 '10'd' 便于核对
     vlines = []
-    for v in range(VEL_PTS):
-        vlines.append("            7'd%d: begin gain_q16 = 17'd%d; lp_sh = 3'd%d; end\n"
-                      % (v, vel_gain_q16(v), vel_lp_shift(v)))
-    # 泛音参数表
+    for k_inst in range(len(INSTRUMENTS)):
+        cfg = INSTRUMENTS[k_inst]
+        for v in range(VEL_PTS):
+            lp = min(7, max(0, vel_lp_shift(v) + cfg["lp_ofs"]))
+            vlines.append("            10'd%d: begin gain_q16 = 17'd%d; lp_sh = 3'd%d; end\n"
+                          % ((k_inst << 7) | v, vel_gain_q16(v), lp))
+    # 泛音参数表（多乐器：case 索引是 {inst, n}，共 3×6）
     plines = []
-    for i in range(N_PART):
-        st1, st2 = inharm_shifts(i + 1)
-        plines.append("            3'd%d: begin amp_q16 = 17'd%d; k_q12 = 16'd%d; s_ring = 5'd%d; s_damp = 5'd%d; st1 = 5'd%d; st2 = 5'd%d; end\n"
-                      % (i, AMP_Q16[i], K_Q12[i], S_RING[i], S_DAMP[i], st1, st2))
+    # ★ A 路线：case 索引 {inst, band, n} = inst(2)+band(3)+n(3) = 8 bit
+    #   钢琴/吉他只有 band0（6 行各）; 二胡 5 档（30 行） => 共 42 行
+    for k_inst in range(len(INSTRUMENTS)):
+        cfg = INSTRUMENTS[k_inst]
+        ks   = inst_k_table(k_inst)
+        _nband = N_BAND if k_inst == 2 else 1
+        for k_band in range(_nband):
+            amps = inst_amp_table(k_inst, k_band)
+            for i in range(N_PART):
+                st1, st2 = inharm_shifts(i + 1, cfg["B"])
+                plines.append("            8'd%d: begin amp_q16 = 17'd%d; k_q12 = 16'd%d; s_ring = 5'd%d; s_damp = 5'd%d; st1 = 5'd%d; st2 = 5'd%d; end\n"
+                              % ((k_inst << 6) | (k_band << 3) | i, amps[i], ks[i],
+                                 S_RING[i], S_DAMP[i], st1, st2))
+    # 乐器级参数表
+    ilines = []
+    for k_inst, cfg in enumerate(INSTRUMENTS):
+        ilines.append("            2'd%d: begin ham_gain_q16 = 17'd%d; ksh_ofs_enc = 2'd%d; end // %s\n"
+                      % (k_inst, cfg["ham"], KSH_OFS_ENC[cfg["ksh_ofs"]], cfg["name"]))
     # 颤音速率表（⚠️ 变量名不要和力度表 vlines 撞：上一版撞了，结果力度表被覆盖）
     vibl = []
     for v in range(128):
@@ -507,6 +686,7 @@ def build() -> str:
         '%NOTES%':   ''.join(nlines).rstrip('\n'),
         '%VELS%':    ''.join(vlines).rstrip('\n'),
         '%PARTS%':   ''.join(plines).rstrip('\n'),
+        '%INSTS%':   ''.join(ilines).rstrip('\n'),
         '%VIBS%':    ''.join(vibl).rstrip('\n'),
         '%GLIDES%':  ''.join(glines).rstrip('\n'),
     }.items():

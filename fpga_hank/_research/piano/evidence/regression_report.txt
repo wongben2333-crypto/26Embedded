@@ -1,5 +1,5 @@
 ﻿改前参考 = C:\Users\Danny\Desktop\FPGA competition\fpga_hank\_research\piano\evidence\ref_before
-改后样本 = C:\Users\Danny\AppData\Local\Temp\piano_t3\out
+改后样本 = C:\Users\Danny\AppData\Local\Temp\piano_final3\out
 文件                      行数(前)    行数(后)  逐样本比对                  sha256(前/后)
 piano_a4.txt            16384    16384  逐样本一致                  5388dc87ce03/5388dc87ce03
 piano_a4_rel.txt         8000     8000  逐样本一致                  6f5cae7550b7/6f5cae7550b7

@@ -10,7 +10,7 @@
 //
 //  ★ 为什么不用 $readmemh：Gowin 上 ROM 初始化有坑（见 wave_rom.v 记录），
 //    本工程交付物一律用生成的 case 常量表，不依赖外部 .vh/.hex。
-//    本 ROM 共 220 项，与 wave_rom.v（1024 项，已实测可综合）同量级。
+//    本 ROM 共 209 项，与 wave_rom.v（1024 项，已实测可综合）同量级。
 //
 //  ===========================================================================
 //  ★★ 曲目版权状态（★ 如实记录，请勿删改 ★）★★
@@ -18,8 +18,8 @@
 //  本项目含一首【未获授权】的流行曲，这是**使用者的知情决定**，
 //  **风险由使用者承担**。如实记录在案，不掩盖、不含糊。
 //
-//   [0] Faded (Alan Walker, 副歌)      ⛔ 受版权保护，本队未获授权
-//        🔴 本版数据【已作废，待替换】：用户亲耳确认所依据的源数据【不是《Faded》】。沿革：旧数据误取了吉他分解和弦伴奏层（复核：主歌 92% 是当小节和弦音）；改用 liaison/faded/MELODY-chorus-A.txt 后，用户播放真实《Faded》比对又否定了它。教训：liaison 的'三重印证'（7 音音阶 / i-VI-III-VII / 90 BPM）全是宏观属性，不能识别一首歌；识别只有【逐音音程走向】一条判据。⛔ 旋律受版权保护，本队【未获授权】；经使用者知情决定纳入演示模式，风险由使用者承担。
+//   [0] 我落泪情绪零碎 (副歌 m.29-31)         ⛔ 受版权保护，本队未获授权
+//        ⛔ 本曲为【受版权保护的流行歌曲】。乐谱由【使用者本人】从 EveryonePiano.com 获取并提供（编配者 JenaV）。【本队未获授权】（即：从未获得任何授权）。纳入演示模式是使用者的【知情决定】，版权风险由使用者承担。—— 与此前 Faded 的处理方式一致（该曲已按裁决删除）：如实记录、不隐瞒、不用'改编/引用'淡化。读谱方式：逐小节 3 倍放大 + 像素级判读，并用歌词音节数交叉验证（详见 _research/songs/WO-LUO-LEI-NOTES.md）。
 //   [1] Ode to Joy (欢乐颂)             ✅ 公有领域
 //        Beethoven《第九交响曲》第四乐章主题，作者 1827 年去世已逾 70 年，公有领域。音符数据由本队自行整理，未复制第三方文件。
 //   [2] Twinkle Twinkle (小星星)        ✅ 公有领域
@@ -35,8 +35,13 @@
 //  ---------------------------------------------------------------------------
 //  ★ 音符数据来源（逐首交代）
 //    · 公有领域曲目：由本队**自行整理**，未复制任何第三方文件。
-//    · Faded：取自本队自己的编配脚本
-//      `26Embedded/fpga_spark/sim/simulate_faded_guitar.py`（提取副歌旋律线）。
+//    · 我落泪情绪零碎：乐谱由**使用者本人**提供（EveryonePiano.com，编配 JenaV），
+//      本队**逐小节 3 倍放大 + 像素级判读**自行读谱，未复制任何第三方数据文件；
+//      并用歌词音节数交叉验证（详见 _research/songs/WO-LUO-LEI-NOTES.md）。
+//    ⛔ [2026-10-06 已删除] Faded：原条目取自本队 `26Embedded/fpga_spark/sim/
+//       simulate_faded_guitar.py`，因**数据源被用户亲耳否掉**、副歌起点从未确认，
+//       经 Lead 裁决**彻底删除**（不留空占位）。删除后各曲下标整体前移，
+//       [0] 由 Faded 变为《欢乐颂》(公有领域)。
 //    ⛔ 调研中 star 最高的开源蜂鸣器曲库 robsoncouto/arduino-songs 经 GitHub API
 //       实测 `license: null`（无许可证文件），其 README 口头许可无法举证，
 //       因此本工程**没有使用它的任何数据文件**，只在"音符怎么编码、怎么断句"上
@@ -52,7 +57,7 @@
 //  ---------------------------------------------------------------------------
 //  曲目清单
 //    #  曲名                        BPM  音符数  时长    授权
-//    0  Faded (Alan Walker, 副歌)    120     29   22.0s  COPYRIGHT
+//    0  我落泪情绪零碎 (副歌 m.29-31)        67     18   10.7s  COPYRIGHT
 //    1  Ode to Joy (欢乐颂)           100     62   38.4s  PD
 //    2  Twinkle Twinkle (小星星)      120     42   24.0s  PD
 //    3  Jingle Bells (铃儿响叮当)       140     50   27.4s  PD
@@ -79,36 +84,25 @@ module song_rom (
     //     详见 song_player.v 的流水说明。这是与 wave_rom.v 相同的读时序。
     always @(posedge clk) begin
         case ({song, addr})
-            // ---- song 0 : Faded (Alan Walker, 副歌) ----
-            13'd0   : dout <= 35'h27E40BEBC;  // G5    dur=48828
-            13'd1   : dout <= 35'h29E40BEBC;  // B5    dur=48828
-            13'd2   : dout <= 35'h2B6423C34;  // D6    dur=146484
-            13'd3   : dout <= 35'h2C640BEBC;  // E6    dur=48828
-            13'd4   : dout <= 35'h2B640BEBC;  // D6    dur=48828
-            13'd5   : dout <= 35'h29E40BEBC;  // B5    dur=48828
-            13'd6   : dout <= 35'h28E40BEBC;  // A5    dur=48828
-            13'd7   : dout <= 35'h27E40BEBC;  // G5    dur=48828
-            13'd8   : dout <= 35'h266417D78;  // E5    dur=97656
-            13'd9   : dout <= 35'h26640BEBC;  // E5    dur=48828
-            13'd10  : dout <= 35'h27640BEBC;  // F#5   dur=48828
-            13'd11  : dout <= 35'h27E423C34;  // G5    dur=146484
-            13'd12  : dout <= 35'h29E40BEBC;  // B5    dur=48828
-            13'd13  : dout <= 35'h2B6423C34;  // D6    dur=146484
-            13'd14  : dout <= 35'h2C640BEBC;  // E6    dur=48828
-            13'd15  : dout <= 35'h2B640BEBC;  // D6    dur=48828
-            13'd16  : dout <= 35'h29E40BEBC;  // B5    dur=48828
-            13'd17  : dout <= 35'h28E40BEBC;  // A5    dur=48828
-            13'd18  : dout <= 35'h27E40BEBC;  // G5    dur=48828
-            13'd19  : dout <= 35'h28E447869;  // A5    dur=292969
-            13'd20  : dout <= 35'h27E40BEBC;  // G5    dur=48828
-            13'd21  : dout <= 35'h29E40BEBC;  // B5    dur=48828
-            13'd22  : dout <= 35'h2B6423C34;  // D6    dur=146484
-            13'd23  : dout <= 35'h2C640BEBC;  // E6    dur=48828
-            13'd24  : dout <= 35'h2B640BEBC;  // D6    dur=48828
-            13'd25  : dout <= 35'h29E40BEBC;  // B5    dur=48828
-            13'd26  : dout <= 35'h28E40BEBC;  // A5    dur=48828
-            13'd27  : dout <= 35'h27E40BEBC;  // G5    dur=48828
-            13'd28  : dout <= 35'h266417323;  // E5    dur=95011
+            // ---- song 0 : 我落泪情绪零碎 (副歌 m.29-31) ----
+            13'd0   : dout <= 35'h1FE42AB3B;  // D#4   dur=174907
+            13'd1   : dout <= 35'h1EE40AACF;  // C#4   dur=43727
+            13'd2   : dout <= 35'h1FE40AACF;  // D#4   dur=43727
+            13'd3   : dout <= 35'h20640AACF;  // E4    dur=43727
+            13'd4   : dout <= 35'h1FE40AACF;  // D#4   dur=43727
+            13'd5   : dout <= 35'h1FE42AB3B;  // D#4   dur=174907
+            13'd6   : dout <= 35'h1EE40AACF;  // C#4   dur=43727
+            13'd7   : dout <= 35'h1FE40AACF;  // D#4   dur=43727
+            13'd8   : dout <= 35'h20640AACF;  // E4    dur=43727
+            13'd9   : dout <= 35'h1FE40AACF;  // D#4   dur=43727
+            13'd10  : dout <= 35'h1FE40AACF;  // D#4   dur=43727
+            13'd11  : dout <= 35'h1EE40AACF;  // C#4   dur=43727
+            13'd12  : dout <= 35'h1DE40AACF;  // B3    dur=43727
+            13'd13  : dout <= 35'h1FE40AACF;  // D#4   dur=43727
+            13'd14  : dout <= 35'h1FE40AACF;  // D#4   dur=43727
+            13'd15  : dout <= 35'h22640AACF;  // G#4   dur=43727
+            13'd16  : dout <= 35'h22640AACF;  // G#4   dur=43727
+            13'd17  : dout <= 35'h21640AACF;  // F#4   dur=43727
             // ---- song 1 : Ode to Joy (欢乐颂) ----
             13'd512 : dout <= 35'h20640E4E2;  // E4    dur=58594
             13'd513 : dout <= 35'h20640E4E2;  // E4    dur=58594

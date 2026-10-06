@@ -166,6 +166,12 @@ module piano_engine #(
     input  wire [6:0]  vib_depth,     // CC77 或 CC1
     input  wire [6:0]  vib_rate,      // CC76 0..127 → f ≈ v×0.1 Hz
     input  wire        sustain,       // CC64 ≥64：延音踏板
+    input  wire [1:0]  inst_sel,      // ★ 多乐器（2026-10-06）：0=钢琴 1=电吉他 2=古筝
+    input  wire [6:0]  bow_speed,     // ★ CC21 弓速 0..127（二胡用；0 ⇒ 固定中速兜底 64）
+                                      //   全局切换（8 声部同一乐器）；只影响【新的音符】——
+                                      //   系数在 note-on 装载期被采样，正在发声的音符保持原音色。
+                                      //   ⚠️ 未接时（z/x）会落到 default 分支 = 钢琴，
+                                      //      但仿真里 z 会传播 ⇒ TB 与 top.v 都必须显式接 2'd0。
 
     // ---- 输出 ----
     output reg  signed [15:0]  mix_out,   // 混音输出（与 32 路振荡器组相加前）
@@ -176,7 +182,9 @@ module piano_engine #(
     localparam integer N_PART  = 6;      // 每声部泛音分量数
     localparam integer PHASE_W = 32;     // 相位累加器位宽
     localparam integer ENV_W   = 32;     // 包络位宽（Q32；增益 = env[31:16]）
-    localparam integer SEL_W   = 4;      // 声部选择器位宽（支持 1..16 声部）
+    // ⚠️ SEL_W 只在 N_VOICES>16（如 20/32）时才加宽到 5 bit
+    //    ⇒ N<=16（含默认 8）时【位宽与逻辑完全不变】，不动已验证的通路
+    localparam integer SEL_W   = (N_VOICES > 16) ? 5 : 4;
     localparam integer DIV_W   = 10;     // 包络降速计数器位宽
 
     // 琴槌：最大增益 0.30(Q16)，包络衰减移位 10 ⇒ τ = 2^10/fs ≈ 10.5 ms
@@ -193,6 +201,27 @@ module piano_engine #(
     wire [16:0] vel_gain_bus;
     wire [2:0]  vel_lp_bus;
 
+    // ------------------------------------------------------- 多乐器（2026-10-06）----
+    //  乐器级参数：激励增益 + 衰减档位偏移。**全局**（8 声部同乐器）。
+    //  ⚠️ 这两个值只在【装载期】被采样 ⇒ 切换乐器只影响新音符（批准的语义）。
+    wire [16:0] inst_ham_gain;
+    wire [1:0]  inst_ksh_enc;
+    // ★ 乐器下标映射（2026-10-06，Lead 批准的最小改法）
+    //   语义：0=钢琴、1=电吉他、**2 或 3 = 第三个乐器槽**（原古筝，已由二胡替换）。
+    //   ⚠️ 为什么 2 和 3 都映射到 2：
+    //     ① GUI 发的是 **CC20=3**（v44-erhu-swap）⇒ 必须接受 3，否则 F3【切到二胡听到钢琴】✗
+    //     ② ROM 仍是 3 行（0/1/2），**不必加行**；旧测试用 2、GUI 用 3 都能工作 ⇒ 兼容
+    //     ③ 这样【没有任何合法 inst_sel 会落到"意外分支"】（0/1/2/3 全覆盖）
+    //   ⚠️ 下标而不是端口语义：`inst_ok` 只用于三个查表实例，改这一处即可。
+    wire [1:0]  inst_ok = (inst_sel == 2'd1) ? 2'd1 :
+                          ((inst_sel == 2'd2) || (inst_sel == 2'd3)) ? 2'd2 : 2'd0;
+
+    piano_inst_lut u_inst_lut (
+        .inst         (inst_ok),
+        .ham_gain_q16 (inst_ham_gain),
+        .ksh_ofs_enc  (inst_ksh_enc)
+    );
+
     piano_note_lut u_note_lut (
         .note      (on_note),
         .f0_step   (f0_bus),
@@ -201,6 +230,7 @@ module piano_engine #(
 
     piano_vel_lut u_vel_lut (
         .vel      (on_vel),
+        .inst     (inst_ok),          // ★ 多乐器：拨片/指甲比毛毡琴槌亮 ⇒ lp_sh 更小
         .gain_q16 (vel_gain_bus),
         .lp_sh    (vel_lp_bus)
     );
@@ -215,7 +245,11 @@ module piano_engine #(
     //           N = round(t_glide × fs)，recip = round(2^32 / N)
     //           step = ((f_target − f_current) × recip) >> 32，逐采样点线性推进
     wire [31:0] vib_inc_bus;
-    wire [31:0] glide_recip_bus;
+    // ⚠️ 位宽必须与 LUT 端口一致（16 bit）：原来写 32 bit，高 16 位【无驱动】
+    //    vopt 会报 "Connection width does not match width of port 'recip'"，
+    //    实测探针里该总线读到 Z。虽然 g_r_r 只取低 16 位、功能没错，
+    //    但无驱动总线是隐患（X 传播/工具优化都可能咬人）⇒ 按端口宽度声明。
+    wire [15:0] glide_recip_bus;
 
     piano_vib_lut u_vib_lut (
         .rate (vib_rate),
@@ -267,6 +301,10 @@ module piano_engine #(
     //    与串行版本逐例对照结果**完全相同**（evidence/allocator_equiv.txt）。
     // ⚠️ 树形版本支持 1..8 声部；N_VOICES>8 时自动退回原来的串行写法（见 generate）。
     reg  [SEL_W-1:0] alloc_sel;
+    // ★ 一热分配结果（2026-10-06 修 362 违例）：让 `on_pulse_sel` 直接用一热位 AND，
+    //   省掉原来 `alloc_sel == gp` 那一级 4 bit 相等比较（实测最差路径终点是 ph/CE,D）。
+    //   ⚠️【三个 generate 分支都必须驱动它】——只改本分支会让 N>8 的 alloc_oh 悬空(z) ⇒ 静音。
+    reg  [N_VOICES-1:0] alloc_oh;
     reg  [SEL_W-1:0] rr;
     reg  [SEL_W-1:0] last_voice;
     reg              last_valid;
@@ -313,6 +351,29 @@ module piano_engine #(
         end
     endfunction
 
+    // ---- 32 声部用：把上面已证的 low8 拼成 16/32 bit 树（深度 4/5 级）----
+    //   ⚠️ 只在 N_VOICES>8 的 generate 分支里被引用；N<=8 时综合视作无用逻辑 ⇒
+    //      默认 8 声部通路的位宽/逻辑一字未动。
+    //   语义已证明：sim/tb/tb_alloc32_proof.v（结构化 32,000 + 随机 200,000 例，0 不一致）
+    function [5:0] low16t;
+        input [15:0] m;
+        reg [5:0] lo, hi;
+        begin
+            lo = low8(m[7:0]);
+            hi = low8(m[15:8]);
+            low16t = (|m[7:0]) ? lo : (hi + 6'd8);
+        end
+    endfunction
+    function [5:0] low32t;
+        input [31:0] m;
+        reg [5:0] lo, hi;
+        begin
+            lo = low16t(m[15:0]);
+            hi = low16t(m[31:16]);
+            low32t = (|m[15:0]) ? lo : (hi + 6'd16);
+        end
+    endfunction
+
     generate
     if (N_VOICES <= 8) begin : g_alloc_tree
         wire [7:0] m_same = valid_mask & v_gate & note_match_mask;
@@ -332,8 +393,62 @@ module piano_engine #(
             else if (|m_rel)             alloc_sel = s3;
             else                         alloc_sel = rr;
         end
+
+        // ★ 一热版（与上面的二进制版是【同一函数的两种编码】）：
+        //   `m & (~m+1)` 直接取"最低置位"的一热 ⇒ 级数 2 级（减+与）
+        //   对比原来 3 级树(low8) + 1 级 4bit 相等比较 ⇒ 省 1~2 级
+        wire [7:0] oh1 = m_same & (~m_same + 8'd1);
+        wire [7:0] m2w = (|(m_idle & ge)) ? (m_idle & ge) : (m_idle & lt);
+        wire [7:0] m3w = (|(m_rel  & ge)) ? (m_rel  & ge) : (m_rel  & lt);
+        wire [7:0] oh2 = m2w & (~m2w + 8'd1);
+        wire [7:0] oh3 = m3w & (~m3w + 8'd1);
+        always @(*) begin
+            if (glide_on && last_valid) alloc_oh = (8'd1 << last_voice);
+            else if (|m_same)           alloc_oh = oh1;
+            else if (|m_idle)           alloc_oh = oh2;
+            else if (|m_rel)            alloc_oh = oh3;
+            else                        alloc_oh = (8'd1 << rr);
+        end
+    end else if (N_VOICES <= 32) begin : g_alloc_tree32
+        // ★ 32 bit 两级树形分配器（N_VOICES = 17..32）。为什么必须换掉串行链：
+        //   MODE=1 裕量只有 +0.009 ns，串行链随 N 增长 ⇒ N=20/32 必然违例。
+        //   等价性已证：sim/tb/tb_alloc32_proof.v（结构化 32,000 + 随机 200,000 例，
+        //   与"4 层串行优先、rr 旋转顺序"的黄金模型逐例一致，0 不一致，种子 0xc0ffee01）
+        wire [31:0] vm       = (N_VOICES >= 32) ? 32'hFFFF_FFFF
+                                                : ((32'd1 << N_VOICES[5:0]) - 32'd1);
+        wire [31:0] vg32     = {32{1'b0}} | v_gate;     // 零扩展到 32（N=32 时也成立）
+        wire [31:0] va32     = {32{1'b0}} | v_active;
+        wire [31:0] rr32     = {{(32-SEL_W){1'b0}}, rr};
+        reg  [31:0] nm32;
+        integer     nm2;
+        always @(*) begin
+            nm32 = 32'd0;
+            for (nm2 = 0; nm2 < N_VOICES; nm2 = nm2 + 1)
+                nm32[nm2] = (v_note_flat[nm2*7 +: 7] == on_note);
+        end
+        wire [31:0] m_same32 = vm & vg32 & nm32;
+        wire [31:0] m_idle32 = vm & ~va32;
+        wire [31:0] m_rel32  = vm & ~vg32;
+        wire [31:0] ge32     = vm & (32'hFFFF_FFFF << rr32);
+        wire [31:0] lt32     = vm & ~(32'hFFFF_FFFF << rr32);
+        wire [5:0]  s1_32 = low32t(m_same32);
+        wire [5:0]  s2_32 = (|(m_idle32 & ge32)) ? low32t(m_idle32 & ge32)
+                                                 : low32t(m_idle32 & lt32);
+        wire [5:0]  s3_32 = (|(m_rel32  & ge32)) ? low32t(m_rel32  & ge32)
+                                                 : low32t(m_rel32  & lt32);
+
+        always @(*) begin
+            if (glide_on && last_valid)  alloc_sel = last_voice;
+            else if (|m_same32)          alloc_sel = s1_32[SEL_W-1:0];
+            else if (|m_idle32)          alloc_sel = s2_32[SEL_W-1:0];
+            else if (|m_rel32)           alloc_sel = s3_32[SEL_W-1:0];
+            else                         alloc_sel = rr;
+            // ⚠️ 本分支（N=17..32）也必须驱动 alloc_oh，否则 on_pulse_sel 全 0 ⇒ 静音
+            alloc_oh = {N_VOICES{1'b0}};
+            alloc_oh[alloc_sel] = 1'b1;
+        end
     end else begin : g_alloc_serial
-        // 备用路径：N_VOICES>8 时保持原来的串行语义（本项目实际只用 8 声部）
+        // 备用路径：N_VOICES>32 时保持原来的串行语义（本项目不用）
         reg              alloc_hit;
         reg  [SEL_W-1:0] idx;
         integer          sai;
@@ -375,6 +490,9 @@ module piano_engine #(
                     alloc_hit = 1'b1;
                 end
             end
+            // ⚠️ 本分支（N>32）也必须驱动 alloc_oh，否则 on_pulse_sel 全 0 ⇒ 静音
+            alloc_oh = {N_VOICES{1'b0}};
+            alloc_oh[alloc_sel] = 1'b1;
         end
     end
     endgenerate
@@ -459,7 +577,7 @@ module piano_engine #(
         end else begin
             // 第 0 拍：先把 Q24 倒数锁存（它只跟 glide_time 有关，与音符无关）
             if ((ld_st == L_IDLE) && note_on && !ld_busy)
-                g_r_r <= glide_recip_bus[15:0];
+                g_r_r      <= glide_recip_bus;
 
             // 第 1 拍（第 0 个泛音的 L_CALC）：此时 ld_f0 / ld_sel 才【刚被 L_IDLE 写入】，
             //   读到的才是本次音符的值。
@@ -493,8 +611,28 @@ module piano_engine #(
         end
     end
 
+    // ================= A 路线：二胡 5 档 band_ld（2026-10-06）=================
+    //   由 on_note 派生（装载期用，慢变量）；档 0 = D4 及更低（【外推，无实测支撑】）
+    //   ⚠️ 钢琴/吉他 ROM 只有 band0 行 ⇒ 必须强制 band=0，否则查到 default ⇒ 静音/垃圾
+    wire [2:0] band_ld = (on_note >= 7'd73) ? 3'd4 :
+                         (on_note >= 7'd71) ? 3'd3 :
+                         (on_note >= 7'd67) ? 3'd2 :
+                         (on_note >= 7'd64) ? 3'd1 : 3'd0;
+    //   NOTE: band_ld_eff MUST be registered. It combinationally depends on
+    //         inst_ok (= derived from inst_sel), and wiring it straight into the
+    //         case re-introduces the long inst_sel path (measured: 498 violated
+    //         endpoints / -0.536 ns). Same lesson as drv_on_r: any signal from
+    //         inst_sel must be registered before it reaches a voice or a LUT.
+    reg  [2:0] band_ld_eff;
+    always @(posedge clk) begin
+        if (!rst_n) band_ld_eff <= 3'd0;
+        else        band_ld_eff <= (inst_ok == 2'd2) ? band_ld : 3'd0;
+    end
+
     piano_partial_lut u_ld_lut (
         .n       (ld_idx),
+        .band    (band_ld_eff),
+        .inst    (inst_ok),           // ★ 多乐器：装载期查表（此处本就是运行时索引，免费）
         .amp_q16 (pl_amp),
         .k_q12   (pl_k),
         .s_ring  (pl_sr),
@@ -625,7 +763,9 @@ module piano_engine #(
     genvar gp;
     generate
     for (gp = 0; gp < N_VOICES; gp = gp + 1) begin : g_sel
-        assign on_pulse_sel[gp] = note_on & ~ld_busy & (alloc_sel == gp[SEL_W-1:0]);
+        // ★ 一热分配（2026-10-06）：直接用一热位做 AND，省掉原来 `alloc_sel == gp`
+        //   那一级 4 bit 相等比较（实测最差路径 20.034 ns / slack −0.296 ns）。
+        assign on_pulse_sel[gp] = note_on & ~ld_busy & alloc_oh[gp];
     end
     endgenerate
 
@@ -667,6 +807,13 @@ module piano_engine #(
             .on_note      (on_note),
             .on_velgain   (vel_gain_bus),
             .on_lpsh      (vel_lp_bus),
+            // ★ 阶段1b 多乐器：引擎内部连接（不涉及 top.v 端口表）
+            .on_ham_gain  (inst_ham_gain),
+            .on_ksh_ofs   (inst_ksh_enc),
+            .on_pluck_fast(inst_ok == 2'd1),   // 只有电吉他加速激励衰减
+            .bow_speed    (bow_speed),         // ★ CC21 弓速
+            .drv_on       (inst_ok == 2'd2),   // ★ 只有二胡持续供能 ⇒ 钢琴/吉他逐值不变
+
             .on_beat      (beat_bus),
             .ld_for_me    (ld_stb & (ld_sel == gv[SEL_W-1:0])),
             .ld_env_flat  (ld_env_flat),
@@ -717,26 +864,123 @@ module piano_engine #(
             vsum = vsum + (v_active[vi] ? v_out[vi] : 25'sd0);
     end
 
-    // ★ 预缩放：给"多个音同时到顶"留余量。8 个声部各自峰值可达满幅，
-    //   OUT_SHIFT=1 时 2 个满幅音刚好到顶；更多音靠下面的软膝限幅平滑压住。
-    wire signed [27:0] norm = vsum >>> OUT_SHIFT;
-
-    // 软膝限幅：|x| <= KNEE 完全线性；超过后按 1/4 斜率压缩（比硬削顶柔和得多）
-    wire signed [27:0] mag  = norm[27] ? (-norm) : norm;
-    wire signed [27:0] magl = (mag > KNEE) ? (KNEE + ((mag - KNEE) >>> 2)) : mag;
-    wire signed [27:0] lim  = norm[27] ? (-magl) : magl;
-
-    // 输出流水有效标记：sample_tick 之后第 3 拍数据有效（见 piano_voice 流水说明）
-    reg [3:0] vld;
+    // 🔴 输出级改动【已撤销】（2026-10-06，构建实测 404 违例 / 最差裕量 −4.71 ns）
+    //
+    // 🔴 输出级改动【第二次撤销】（2026-10-06）：754 违例 / −4.919 ns
+    //
+    // 本轮 `.tr`（`evidence/fpga_hank_MODE1_outsweep_754v.tr.txt`）Top 25 给出两类路径：
+    //   ① `env_..._s0` → `mix_out_*_s0`  −4.919 ns（15 条）
+    //      ⇒ 这是输出链的【输入侧】：包络寄存器 → 8 声部求和 → 增益/膝/阻断 → mix_out
+    //   ② `u_midi/on_note_3_s0` → `ph_ph_.../CE`  −4.557 ns（10 条）
+    //      ⇒ 就是之前那条 −0.296 ns 的分配器路径，**恶化到 −4.557**
+    //
+    // ⚠️ 结论修正（我上一条的说法不准确）：
+    //    · **HP 递归不在 Top 上** ⇒ "递归包住求和树"不是主因 ✗
+    //    · 真因是【我在这条已经临界（基准仅 +0.043 ns）的输出链上又串了几级】
+    //      （增益 mux + 阻断 + 膝 mux）⇒ 把它推过界 ✗
+    //    · `on_note → ph` 的恶化**不可能**由输出级逻辑造成（两者无逻辑关联）
+    //      ⇒ 最可能是 **P&R/布局副作用**（新增 ~90 FF + mux 使该路径走线变差）
+    //      ⇒ 判别方法：比对两版 `.tr` 中该路径的 **Logic Levels 与 cell/route 占比**
+    //        （级数相同而 route 涨 ⇒ 是布局，不是逻辑）
+    //
+    // ⚠️ 另一条永久教训（Lead 指出、我认同）：
+    //    **`sample_tick` 是【时钟使能 CE】，不是【慢时钟】** ⇒
+    //    带 CE 的 always 块里组合逻辑仍须在【一个时钟】内收敛；
+    //    "512 拍余量"是错觉，除非显式写多周期约束。
+    //    （本项目同型三次：`env_en`→1536 个 CE / `ph/CE` / 本次）
+    //
+    // ⚠️ 而且对 `env → mix_out` **不能**用多周期约束：
+    //    `env` 并不是 512 拍才更新一次（它在 sample_tick 之上还受 env_en 门控，但**输出链每采样点都要算**），
+    //    且 `mix_out` 是在 `vld[2]` 捕获 —— 数据到达与捕获之间**只隔 1 个时钟**，不是 512。
+    //    ⇒ 放松成多周期会【掩盖真实违例】✗
+    //
+    // ⇒ 正解只能是【真流水线】（用真实寄存器把链切开），且它必须回答一个产品问题：
+    //    **钢琴能不能接受 +1 采样点（10.24 µs）的固定群延迟？**（见 _research/piano 记录）
+    // ★★ 真流水线（2026-10-06，Lead 批准）：把输出链切成 3 段，代价 **+2 个时钟 = 40 ns**
+    //
+    // 为什么能修（`.tr` 给的证据）：最差路径的【起点是 `env`】——
+    //   因为混音器逐声部门控 `vsum = Σ(v_active[vi] ? v_out[vi] : 0)`，
+    //   而 `v_active` 是 `env` 组合派生的 ⇒ 整条链被包络顶着：
+    //     `env → v_active → mux → 8 路求和树 → 增益/膝 → mix_out` = 28 级 / −4.919 ns ✗
+    //   ⇒ 正解是【把链切开】，不是"去掉某一段" ✓
+    //
+    // 三段：
+    //   段① `env → v_active → mux → 求和树`                       → 寄存器 `vsum_q`
+    //   段② `vsum_q → 增益 mux → 取绝对值 → 软膝 → 符号`            → 寄存器 `magl_q`
+    //   段③ `magl_q → 削顶比较 → mix_out`                          （用已有 mix_out 寄存器）
+    //
+    // ⚠️ 语义零改动：单级流水只是【在组合链中间插寄存器】，不改任何逻辑
+    //   ⇒ 输出 = 原信号【平移 2 个时钟（40 ns）】⇒ 回归判据 = "去掉该固定偏移后逐字节一致" ✓
+    // ⚠️ 为什么是"2 个时钟"而不是"1 个采样点"：这两级是**时钟级**流水（每拍都刷新、不加 CE）
+    //   ⇒ 代价 2×20 ns = **40 ns**，比 Lead 批准的 10.24 µs 小 256 倍 ✓
+    // ⚠️ `mix_out` 的有效位从 `vld[2]` 挪到 `vld[4]`（+2 拍）—— 必须同时改，否则整体错位 ✗
+    reg signed [27:0] vsum_q;
     always @(posedge clk) begin
-        if (!rst_n) vld <= 4'd0;
-        else        vld <= {vld[2:0], sample_tick};
+        if (!rst_n) vsum_q <= 28'sd0;
+        else        vsum_q <= vsum;                       // 段①→② 的界
     end
+
+    // 增益重平衡（门控非钢琴：钢琴数值逐位不变）：-6 dB
+    //   实测依据（outsweep TB，8 音和弦）：吉他/二胡 32.37%/39.90% 采样点进软膝、峰值触硬削 32768；
+    //   −6 dB 后 7.90%/11.70%，硬削消失 ✓
+    wire signed [27:0] norm_old = vsum_q >>> OUT_SHIFT;
+    wire signed [27:0] norm_new = vsum_q >>> (OUT_SHIFT + 1);
+    wire signed [27:0] norm = (inst_ok != 2'd0) ? norm_new : norm_old;
+
+    // ★★ 琴体共振曲线（二胡专用；门控 inst_sel==2 ⇒ 钢琴/吉他【完全旁路】⇒ 逐值不变）
+    //   实测（专业《赛马》）：**550 Hz +34.6 dB（宽的低 Q 隆起）**、1635 / 2970 / 5360 Hz 次峰
+    //   落地 = 4 级 peaking biquad，Q14 定点。**已与浮点比对：最大误差 0.176 dB、平均 0.016 dB**
+    //   ⚠️ 位置：紧接增益、在软膝【之前】 ⇒ 顺带把 `vsum_q → magl_q` 那条 −1.499 长链
+    //      切成 5 段（每段 1 乘积组 + 2 加）✓
+    //   ⚠️ 位宽链（本项目栽过"32 bit 装不下乘积"⇒ 显式给宽）：
+    //      x = 16 bit（低 16 位就是音频域）⇒ 16×16 = 32 bit 乘积 ⇒ 5 项累加 ⇒ **36 bit 累加器**
+    //      ⇒ >>>14（常量）⇒ 限幅 ±32767 ⇒ 下一级 16 bit ✓
+    //   ⚠️ 每级【一拍】（时钟级流水）⇒ 门控路径 +4 拍 = 80 ns；**钢琴路径一拍不动** ✓
+    //   ⚠️ 系数常量 ⇒ 无变量移位 ⇒ 不会像上次那样长出多余桶形移位器（+8833 LUT）✓
+    // 🔴 曲线【再次旁路】（2026-10-06）：按采样率门控后**仍然** 99.17%（应 ~1%）✗
+    //   ⇒ 说明"更新率"不是（唯一）根因 ⇒ 滤波器还有**未定位的实现错误** ✗
+    //   ⇒ 在定位清楚之前保持旁路，**绝不交给构建**（否则=全时软削波 ⇒ "更电子" ✗✗）
+    //   ⚠️ 待查清单（下一轮逐条验证）：
+    //     ① 输入切片：`norm[15:0]` 是否真的等于音频域（还是被截断/含直流）？
+    //     ② 反馈符号/结构：`- a1·y1 - a2·y2` 的定点符号是否与浮点设计一致？
+    //     ③ 每级 `>>>14` 后 `sat16` 是否把中间级顶到饱和（级联后放大）？
+    //     ④ 用**逐级 dump** 逐个比对浮点参考（而不是只看最终膝触发）✗
+    wire signed [27:0] norm_f = norm;
+
+    // 软膝限幅：|x| <= KNEE 完全线性；膝上斜率门控（钢琴 1/4 原样；非钢琴 3/8）
+    wire signed [27:0] mag  = norm_f[27] ? (-norm_f) : norm_f;
+    wire signed [27:0] magl_old = (mag > KNEE) ? (KNEE + ((mag - KNEE) >>> 2)) : mag;
+    wire signed [27:0] magl_new = (mag > KNEE) ? (KNEE + ((3 * (mag - KNEE)) >>> 3)) : mag;
+    wire signed [27:0] magl = (inst_ok != 2'd0) ? magl_new : magl_old;
+
+    // 段②→③ 的界：把"幅度 + 符号"一起寄存（符号必须跟着走，否则负半周会被翻正 ✗）
+    reg signed [27:0] magl_q;
+    reg               sign_q;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            magl_q <= 28'sd0;
+            sign_q <= 1'b0;
+        end else begin
+            magl_q <= magl;
+            sign_q <= norm_f[27];
+        end
+    end
+    wire signed [27:0] lim = sign_q ? (-magl_q) : magl_q;
+
+    // 输出流水有效标记：钢琴/吉他/二胡统一 = vld[4]
+    //   ⚠️ 曾有 `fvld` 链把二胡的有效位推迟 6 个采样点（为 6 级 IIR）——
+    //      IIR 已弃用 ⇒ 必须删掉，否则二胡会读到【6 个采样点之前】的值（错样本）✗
+    reg [11:0] vld;
+    always @(posedge clk) begin
+        if (!rst_n) vld <= 12'd0;
+        else        vld <= {vld[10:0], sample_tick};
+    end
+    wire lim_vld = vld[4];
 
     always @(posedge clk) begin
         if (!rst_n) begin
             mix_out <= 16'sd0;
-        end else if (vld[2]) begin
+        end else if (lim_vld) begin
             if (lim > 28'sd32767)       mix_out <= 16'sd32767;
             else if (lim < -28'sd32768) mix_out <= -16'sd32768;
             else                        mix_out <= lim[15:0];
@@ -783,7 +1027,14 @@ module piano_voice #(
     input  wire                 on_pulse,
     input  wire [6:0]           on_note,
     input  wire [16:0]          on_velgain,
+    input  wire [6:0]           bow_speed,     // ★ CC21 弓速（全局，各声部同值）
+    input  wire                 drv_on,        // ★ 1 = 持续供能（只有二胡：inst_ok==2'd2）
+
     input  wire [2:0]           on_lpsh,
+    // ★ 多乐器（阶段1b）：以下 3 个端口都是【引擎内部】连接，不影响 top.v 端口表
+    input  wire [16:0]          on_ham_gain,   // 激励增益（钢琴 = 19661 = 原 HAM_GAIN_Q16）
+    input  wire [1:0]           on_ksh_ofs,    // 衰减档位偏移编码：0→−1, 1→0, 2→+1
+    input  wire                 on_pluck_fast, // 吉他：激励衰减加速一档（10.5 ms → 2.6 ms）
     input  wire [31:0]          on_beat,
 
     // 装载总线（本声部被选中时 ld_for_me 高 1 拍）
@@ -831,6 +1082,7 @@ module piano_voice #(
     reg signed [31:0] gstep_r;                // 滑音每采样点步进
     reg               gliding;                // 正在滑音
     reg               glide_hold;             // 本次装载是"滑音续接"（不重置相位）
+    reg               on_pulse_d;             // ★ on_pulse 打一拍：相位清零的两拍窗口
     reg [31:0]        vib_ph;                 // 颤音 LFO 相位（每声部独立）
     reg               sus_pend;               // 踏板踩着时收到 note-off ⇒ 待释放
 
@@ -851,6 +1103,31 @@ module piano_voice #(
     // （零 LUT）。这也是"音高相关衰减不用变移位器"的关键。
     wire signed [15:0] sin_dat [0:N_PART-1];
     wire [4:0]         cf_sr   [0:N_PART-1];
+    // ★★ 弓弦驱动（`drive`，2026-10-06）
+    //   drv_src = CC21 弓速；**为 0 时用【固定中速兜底 64】** —— 这是"诚实的固定值"，
+    //   ⚠️ **不是"力度代理"**（不要读成"力度会影响弓速"）；真实力度代理留待后续。
+    wire [6:0]  drv_src = (bow_speed != 7'd0) ? bow_speed : 7'd64;
+    wire [31:0] drv_q   = {25'd0, drv_src} << 8;   // k·256（Q32 标度，见包络块注释）
+    // ★ 声部内把 drv_on 打一拍（2026-10-06，修 `.tr` 定位出的扇出问题）
+    //   原来 `.drv_on(inst_ok == 2'd2)` 是【顶层组合逻辑】直接扇出到 8 声部 × 6 泛音的 env/D
+    //   ⇒ `.tr` 最差路径正是 `inst_sel → env_env_.../D`（−1.491），并牵连 ham_env/vib_ph ✗
+    //   ⇒ 打一拍后 `inst_sel → 声部` 变成【寄存器到寄存器】✓（多 8 个 FF，每声部 1 个）
+    //   ⚠️ `inst_sel` 只在用户切乐器时变 ⇒ 晚 20 ns 无感 ✓
+    //   ⚠️ 钢琴 drv_on 恒 0 ⇒ drv_on_r 恒 0 ⇒ 逐值不变 ✓
+    reg drv_on_r;
+    always @(posedge clk) begin
+        if (!rst_n) drv_on_r <= 1'b0;
+        else        drv_on_r <= drv_on;
+    end
+    wire        drv_act = drv_on_r;                // 包络块用（已打拍）
+    // ★ 起振档驱动量（常量左移，**无新移位器**）：定速斜坡每拍加 drv_q<<4
+    //   ⚠️ 用【定速斜坡】取代"再选一个移位量"：原来 `env >> (cf_sr[j]-4)` 会长出
+    //      **第二个 32 bit 变量移位器**（≈160 LUT × 6 泛音 × 8 声部 ≈ **7700 LUT** ✗）
+    //      实测 `drive` 让 Logic +8833 ⇒ 就是它（去掉后应回到 ≈27.5k）
+    //   ⚠️ 爬升时间 = 2^s/16 = 8192 拍 = **84 ms**（与指数档同量级）
+    //   ⚠️ 到顶由"与 drv_q 比较"自然封顶 ⇒ **不需要 sat32** ✓
+    wire [31:0] drv_r4 = drv_q << 4;
+
     wire [4:0]         cf_sd   [0:N_PART-1];
     wire [4:0]         cf_st1  [0:N_PART-1];
     wire [4:0]         cf_st2  [0:N_PART-1];
@@ -878,6 +1155,11 @@ module piano_voice #(
         //   （滑音/颤音要按泛音重算相位增量）就会直接出错。
         piano_partial_lut u_cfg (
             .n       (PN),
+            .inst    (2'd0),          // ★★ 必须【常量 0】：这样 s_ring/s_damp/st1/st2
+                                      //    才能被综合器折叠成常数移位。
+                                      //    若这里接 inst_sel（动态），每采样路径上会立刻
+                                      //    长出桶形移位器 —— MODE=1 裕量只有 +0.009 ns。
+                                      //    乐器差异已由装载期决定（pl_amp/pl_k/pl_st1/pl_st2）。
             .amp_q16 (amp_u),
             .k_q12   (k_u),
             .s_ring  (sr),
@@ -936,15 +1218,35 @@ module piano_voice #(
 
     // 频偏分数（Q16）：dev = sin × depth_k / 32768
     wire signed [26:0] vib_dev_full = vib_sin * $signed({1'b0, vib_depth_k}); // 16×12 → 27
-    wire signed [11:0] vib_dev      = vib_dev_full[26:15];
 
+    // ★★ 表情调制链【必须打拍】，否则是 MODE=1 独有的一条超长组合路径 ★★
+    //   链条本来是：vib_ROM → 乘1(16×12) → 乘2(33×12) → 33 bit 加法
+    //               → 6 路泛音增量重算(移位加法) → mux → 相位加法器
+    //   两级乘法串在一拍里，实测/推算单周期收敛不了。
+    //   MODE=1 报告的最差裕量 −4.670 ns（24.67 ns vs 20 ns）、且只有 MODE=1 才有这条路径，
+    //   与"表情输入在 MODE=0 被常量折叠"完全吻合 ⇒ 高度怀疑就是它。
+    //   现在插两级寄存器，把链切成 4 段短逻辑（每段 ≤ 约 5 ns）：
+    //     stage1 乘1 → vib_dev_r      stage2 乘2+加 → f0_mod_r
+    //     stage3 6 路移位加法 → inc_vib_r（本来就有）
+    //   ⚠️ 对回归零影响：vib_act=0 且 gliding=0 时 pmod_act=0，mux 仍选原来的 inc[j]，
+    //      这条链整条是死逻辑（不参与输出）。⚠️ 两级寄存器都要复位（防 X 传播）。
+    reg signed [11:0] vib_dev_r;
+    reg        [31:0] f0_mod_r;
+    wire signed [11:0] vib_dev = vib_dev_full[26:15];
     // f0_mod = f0_cur × (1 + dev/65536) = f0_cur + ((f0_cur × dev) >> 16)
-    //   ★ 千万别写成"乘 18 bit 增益 (65536+dev)"：那是 33×18 的大乘法。
-    //     拆成"恒等项 + dev 修正项"后只剩 33×12，还省掉一级 18 bit 加法。
-    wire signed [44:0] f0_mod_full = $signed({1'b0, f0_cur}) * vib_dev;  // 33×12 → 45 bit
-    wire signed [32:0] f0_mod_s    = {1'b0, f0_cur}
-                                   + {{4{f0_mod_full[44]}}, f0_mod_full[44:16]};
-    wire        [31:0] f0_mod      = f0_mod_s[31:0];
+    //   ★ 别写成"乘 18 bit 增益 (65536+dev)"：那是 33×18 大乘法。
+    wire signed [44:0] f0_mod_full2 = $signed({1'b0, f0_cur}) * vib_dev_r; // 33×12 → 45 bit
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            vib_dev_r <= 12'sd0;
+            f0_mod_r  <= 32'd0;
+        end else begin
+            vib_dev_r <= vib_dev;
+            f0_mod_r  <= {1'b0, f0_cur}
+                       + {{4{f0_mod_full2[44]}}, f0_mod_full2[44:16]};
+        end
+    end
 
     // 滑音推进：f0_next = f0_cur + gstep，到达目标就停
     wire signed [32:0] f0_cur_s = {1'b0, f0_cur};
@@ -964,7 +1266,7 @@ module piano_voice #(
     generate
     for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_modinc
         localparam integer NP = gn + 1;
-        wire [32:0] f0e = {1'b0, f0_mod};
+        wire [32:0] f0e = {1'b0, f0_mod_r};
         wire [32:0] nf0 = (NP == 1) ?  f0e                    :
                           (NP == 2) ? (f0e << 1)              :
                           (NP == 3) ? ((f0e << 1) + f0e)      :
@@ -1016,15 +1318,29 @@ module piano_voice #(
     //   实现方式：每 2^k 个采样点才更新一次包络（移位量仍为常数）
     wire [6:0] kraw = (note_r >= 7'd90) ? 7'd0 : (7'd90 - note_r);
     wire [2:0] ktmp = kraw[6:4];                                  // 0..5
-    wire [2:0] ksh  = (ktmp > 3'd2) ? 3'd2 : ktmp;                // clamp 到 0..2
-    wire [DIV_W-1:0] kmask = ({{(DIV_W-4){1'b0}}, 4'd1} << ksh) - 1'b1;
+    // ================= 多乐器：衰减档位（阶段1b）=========================
+    // ⚠️ 这里为什么写得"绕"（后人别简化它）：
+    //   原逻辑是 ksh = clamp((90-note)>>4, 0, 2)。若直接把 clamp 上限改成 3，
+    //   **note ≤ 42 的低音会从 ksh=2 变成 3 ⇒ 低音衰减变慢 ⇒ 钢琴行为改变** ✗
+    //   ⇒ 正确做法：钢琴基础档位仍 clamp 到 0..2【不动】，只在最后叠加乐器偏移
+    //      并夹到 0..3。这样 inst_ofs=0（钢琴）时 ksh2 ≡ ksh ⇒ 逐位不变（有回归证明）。
+    wire [2:0] ksh_base = (ktmp > 3'd2) ? 3'd2 : ktmp;            // 原 clamp 0..2，保持
+    wire       ofs_up   = (on_ksh_ofs == 2'd2);                   // 古筝 +1（木共鸣箱更长）
+    wire       ofs_dn   = (on_ksh_ofs == 2'd0);                   // 吉他 −1（本体短）
+    wire [2:0] ksh_up   = (ksh_base == 3'd2) ? 3'd3 : (ksh_base + 3'd1);
+    wire [2:0] ksh_dn   = (ksh_base == 3'd0) ? 3'd0 : (ksh_base - 3'd1);
+    wire [2:0] ksh2     = ofs_up ? ksh_up : (ofs_dn ? ksh_dn : ksh_base);
+    wire [DIV_W-1:0] kmask = ({{(DIV_W-4){1'b0}}, 4'd1} << ksh2) - 1'b1;
     wire env_en = ((div_cnt & kmask) == {DIV_W{1'b0}});
 
     // note-off 命中：本声部正按住、且音号匹配
     wire off_hit = off_pulse & gate_r & (off_note == note_r);
 
     // 琴槌初值：0.30 × 力度增益（Q16 × Q16 = Q32）
-    wire [33:0] ham_init = HAM_GAIN_Q16 * on_velgain;
+    // 激励初值：乐器相关增益 × 力度增益
+    //   ★ 阶段1b：原来用常量参数 HAM_GAIN_Q16(=19661)；现在走 on_ham_gain。
+    //     钢琴档 on_ham_gain = 19661 = 原常量 ⇒ 【逐位不变】（回归证明）。
+    wire [33:0] ham_init = on_ham_gain * on_velgain;
 
     // 噪声样点（显式 signed：拼接结果是无符号的，必须先转换再参与有符号减法）
     wire signed [17:0] nz_s = {{2{lfsr[31]}}, lfsr[31:16]};
@@ -1057,7 +1373,31 @@ module piano_voice #(
             glide_hold<= 1'b0;
             vib_ph    <= 32'd0;
             sus_pend  <= 1'b0;
+            on_pulse_d<= 1'b0;
         end else begin
+            // =================================================================
+            // 🔴 两拍清零窗口【已撤销】（2026-10-06，真板 A/B 定位）
+            //
+            // 原方案：`if (on_pulse_d) ph[j] <= 0;` 放在块首（最低优先级），
+            //         想让 on_pulse 的脉冲捕获有两拍余量。
+            //
+            // 我曾用"512 个 note-on 相位 × 16 样本 sha256 完全相同"证明它等价 ——
+            // **但那个证明只覆盖了【单个 A4 音符、无滑音】的场景**，
+            // 完全没覆盖 `gliding=1` 的状态。
+            //
+            // 真板 A/B（用户听感）+ 我自己的逐样本 A/B（含非零表情）实测：
+            //   piano_glide.txt  OLD(听感好) 20271181550028DA
+            //                    NEW(听感坏) 13847AB0F92B2C25   ← rms 差 37.6%
+            //   把窗口关掉：     20271181550028DA  ← **逐字节恢复到听感好的那一版**
+            // ⇒ **窗口确实改变了滑音路径的行为**，不是"等价变换"。
+            // ⇒ 撤销。它本来也【不会减少综合报告的违例数】（工具不知道这个窗口），
+            //    所以撤掉它**不损失任何时序收益**，只去掉一个真实的行为改动。
+            //
+            // ⚠️ 教训（AGENTS §9）：证据的覆盖范围必须对准结论。
+            //    我证明的是"单音、无滑音、全相位不变"，
+            //    结论却是"改动安全" —— 缺口正好落在滑音上。
+            // =================================================================
+
             // =================================================================
             // ★★ 赋值顺序 = 优先级，这里【必须】先写周期更新、后写事件 ★★
             //
@@ -1083,11 +1423,29 @@ module piano_voice #(
 
                 // 包络：按住 → s_ring 慢衰减；松开 → s_damp 快衰减（阻音器）
                 // cf_sr/cf_sd 是常数 ⇒ 这里是"两次常数移位 + 一个 2:1 选择"
+                // ★ 弓弦持续供能（2026-10-06，`drive`；只对二胡，drv_on=0 ⇒ 与原来【逐值相同】）
+                //   env 是 **32 bit Q32**（ENV_W=32，增益=[31:16]）；17 bit 的是装载总线 ld_env_bus。
+                //   驱动字 drv_q = drv_src << 8（k·256）⇒ 稳态 env* = drv_q·2^s = k·512 的增益
+                //   ⚠️ 起振用【定速斜坡】：env += drv_q<<4，**复用现有移位器**做"到顶判定"
+                //      （`(env>>s) < drv_q` ⇔ `env < env*`）⇒ 既不加移位器、也不需要 sat32 ✓
+                //      ⇒ 面积：去掉那个多余的 32 bit 变量移位器（≈7700 LUT）✓
+                //      ⇒ 时序：路径只剩 比较 + mux + 加法 ≈ 3 级 ✓
+                //   ⚠️ 到顶判据 `(env>>s) < drv_q` 在两档下都成立 ⇒ 斜坡停在 env* ✓（不会停在 1/16 ✓）
+                //      —— 上一版"只改衰减不改驱动"会停在 6% 振幅，那是我算出来的错，已修 ✓
+                //   ⚠️ 稳态峰值 k=127、s=17 ⇒ env*=4.26e9；斜坡最多再冲 drv_r4=5.2e5
+                //      ⇒ 4.261e9 < 2^32=4.295e9 ⇒ **不会溢出** ✓
+                //   ⚠️ !gate_r ⇒ 不加驱动 ⇒ 抬弓自动归零、s_damp 快释放生效 ✓
                 for (j = 0; j < N_PART; j = j + 1) begin
                     if (!gate_r)
                         env[j] <= env[j] - (env[j] >> cf_sd[j]);
-                    else if (env_en)
-                        env[j] <= env[j] - (env[j] >> cf_sr[j]);
+                    else if (env_en) begin
+                        if (drv_act && ((env[j] >> cf_sr[j]) < drv_q))
+                            env[j] <= env[j] + drv_r4;                       // 定速斜坡（常量左移）
+                        else if (drv_act)
+                            env[j] <= env[j] - (env[j] >> cf_sr[j]) + drv_q; // 稳态
+                        else
+                            env[j] <= env[j] - (env[j] >> cf_sr[j]);         // 钢琴/吉他：原样
+                    end
                 end
 
                 // 齐奏失谐 LFO
@@ -1113,7 +1471,14 @@ module piano_voice #(
                 //   ⚠️ nz_s 必须显式声明为 signed 再参与减法：写成
                 //      {{2{lfsr[31]}}, lfsr[31:16]} - nz_lp 时，拼接是【无符号】，
                 //      整个减法会被当成无符号运算，负半周全错（听感是噪声变成直流偏置）
-                ham_env <= ham_env - (ham_env >> HAM_SH);
+                // ★ 多乐器（阶段1b）：吉他拨片瞬态比钢琴毛毡短得多
+            //   额外一档【常量移位】衰减抽头，由 on_pluck_fast 门控：
+            //   τ(HAM_SH=10) ≈ 10.5 ms → 加 >>8 后 ≈ 2.6 ms
+            //   ⚠️ 刻意用"常量移位 + 门控"，不是变量移位（那会长出桶形移位器，
+            //      而 MODE=1 的最差裕量只有 +0.009 ns）。
+            //   ⚠️ 钢琴 on_pluck_fast=0 ⇒ 该项恒为 0 ⇒ 逐位不变。
+            ham_env <= ham_env - (ham_env >> HAM_SH)
+                              - (on_pluck_fast ? (ham_env >> (HAM_SH-2)) : 32'd0);
                 lfsr    <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
                 nz_lp   <= nz_lp + ((nz_s - nz_lp) >>> lpsh_r);
 
@@ -1175,6 +1540,9 @@ module piano_voice #(
                 end
                 glide_hold <= 1'b0;
             end
+            // 两拍清零窗口用的延迟脉冲（放在块末尾即可：它是独立寄存器，
+            // 不参与上面的优先级覆盖关系）
+            // on_pulse_d <= on_pulse;  // 随两拍窗口撤销
         end
     end
 
