@@ -293,7 +293,9 @@ def run_simulation():
         out_pcm_right.append(sat_r)
 
     # 导出为 16-bit 48kHz 标准立体声 WAV 文件
-    out_wav_path = os.path.join(BASE_DIR, "..", "fpga_synth_demo.wav")
+    out_dir = os.path.join(BASE_DIR, "..", "临时音频")
+    os.makedirs(out_dir, exist_ok=True)
+    out_wav_path = os.path.join(out_dir, "fpga_synth_demo.wav")
     print(f"正在写入 WAV 音频文件: {out_wav_path} ...")
     with wave.open(out_wav_path, "wb") as wf:
         wf.setnchannels(2)      # 双声道立体声
