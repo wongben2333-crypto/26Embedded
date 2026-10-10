@@ -27,3 +27,7 @@ fpga_hank/modelsim.ini
 fpga_hank/transcript
 fpga_hank/tone_samples.txt
 fpga_hank/_tools/
+
+# ---- Gowin EDA 工程临时配置与构建产物 ----
+*.gprj.user
+**/impl/
