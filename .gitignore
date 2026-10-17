@@ -6,7 +6,7 @@ __pycache__/
 venv/
 
 # ---- Generated simulation artifacts (regenerate: python scripts\run_all.py) ----
-sim/out/
+**/sim/out/
 
 # ---- Tooling state (not source) ----
 .codegraph/
