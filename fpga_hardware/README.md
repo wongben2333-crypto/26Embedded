@@ -1,0 +1,101 @@
+# fpga_hardware —— 硬件乐器（Tang Mega 60K）· S5 分支
+
+> **这是什么**：把 13 个硅胶键 + 1 路对射光电 + 1 只 VB22B ToF + 1 只 EC11 编码器，
+> 直接驱动 hank 引擎的 **8 声部合成**（MODE=3），整机不需要电脑。
+> **状态**：2026-10-24 真板验收通过（详见 `docs/S5-INTEGRATION-PLAN.md` 附录 A1–A6）。
+>
+> **与 `fpga_hank/` 的关系**：本目录是 `fpga_hank/rtl` 的**整份副本 + 改动**（团队约定：
+> 上游只读、改动整份复制）。上游后续变更需要手工合并。**只有两处不同**：
+> `rtl/top.v`（MODE=3 通路、5 处改动）与 `rtl/io/`（新增 `hw_input_mgr.v`、
+> 复用 `i2c_master.v` / `uart_tx.v`）。
+
+---
+
+## 1. 三分钟上手
+
+```powershell
+$EDA = "D:\all soft\Gowin\Gowin_V1.9.12_x64"
+$CLI = "$EDA\Programmer\bin\programmer_cli.exe"
+
+# 构建（产物在 eda_proj/，位流自动归档到 out/bitstream/）
+& "$EDA\IDE\bin\gw_sh.exe" "E:\26Embedded\fpga_hardware\build.tcl"
+
+# 仿真（hw_input_mgr 自检，43 项 + I2C 从机 BFM）
+powershell -NoProfile -ExecutionPolicy Bypass -File "E:\26Embedded\fpga_hardware\sim\run.ps1"
+
+# 烧录（SRAM，掉电即失；不要用 --operation_index 4）
+& $CLI --device GW5AT-60B `
+    --fsFile "E:\26Embedded\fpga_hardware\out\bitstream\<归档文件名>.fs" `
+    --operation_index 2 --frequency 2.5MHz
+```
+
+调试串口：**COM12**（P19 → USB-TTL，115200，3.3V 档），每 40 ms 一行：
+
+```
+K=1FFF P=3F A=0398 V=64 N=000000 O=00 @0000xxxx
+K 13键电平(按下=0)  P 6光电(挡光=0)  A ToF距离mm(FFFF=NACK)
+V 音量(0..127)      N 最近事件(90/80 note vel)   O FIFO阻塞计数(应为00)
+```
+
+---
+
+## 2. 接线（全部 3.3 V；J13 第 11 脚是 5V，绝不能接）
+
+| 功能 | 针/球 | 说明 |
+|---|---|---|
+| key[0..12] | J13 1–10,13,14,15（E14 E13 C15 C14 B13 C13 A14 A13 B16 B15 A16 A15 A20） | 按下=0，内部上拉 |
+| photo[0..5] | J13 16–21（B20 A21 B21 B18 B17 C17） | 挡光=0，经 S9012 射极跟随器（12V 侧） |
+| EC11 #1 A/B | J13-22 / J13-23（D17 / A19） | 正交，RTL 内 1 kHz 邻接解码 |
+| **ToF #1 SCL** | **J13-24（A18）** | **4.7k 上拉 + 330Ω 串联** |
+| **ToF #1 SDA** | **J13-25（D15）** | 同上 |
+| 调试 TX | P19（J9-11） | 需 `set_option -use_cpu_as_gpio 1`（build.tcl 已加） |
+
+> ⚠️ **I2C 不要再用 J8（AB22/Y21）**：那组球与音频 I2S 同属 BANK7，10 kHz 会把 DAC
+> 搅成尖锐噪声。挪到 J13-24/25 后 10 kHz 全速也完全干净（已实测）。
+> 详见 `docs/INPUTS-WIRING.md` §4。
+
+## 3. 演奏语义（MODE=3）
+
+| 输入 | 事件 | 备注 |
+|---|---|---|
+| 13 键 | note-on/off 60..72（C4..C5），vel 100 | 查表，可整体移调 |
+| 光电 #1 | 挡光 = on 40（E2），松开 = off，vel 110 | 2ms/8ms 非对称去抖 |
+| ToF #1 | 10–70 cm → note 60..84；入场驻留 3 采样；换音 = off+on，**≥180 ms 限速**；>800 mm 持续 200 ms 或 NACK 500 ms 离场 | 5 点中值 + ±2 cm 迟滞；24 mm/半音 |
+| EC11 #1 | 音量 0..127（每格 4 步），dB 感知 LUT（0=静音，127=直通） | 混音后一级增益，1 个 16×16 乘法器 |
+
+**事件串行化 ≥16 clk（320 ns）**：引擎装载一个音符要 14 个时钟节拍且没有输入队列，
+喂快会直接丢音。**ToF 不使用引擎滑音**（`glide_on` 复用全局 `last_voice`，会偷走
+正在响的键声部）。
+
+## 4. 验收结论（2026-10-24）
+
+| 项 | 结果 |
+|---|---|
+| 构建 | 无 ERROR / archived / `=== DONE ===`；Setup **+0.033** / Hold **+0.136** |
+| 资源 | Logic 22 807/59 904（39%）、BSRAM 60/118、**DSP 79/118** |
+| 13 键 | C4..C5 全部正确（用户听感 + 遥测 60..72 全出现） |
+| 8 键和弦 + 第 9 键 | 全响、最旧声部被抢占、不卡死 |
+| 光电 E2 / ToF 分段滑升 / EC11 音量 | 均正常（用户确认） |
+| 上电 20 次 | 无随机发声（另有 9/9 安静环境复测） |
+| MODE=1 回归 | 从本目录源码构建 + `90 45 64` → 440 Hz「非常好」；`piano_gui.py --selftest` PASS |
+
+最终位流（`_work_60k/out/bitstream/` 归档，不入库）：
+`MODE3_mode3_60K_20261024-012557.fs`（User Code `0x1A2B0003`，sha16 `882132D453E6E483`）。
+
+## 5. 文档
+
+| 文件 | 内容 |
+|---|---|
+| `docs/S5-INTEGRATION-PLAN.md` | 方案（§0–§9）+ 实施结果与验收矩阵（附录 A1–A6） |
+| `docs/S5-HANDOFF-AND-HW-DESIGN.md` | 交接、扩展清单、**自研 PCB**、**3D 外壳**建议 |
+| `docs/INPUTS-WIRING.md` | 逐针接线、ToF 字节序、电气动正 |
+| `docs/INSTRUMENT-MAPPING.md` | 音符/表情映射设计 + §9 实施偏差表 |
+| `docs/TOF-VB22B-PROTOCOL.md` | VB22B 实测协议（含突发读字节序） |
+
+## 6. 注意事项
+
+1. **SRAM 掉电即失**：每次重新上电要重烧；固化 Flash 需先获得用户同意（`--operation_index 9`）。
+2. **不要用 `--operation_index 4`**（本板族回读校验不可用，必然假报 Verify failed）。
+3. **`.tcl`/`.v` 不得带 BOM**；`build.tcl` 必须保持纯 ASCII（Gowin 按系统 GBK 读）。
+4. **DSP 只剩约 13 个余量**（开启颤音/滑音时会回到 ~104.5/118），加音色前先查资源。
+5. 本机 Gowin P&R 偶发"布线冻结"：无进展 5–10 min 就杀进程重试（换种子常可过）。

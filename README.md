@@ -27,6 +27,14 @@
 │   ├── 原始音频/      # 参考音频源
 │   └── ...            # Spark 后续探索的工程、代码与产物均在此展开
 │
+├── fpga_hardware/     # 【硬件乐器分支（S5，团队共享）】
+│   ├── rtl/           # fpga_hank/rtl 的整份副本 + S5 改动（top.v 与 io/ 有差异）
+│   ├── constr/        # 60K 约束（key/key2 已改 1.5V；I2C 在 J13）
+│   ├── sim/           # hw_input_mgr 自检 TB（含 I2C 从机 BFM）
+│   ├── docs/          # 方案/交接/接线/映射/ToF 协议
+│   ├── build.tcl      # 自包含构建脚本（MODE 从 rtl/top.v 读取）
+│   └── README.md      # 上手、接线、验收结论、注意事项
+│
 ├── .agents/           # 协作辅助规则
 └── README.md          # 团队协作导航（即本文件）
 ```
