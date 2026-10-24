@@ -1,0 +1,68 @@
+// ============================================================================
+// Physical Constraints for Tang Mega 138K NEO Dock + ALIENTEK 7-inch LCD
+// Device: GW5AST-LV138PG484AC1/I0 (GW5AST-138C, Package PBGA484A)
+// ============================================================================
+
+// Clock & Reset
+IO_LOC  "sys_clk"       V22;
+IO_PORT "sys_clk"       IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC  "sys_rst_n"     AA13;
+IO_PORT "sys_rst_n"     IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// LCD Control Signals (J13 Connector)
+IO_LOC  "lcd_cs"        E14; // J13 Pin 1
+IO_PORT "lcd_cs"        IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_LOC  "lcd_rs"        E13; // J13 Pin 2
+IO_PORT "lcd_rs"        IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4;
+IO_LOC  "lcd_wr"        C15; // J13 Pin 3
+IO_PORT "lcd_wr"        IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_LOC  "lcd_rd"        C14; // J13 Pin 4
+IO_PORT "lcd_rd"        IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_LOC  "lcd_rst"       B13; // J13 Pin 5
+IO_PORT "lcd_rst"       IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=16;
+
+// LCD 16-bit Data Bus (J13 Connector)
+IO_LOC  "lcd_db[0]"     C13; // J13 Pin 6
+IO_LOC  "lcd_db[1]"     A14; // J13 Pin 7
+IO_LOC  "lcd_db[2]"     A13; // J13 Pin 8
+IO_LOC  "lcd_db[3]"     B16; // J13 Pin 9
+IO_LOC  "lcd_db[4]"     B15; // J13 Pin 10
+// Pin 11 = 5V, Pin 12 = GND
+IO_LOC  "lcd_db[5]"     A16; // J13 Pin 13
+IO_LOC  "lcd_db[6]"     A15; // J13 Pin 14
+IO_LOC  "lcd_db[7]"     A20; // J13 Pin 15
+IO_LOC  "lcd_db[8]"     B20; // J13 Pin 16
+IO_LOC  "lcd_db[9]"     A21; // J13 Pin 17
+IO_LOC  "lcd_db[10]"    B21; // J13 Pin 18
+IO_LOC  "lcd_db[11]"    B18; // J13 Pin 19
+IO_LOC  "lcd_db[12]"    B17; // J13 Pin 20
+IO_LOC  "lcd_db[13]"    C17; // J13 Pin 21
+IO_LOC  "lcd_db[14]"    D17; // J13 Pin 22
+IO_LOC  "lcd_db[15]"    A19; // J13 Pin 23
+
+IO_PORT "lcd_db[0]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[1]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[2]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[3]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[4]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[5]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[6]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[7]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[8]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[9]"     IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[10]"    IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[11]"    IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[12]"    IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[13]"    IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[14]"    IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+IO_PORT "lcd_db[15]"    IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+
+// ===== 板载调试器 UART：FPGA_UART.TX = U15, FPGA_UART.RX = V14 (BL616 COM8) =====
+IO_LOC  "uart_tx"       U15;
+IO_PORT "uart_tx"       IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC  "uart_rx"       V14;
+IO_PORT "uart_rx"       IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// ===== 板载 WS2812B 状态灯（U15，板子右下角）=====
+IO_LOC  "ws_dout"       J16;
+IO_PORT "ws_dout"       IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;

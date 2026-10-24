@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATK-MD0700 34P ↔ Tang Mega Dock J13 40P 接线图</title>
+<style>
+  :root{
+    --ink:#1f2328; --muted:#5f5e5a; --line:#d3d1c7; --bg:#fff; --soft:#f7f6f2;
+    --v5-bg:#fcebeb; --v5-bd:#a32d2d; --v5-tx:#791f1f;
+    --gnd-bg:#f1efe8; --gnd-bd:#5f5e5a; --gnd-tx:#2c2c2a;
+    --ctrl-bg:#faeeda; --ctrl-bd:#854f0b; --ctrl-tx:#633806;
+    --data-bg:#e6f1fb; --data-bd:#185fa5; --data-tx:#0c447c;
+    --touch-bg:#e1f5ee; --touch-bd:#0f6e56; --touch-tx:#085041;
+    --nc-bg:#fff; --nc-bd:#d3d1c7; --nc-tx:#b4b2a9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px 28px 56px;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .page{max-width:1180px;margin:0 auto}
+  h1{font-size:22px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 4px}
+  .sub b{color:var(--ink);font-weight:500}
+  hr{border:0;border-top:1px solid var(--line);margin:22px 0}
+  h2{font-size:15px;font-weight:600;margin:0 0 14px}
+  h3{font-size:13px;font-weight:600;margin:20px 0 10px;color:var(--muted)}
+
+  .diagram{display:flex;gap:150px;align-items:flex-start;flex-wrap:wrap;justify-content:center;padding:6px 0 4px}
+  .col{flex:0 0 auto}
+  .col-title{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:baseline;gap:8px}
+  .col-title span{font-weight:400;color:var(--muted);font-size:12px}
+  .grid{display:grid;grid-template-columns:repeat(2,116px);gap:4px}
+  .cell{display:flex;align-items:center;gap:7px;height:24px;padding:0 9px;border-radius:4px;
+        border:1px solid var(--nc-bd);background:var(--nc-bg);color:var(--nc-tx);
+        font-size:12px;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+  .cell .n{font-size:10px;opacity:.7;min-width:16px;text-align:right}
+  .cell .f{font-weight:500;letter-spacing:.2px}
+  .cell .b{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10px;font-weight:600;opacity:.85;letter-spacing:0}
+  .c-v5{background:var(--v5-bg);border-color:var(--v5-bd);color:var(--v5-tx)}
+  .c-gnd{background:var(--gnd-bg);border-color:var(--gnd-bd);color:var(--gnd-tx)}
+  .c-ctrl{background:var(--ctrl-bg);border-color:var(--ctrl-bd);color:var(--ctrl-tx)}
+  .c-data{background:var(--data-bg);border-color:var(--data-bd);color:var(--data-tx)}
+  .c-touch{background:var(--touch-bg);border-color:var(--touch-bd);color:var(--touch-tx)}
+  .c-nc{background:var(--nc-bg);border-color:var(--nc-bd);color:var(--nc-tx)}
+
+  .pin1{width:116px;text-align:center;font-size:10px;color:#a32d2d;margin:0 0 4px 2px;letter-spacing:.5px}
+  .pin1-r{width:236px;text-align:right;padding-right:34px;margin-left:0}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:20px 0 0;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;
+            vertical-align:-1px;border:1px solid}
+  .lg-v5 i{background:var(--v5-bg);border-color:var(--v5-bd)}
+  .lg-gnd i{background:var(--gnd-bg);border-color:var(--gnd-bd)}
+  .lg-ctrl i{background:var(--ctrl-bg);border-color:var(--ctrl-bd)}
+  .lg-data i{background:var(--data-bg);border-color:var(--data-bd)}
+  .lg-touch i{background:var(--touch-bg);border-color:var(--touch-bd)}
+  .lg-nc i{background:var(--nc-bg);border-color:var(--nc-bd)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+  th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}
+  th{font-weight:600;font-size:11.5px;color:var(--muted);background:var(--soft);
+     border-bottom:1px solid var(--line);white-space:nowrap}
+  td.num{text-align:center;width:46px}
+  td.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  tr.g-v5 td:first-child{border-left:3px solid var(--v5-bd)}
+  tr.g-gnd td:first-child{border-left:3px solid var(--gnd-bd)}
+  tr.g-ctrl td:first-child{border-left:3px solid var(--ctrl-bd)}
+  tr.g-data td:first-child{border-left:3px solid var(--data-bd)}
+  tr.g-touch td:first-child{border-left:3px solid var(--touch-bd)}
+  tr.g-nc td:first-child{border-left:3px solid var(--nc-bd)}
+
+  .danger{border:1px solid var(--v5-bd);background:var(--v5-bg);border-radius:8px;padding:16px 18px;margin:18px 0}
+  .danger h3{color:var(--v5-tx);margin:0 0 10px;font-size:13px}
+  .danger ol{margin:0;padding-left:20px}
+  .danger li{margin:5px 0;color:var(--v5-tx)}
+  .danger code{background:#fff;border:1px solid #f0c9c9;border-radius:3px;padding:1px 5px;font-size:12px}
+
+  .note{background:var(--soft);border-radius:8px;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--muted)}
+  .note b{color:var(--ink);font-weight:500}
+  ul.tight{margin:8px 0 0;padding-left:20px}
+  ul.tight li{margin:4px 0}
+
+  @media print{
+    body{padding:0;font-size:11px}
+    .page{max-width:none}
+    hr{display:none}
+    h2{margin-top:14px}
+    .diagram{gap:36px}
+    table{font-size:10.5px}
+    th,td{padding:3px 6px}
+    .danger,.note{break-inside:avoid}
+    .cell{height:20px;font-size:10px}
+    .grid{grid-template-columns:repeat(2,96px)}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>ATK-MD0700 34P ↔ Tang Mega Dock J13 40P 接线图</h1>
+  <p class="sub">屏幕：<b>正点原子 ATK-MD0700 V2.4</b>（7″ 800×480，SSD1963，34P 2×17 排针）</p>
+  <p class="sub">底板：<b>Sipeed Tang Mega 60K / 138K NEO Dock</b>，<b>J13</b>（2×20 2.54mm 排针，SDRAM0 扩展口）</p>
+  <p class="sub">依据：官方手册表 2.1.1 + ATK-MD0700_V2.4.pdf + Tang_Mega_NEO_Dock 底板原理图 p19 + 官方 .cst ｜ 2026-10-21</p>
+
+  <hr>
+
+  <h2>一、两端排针对照（同色即同组）</h2>
+
+  <div class="diagram">
+    <div class="col">
+      <div class="col-title">J13 底板 40P <span>2×20 ｜ 奇左偶右 ｜ 右侧小字 = 板上丝印</span></div>
+      <div class="pin1">▼ pin 1</div>
+      <div class="grid" id="grid-j13"></div>
+    </div>
+    <div class="col">
+      <div class="col-title">P1 屏幕 34P <span>2×17 ｜ 镜像：偶左奇右</span></div>
+      <div class="pin1 pin1-r">▼ pin 1</div>
+      <div class="grid" id="grid-p1"></div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:18px">
+    <b>怎么读这张图</b>：J13 每个格子<b>右侧的小字（E14 / C15 / B17…）就是板上丝印的 FPGA 球位</b>，直接照丝印找脚接线即可，不必去数第几根。<br>
+    <b>如果板上印的是 <code>D0 / D1 / A0</code> 这类 SDRAM 网络名</b>（不同批次丝印可能不同），请对照下方第二节表格「底板网络」列换算成球位，再定位到排针脚位。<br>
+    <b>屏幕侧（P1）标注的是模块自身丝印</b>：<code>M1</code>（pin29）= 空脚；<code>M0</code>（pin30）= 触摸 I2C <b>SDA</b>。手册把它印成 <code>MI</code>/<code>MO</code>，实为数字 <code>M1</code>/<code>M0</code>。
+  </div>
+
+  <div class="legend">
+    <span class="lg-v5"><i></i>5V 电源</span>
+    <span class="lg-gnd"><i></i>GND</span>
+    <span class="lg-ctrl"><i></i>8080 控制 / TE</span>
+    <span class="lg-data"><i></i>16 位数据</span>
+    <span class="lg-touch"><i></i>电容触摸 I2C</span>
+    <span class="lg-nc"><i></i>未使用</span>
+  </div>
+
+  <hr>
+
+  <h2>二、逐根接线表（按屏幕脚号排序，照此施工）</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>屏幕 P1</th><th>信号</th><th>驱动方向</th><th>J13</th><th>底板网络</th><th>FPGA 球位</th><th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="g-v5"><td class="num">28</td><td class="mono">5V</td><td>—</td><td class="num">11</td><td class="mono">5V_Peripheral</td><td>—</td><td>模块 5V 输入（LDO + 背光升压）</td></tr>
+      <tr class="g-gnd"><td class="num">22</td><td class="mono">GND</td><td>—</td><td class="num">12</td><td class="mono">GND</td><td>—</td><td rowspan="3">三根并接到 J13 pin12，另补一根板级地</td></tr>
+      <tr class="g-gnd"><td class="num">26</td><td class="mono">GND</td><td>—</td><td class="num">12</td><td class="mono">GND</td><td>—</td></tr>
+      <tr class="g-gnd"><td class="num">27</td><td class="mono">GND</td><td>—</td><td class="num">12</td><td class="mono">GND</td><td>—</td></tr>
+
+      <tr class="g-ctrl"><td class="num">1</td><td class="mono">NCE</td><td>FPGA→屏</td><td class="num">1</td><td class="mono">SDRAM0_D0</td><td class="mono">E14</td><td>片选，低有效</td></tr>
+      <tr class="g-ctrl"><td class="num">2</td><td class="mono">RS</td><td>FPGA→屏</td><td class="num">2</td><td class="mono">SDRAM0_D1</td><td class="mono">E13</td><td>0=命令 1=数据</td></tr>
+      <tr class="g-ctrl"><td class="num">3</td><td class="mono">WR</td><td>FPGA→屏</td><td class="num">3</td><td class="mono">SDRAM0_D2</td><td class="mono">C15</td><td>写使能，低有效</td></tr>
+      <tr class="g-ctrl"><td class="num">4</td><td class="mono">RD</td><td>FPGA→屏</td><td class="num">4</td><td class="mono">SDRAM0_D3</td><td class="mono">C14</td><td>读使能，低有效</td></tr>
+      <tr class="g-ctrl"><td class="num">5</td><td class="mono">RST</td><td>FPGA→屏</td><td class="num">5</td><td class="mono">SDRAM0_D4</td><td class="mono">B13</td><td>硬件复位，低有效</td></tr>
+
+      <tr class="g-data"><td class="num">6</td><td class="mono">D0</td><td>双向</td><td class="num">6</td><td class="mono">SDRAM0_D5</td><td class="mono">C13</td><td rowspan="16">16 位双向数据总线</td></tr>
+      <tr class="g-data"><td class="num">7</td><td class="mono">D1</td><td>双向</td><td class="num">7</td><td class="mono">SDRAM0_D6</td><td class="mono">A14</td></tr>
+      <tr class="g-data"><td class="num">8</td><td class="mono">D2</td><td>双向</td><td class="num">8</td><td class="mono">SDRAM0_D7</td><td class="mono">A13</td></tr>
+      <tr class="g-data"><td class="num">9</td><td class="mono">D3</td><td>双向</td><td class="num">9</td><td class="mono">SDRAM0_D15</td><td class="mono">B16</td></tr>
+      <tr class="g-data"><td class="num">10</td><td class="mono">D4</td><td>双向</td><td class="num">10</td><td class="mono">SDRAM0_D14</td><td class="mono">B15</td></tr>
+      <tr class="g-data"><td class="num">11</td><td class="mono">D5</td><td>双向</td><td class="num">13</td><td class="mono">SDRAM0_D13</td><td class="mono">A16</td></tr>
+      <tr class="g-data"><td class="num">12</td><td class="mono">D6</td><td>双向</td><td class="num">14</td><td class="mono">SDRAM0_D12</td><td class="mono">A15</td></tr>
+      <tr class="g-data"><td class="num">13</td><td class="mono">D7</td><td>双向</td><td class="num">15</td><td class="mono">SDRAM0_D11</td><td class="mono">A20</td></tr>
+      <tr class="g-data"><td class="num">14</td><td class="mono">D8</td><td>双向</td><td class="num">16</td><td class="mono">SDRAM0_D10</td><td class="mono">B20</td></tr>
+      <tr class="g-data"><td class="num">15</td><td class="mono">D9</td><td>双向</td><td class="num">17</td><td class="mono">SDRAM0_D9</td><td class="mono">A21</td></tr>
+      <tr class="g-data"><td class="num">16</td><td class="mono">D10</td><td>双向</td><td class="num">18</td><td class="mono">SDRAM0_D8</td><td class="mono">B21</td></tr>
+      <tr class="g-data"><td class="num">17</td><td class="mono">D11</td><td>双向</td><td class="num">19</td><td class="mono">SDRAM0_A12</td><td class="mono">B18</td></tr>
+      <tr class="g-data"><td class="num">18</td><td class="mono">D12</td><td>双向</td><td class="num">20</td><td class="mono">SDRAM0_CLK</td><td class="mono">B17</td></tr>
+      <tr class="g-data"><td class="num">19</td><td class="mono">D13</td><td>双向</td><td class="num">21</td><td class="mono">SDRAM0_A9</td><td class="mono">C17</td></tr>
+      <tr class="g-data"><td class="num">20</td><td class="mono">D14</td><td>双向</td><td class="num">22</td><td class="mono">SDRAM0_A11</td><td class="mono">D17</td></tr>
+      <tr class="g-data"><td class="num">21</td><td class="mono">D15</td><td>双向</td><td class="num">23</td><td class="mono">SDRAM0_A7</td><td class="mono">A19</td></tr>
+
+      <tr class="g-ctrl"><td class="num">23</td><td class="mono">TE</td><td>屏→FPGA</td><td class="num">24</td><td class="mono">SDRAM0_A8</td><td class="mono">A18</td><td>撕裂效应，不用可悬空</td></tr>
+
+      <tr class="g-touch"><td class="num">30</td><td class="mono">M0</td><td>双向</td><td class="num">25</td><td class="mono">SDRAM0_A5</td><td class="mono">D15</td><td>触摸 I2C SDA（模块已上拉）</td></tr>
+      <tr class="g-touch"><td class="num">34</td><td class="mono">CLK</td><td>FPGA→屏</td><td class="num">26</td><td class="mono">SDRAM0_A6</td><td class="mono">D14</td><td>触摸 I2C SCL</td></tr>
+      <tr class="g-touch"><td class="num">31</td><td class="mono">PEN</td><td>屏→FPGA</td><td class="num">27</td><td class="mono">SDRAM0_~WE</td><td class="mono">D16</td><td>触摸中断，0=有触摸</td></tr>
+      <tr class="g-touch"><td class="num">33</td><td class="mono">TCS</td><td>FPGA→屏</td><td class="num">28</td><td class="mono">SDRAM0_A4</td><td class="mono">E16</td><td>触摸复位，低有效</td></tr>
+
+      <tr class="g-nc"><td class="num">24</td><td class="mono">NC</td><td>—</td><td>—</td><td>—</td><td>—</td><td rowspan="4">悬空不接</td></tr>
+      <tr class="g-nc"><td class="num">25</td><td class="mono">NC</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr class="g-nc"><td class="num">29</td><td class="mono">M1</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr class="g-nc"><td class="num">32</td><td class="mono">NC</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>占用统计</b>：16 数据 + 5 控制 + 1 TE + 4 触摸 = <b>26 个 IO</b>，另加 5V、GND 各 1 根。<br>
+    <b>J13 富余</b>：pin 29–40（EXIO0/1、CAS、RAS、CS、BA0/1、A10、A0–A3 等 12 个脚）全部空闲，可留给按键 / 旋转编码器 / WS2812。
+  </div>
+
+  <hr>
+
+  <h2>三、⚠ 连错会烧板的 4 根线</h2>
+
+  <div class="danger">
+    <h3>只有电源和地接错才会烧；信号之间接错最多不工作</h3>
+    <ol>
+      <li><b>J13 pin11（5V）紧贴 pin12（GND）</b> —— 整体偏一格就是 5V 直接对地，板载 5V 是 5A DC-DC + 1A 功率开关，会烧线/烧排针。</li>
+      <li><b>屏幕 pin28（5V）紧贴 pin27、pin26（GND）</b> —— 同样错一格即短路。</li>
+      <li><b>J13 pin35 / pin39 不是电源</b> —— 分别是 <code>SDRAM0_BA1</code>(C20) 和 <code>SDRAM0_A2</code>(C19)，是 FPGA 输出脚，接 3.3V 或 GND 会过流烧脚。<b>J13 上没有任何 3.3V。</b></li>
+      <li><b>屏幕 pin28 只能来自 J13 pin11</b> —— 误接成某个 FPGA IO 时，模块要抽 0.3~0.6A，IO 只能给十几 mA，会烧 IO。</li>
+    </ol>
+  </div>
+
+  <h3>上电前 3 道检查</h3>
+  <ul class="tight">
+    <li><b>断电</b>，电阻档：<code>J13 pin11 ↔ pin12</code> 不短路；<code>P1 pin28 ↔ pin26</code> 不短路</li>
+    <li><b>断电</b>，通断档：<code>P1 28 ↔ J13 11</code>；<code>P1 22/26/27 ↔ J13 12</code>；<b>除这 4 根外，屏幕任何脚都不应通到 J13 的 11 或 12</b></li>
+    <li><b>上电（先不插屏）</b>：量 <code>J13 pin11</code> 对地 = <b>5V ±5%</b>，确认后再插屏</li>
+  </ul>
+
+  <div class="note">
+    <b>背光提醒</b>：背光不走引脚，由 SSD1963 的 PWM 寄存器经 <code>LCD_BL</code> 驱动 MP3302 的 EN，且该脚有 4.7k 下拉<b>默认关闭</b>。初始化必须写 <code>0xBE, 0x05, &lt;亮度&gt;, 0x01, 0xFF, 0x00, 0x00</code>，否则屏全黑。<br>
+    <b>调试建议</b>：第一次上电先发 <code>0xA1</code> 读 ID，返回 <code>0x0000</code> 即说明 16 根数据 + CS/RS/RD 全通。
+  </div>
+
+  <div class="note">
+    <b>物理连接</b>：J13 是 2.54mm 排针，屏幕 P1 也是 2.54mm 排针 —— 用 2.54mm 双排杜邦线（母对母）或做一块 40P→34P 转接小板即可，<b>不需要 0.5mm FPC 转接板</b>。<br>
+    <b>注意</b>：底板另有 J5（0.5mm 40P FPC）是 RGB 屏口，与 J13 完全无关，不要接错。
+  </div>
+
+</div>
+
+<script>
+  var J13 = {
+    1:["CS","E14"],   2:["RS","E13"],   3:["WR","C15"],   4:["RD","C14"],   5:["RST","B13"],
+    6:["D0","C13"],   7:["D1","A14"],   8:["D2","A13"],   9:["D3","B16"],   10:["D4","B15"],
+    11:["5V",""],     12:["GND",""],
+    13:["D5","A16"],  14:["D6","A15"],  15:["D7","A20"],  16:["D8","B20"],  17:["D9","A21"],  18:["D10","B21"],
+    19:["D11","B18"], 20:["D12","B17"], 21:["D13","C17"], 22:["D14","D17"], 23:["D15","A19"],
+    24:["TE","A18"],
+    25:["SDA","D15"], 26:["SCL","D14"], 27:["INT","D16"], 28:["TCS","E16"]
+  };
+  var P1 = {
+    1:"NCE",2:"RS",3:"WR",4:"RD",5:"RST",
+    6:"D0",7:"D1",8:"D2",9:"D3",10:"D4",11:"D5",12:"D6",13:"D7",14:"D8",
+    15:"D9",16:"D10",17:"D11",18:"D12",19:"D13",20:"D14",21:"D15",
+    22:"GND",23:"TE",
+    26:"GND",27:"GND",28:"5V",
+    29:"M1",30:"M0",31:"INT",33:"TCS",34:"SCL"
+  };
+
+  function grp(f){
+    if(!f) return "nc";
+    if(f==="5V") return "v5";
+    if(f==="GND") return "gnd";
+    if(/^D\d+$/.test(f)) return "data";
+    if(f==="M1") return "nc";
+    if(f==="M0"||f==="SDA"||f==="SCL"||f==="INT"||f==="TCS") return "touch";
+    return "ctrl";
+  }
+
+  function cell(pin, f, ball){
+    var g = grp(f);
+    var h = '<div class="cell c-'+g+'"><span class="n">'+pin+'</span>';
+    if(f) h += '<span class="f">'+f+'</span>';
+    if(ball) h += '<span class="b">'+ball+'</span>';
+    return h + '</div>';
+  }
+
+  function buildJ13(el){
+    var h = "";
+    for(var i=1;i<=40;i+=2){
+      for(var k=0;k<2;k++){
+        var p = i+k, e = J13[p];
+        h += e ? cell(p, e[0], e[1]) : cell(p, "", "");
+      }
+    }
+    el.innerHTML = h;
+  }
+
+  function buildP1(el){
+    var h = "";
+    for(var i=1;i<=34;i+=2){
+      for(var k=0;k<2;k++){
+        var p = i + (1-k), f = P1[p] || "";
+        h += cell(p, f, "");
+      }
+    }
+    el.innerHTML = h;
+  }
+
+  buildJ13(document.getElementById("grid-j13"));
+  buildP1(document.getElementById("grid-p1"));
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ venv/
 # ---- Tooling state (not source) ----
 .codegraph/
 .omo/
+.workbuddy-ai/
 
 # ---- OS / editor noise ----
 .DS_Store
