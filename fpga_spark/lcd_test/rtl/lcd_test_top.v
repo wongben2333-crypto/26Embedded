@@ -27,8 +27,12 @@ module lcd_test_top (
     inout  wire [15:0] lcd_db,
     output wire        ws_dout,
     output wire        uart_tx,    // U15 -> BL616 IO27_RX (PC COM8)
-    input  wire        uart_rx     // V14 <- BL616 IO28_TX (PC COM8)
+    input  wire        uart_rx,    // V14 <- BL616 IO28_TX (PC COM8)
+    output wire        lcd_dpi_bl  // P20 -> dock LP3320 EN (force 0V to disable the onboard RGB LCD boost)
 );
+
+    // Disable dock onboard RGB LCD backlight boost (LP3320)
+    assign lcd_dpi_bl = 1'b0;
 
     // ------------------------------------------------------------------------
     // Data bus tri-state + 2-stage synchroniser on read data
@@ -69,7 +73,7 @@ module lcd_test_top (
 
     // Segment start addresses
     localparam [7:0] SEG_INIT      = 8'd0;
-    localparam [7:0] SEG_FRAME     = 8'd80;
+    localparam [7:0] SEG_FRAME     = 8'd68;
     localparam [7:0] SEG_DIAG      = 8'd100;
     localparam [7:0] SEG_SNAP_PREP = 8'd160;
 
@@ -127,11 +131,11 @@ module lcd_test_top (
         8'd44: rom_q = `C(8'h29);       // display on
         8'd45: rom_q = `C(8'hD0);
         8'd46: rom_q = `D(8'h00);       // DBC off
-        8'd47: rom_q = `C(8'hBE);       // PWM
-        8'd48: rom_q = `D(8'h01);
-        8'd49: rom_q = `D(8'h18);
-        8'd50: rom_q = `D(8'h01);
-        8'd51: rom_q = `D(8'h00);
+        8'd47: rom_q = `C(8'hBE);       // PWM config (ALIENTEK official: 100% full brightness)
+        8'd48: rom_q = `D(8'h05);       // PWM frequency prescaler = 5
+        8'd49: rom_q = `D(8'hFE);       // PWM duty = 254 / 256 (Full Brightness)
+        8'd50: rom_q = `D(8'h01);       // PWM Enable (C[0]=1), Host controlled (C[3]=0)
+        8'd51: rom_q = `D(8'h00);       // DBC manual brightness = 0
         8'd52: rom_q = `D(8'h00);
         8'd53: rom_q = `D(8'h00);
         8'd54: rom_q = `C(8'hB8);
@@ -144,71 +148,99 @@ module lcd_test_top (
         8'd61: rom_q = `DLY(24'd500000);
         8'd62: rom_q = `ENDS;
 
-        // ---------------- FRAME header (0x2A, 0x2B, 0x2C) ---------------
-        8'd80: rom_q = `C(8'h2A);
-        8'd81: rom_q = `D(8'h00);
-        8'd82: rom_q = `D(8'h00);
-        8'd83: rom_q = `D(8'h03);
-        8'd84: rom_q = `D(8'h1F);       // col 0..799
-        8'd85: rom_q = `C(8'h2B);
+        // ---------------- FRAME header (refresh F0/29/BE/B8/BA/36 + 2A/2B/2C)
+        8'd68: rom_q = `C(8'hF0);
+        8'd69: rom_q = `D(8'h03);       // 16-bit 565
+        8'd70: rom_q = `C(8'h29);       // display on
+        8'd71: rom_q = `C(8'hD0);
+        8'd72: rom_q = `D(8'h00);       // DBC off
+        8'd73: rom_q = `C(8'hBE);       // PWM config
+        8'd74: rom_q = `D(8'h05);
+        8'd75: rom_q = `D(8'hFE);
+        8'd76: rom_q = `D(8'h01);
+        8'd77: rom_q = `D(8'h00);       // DBC manual brightness = 0
+        8'd78: rom_q = `D(8'h00);
+        8'd79: rom_q = `D(8'h00);
+        8'd80: rom_q = `C(8'hB8);
+        8'd81: rom_q = `D(8'h03);
+        8'd82: rom_q = `D(8'h01);
+        8'd83: rom_q = `C(8'hBA);
+        8'd84: rom_q = `D(8'h01);
+        8'd85: rom_q = `C(8'h36);
         8'd86: rom_q = `D(8'h00);
-        8'd87: rom_q = `D(8'h00);
-        8'd88: rom_q = `D(8'h01);
-        8'd89: rom_q = `D(8'hDF);       // page 0..479
-        8'd90: rom_q = `C(8'h2C);       // write_memory_start
-        8'd91: rom_q = `ENDS;
+        8'd87: rom_q = `C(8'h2A);
+        8'd88: rom_q = `D(8'h00);
+        8'd89: rom_q = `D(8'h00);
+        8'd90: rom_q = `D(8'h03);
+        8'd91: rom_q = `D(8'h1F);       // col 0..799
+        8'd92: rom_q = `C(8'h2B);
+        8'd93: rom_q = `D(8'h00);
+        8'd94: rom_q = `D(8'h00);
+        8'd95: rom_q = `D(8'h01);
+        8'd96: rom_q = `D(8'hDF);       // page 0..479
+        8'd97: rom_q = `C(8'h2C);       // write_memory_start
+        8'd98: rom_q = `ENDS;
 
-        // ---------------- DIAG readback (32 bytes) ----------------------
+        // ---------------- DIAG readback (32 bytes, with 50us turnaround DLY) ----------------------
         8'd100: rom_q = `C(8'hA1);
-        8'd101: rom_q = `R8;
+        8'd101: rom_q = `DLY(24'd2500);
         8'd102: rom_q = `R8;
         8'd103: rom_q = `R8;
         8'd104: rom_q = `R8;
-        8'd105: rom_q = `R8;            // 5
-        8'd106: rom_q = `C(8'h0A);
-        8'd107: rom_q = `R8;            // 6
-        8'd108: rom_q = `C(8'hE4);
-        8'd109: rom_q = `R8;            // 7
-        8'd110: rom_q = `C(8'hF1);
-        8'd111: rom_q = `R8;            // 8
-        8'd112: rom_q = `C(8'h0B);
-        8'd113: rom_q = `R8;            // 9
-        8'd114: rom_q = `C(8'hB1);
-        8'd115: rom_q = `R8;
-        8'd116: rom_q = `R8;
-        8'd117: rom_q = `R8;
-        8'd118: rom_q = `R8;
-        8'd119: rom_q = `R8;
-        8'd120: rom_q = `R8;
-        8'd121: rom_q = `R8;            // 16
-        8'd122: rom_q = `C(8'hE7);
+        8'd105: rom_q = `R8;
+        8'd106: rom_q = `R8;            // 5
+        8'd107: rom_q = `C(8'h0A);
+        8'd108: rom_q = `DLY(24'd2500);
+        8'd109: rom_q = `R8;            // 6
+        8'd110: rom_q = `C(8'hE4);
+        8'd111: rom_q = `DLY(24'd2500);
+        8'd112: rom_q = `R8;            // 7
+        8'd113: rom_q = `C(8'hF1);
+        8'd114: rom_q = `DLY(24'd2500);
+        8'd115: rom_q = `R8;            // 8
+        8'd116: rom_q = `C(8'h0B);
+        8'd117: rom_q = `DLY(24'd2500);
+        8'd118: rom_q = `R8;            // 9
+        8'd119: rom_q = `C(8'hB1);
+        8'd120: rom_q = `DLY(24'd2500);
+        8'd121: rom_q = `R8;
+        8'd122: rom_q = `R8;
         8'd123: rom_q = `R8;
         8'd124: rom_q = `R8;
-        8'd125: rom_q = `R8;            // 19
-        8'd126: rom_q = `C(8'hBF);
-        8'd127: rom_q = `R8;
-        8'd128: rom_q = `R8;
-        8'd129: rom_q = `R8;
+        8'd125: rom_q = `R8;
+        8'd126: rom_q = `R8;
+        8'd127: rom_q = `R8;            // 16
+        8'd128: rom_q = `C(8'hE7);
+        8'd129: rom_q = `DLY(24'd2500);
         8'd130: rom_q = `R8;
         8'd131: rom_q = `R8;
-        8'd132: rom_q = `R8;
-        8'd133: rom_q = `R8;            // 26
-        8'd134: rom_q = `C(8'h2A);
-        8'd135: rom_q = `D(8'h00);
-        8'd136: rom_q = `D(8'h00);
-        8'd137: rom_q = `D(8'h00);
-        8'd138: rom_q = `D(8'h0F);
-        8'd139: rom_q = `C(8'h2B);
-        8'd140: rom_q = `D(8'h00);
-        8'd141: rom_q = `D(8'h00);
-        8'd142: rom_q = `D(8'h00);
-        8'd143: rom_q = `D(8'h0F);
-        8'd144: rom_q = `C(8'h2E);
-        8'd145: rom_q = `R16;
-        8'd146: rom_q = `R16;
-        8'd147: rom_q = `R16;           // 32
-        8'd148: rom_q = `C(8'h00);      // NOP terminates memory read
-        8'd149: rom_q = `ENDS;
+        8'd132: rom_q = `R8;            // 19
+        8'd133: rom_q = `C(8'hBF);
+        8'd134: rom_q = `DLY(24'd2500);
+        8'd135: rom_q = `R8;
+        8'd136: rom_q = `R8;
+        8'd137: rom_q = `R8;
+        8'd138: rom_q = `R8;
+        8'd139: rom_q = `R8;
+        8'd140: rom_q = `R8;
+        8'd141: rom_q = `R8;            // 26
+        8'd142: rom_q = `C(8'h2A);
+        8'd143: rom_q = `D(8'h00);
+        8'd144: rom_q = `D(8'h00);
+        8'd145: rom_q = `D(8'h03);
+        8'd146: rom_q = `D(8'h1F);
+        8'd147: rom_q = `C(8'h2B);
+        8'd148: rom_q = `D(8'h00);
+        8'd149: rom_q = `D(8'h00);
+        8'd150: rom_q = `D(8'h01);
+        8'd151: rom_q = `D(8'hDF);
+        8'd152: rom_q = `C(8'h2E);
+        8'd153: rom_q = `DLY(24'd2500);
+        8'd154: rom_q = `R16;
+        8'd155: rom_q = `R16;
+        8'd156: rom_q = `R16;           // 32
+        8'd157: rom_q = `C(8'h00);      // NOP terminates memory read
+        8'd158: rom_q = `ENDS;
 
         // ---------------- SCREENSHOT prep (0x2A 0..799, 0x2B 0..479, 0x2E)
         8'd160: rom_q = `C(8'h2A);
@@ -299,7 +331,9 @@ module lcd_test_top (
     reg       snap_rle;       // 0 = 'q' (200x120 raw), 1 = 'c' (800x480 RLE)
     reg [1:0] snap_wait_frm;  // wait 1 frame after pattern change before capture
     reg       snap_clear_req;
+    reg       reinit_clear_req;
     reg       frame_end_pulse;
+    reg       reinit_req;
 
     always @(posedge sys_clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -308,8 +342,10 @@ module lcd_test_top (
             snap_req      <= 1'b0;
             snap_rle      <= 1'b0;
             snap_wait_frm <= 2'd0;
+            reinit_req    <= 1'b0;
         end else begin
-            if (snap_clear_req) snap_req <= 1'b0;
+            if (snap_clear_req)   snap_req   <= 1'b0;
+            if (reinit_clear_req) reinit_req <= 1'b0;
             if (rx_vld) begin
                 case (rx_dat)
                     "0": begin pat_lock <= 1'b1; pat_sel <= 3'd0; snap_wait_frm <= 2'd1; end
@@ -318,6 +354,7 @@ module lcd_test_top (
                     "3": begin pat_lock <= 1'b1; pat_sel <= 3'd3; snap_wait_frm <= 2'd1; end
                     "4": begin pat_lock <= 1'b1; pat_sel <= 3'd4; snap_wait_frm <= 2'd1; end
                     "a", "A": begin pat_lock <= 1'b0; end
+                    "r", "R", "i", "I": begin reinit_req <= 1'b1; end
                     "q", "Q": begin snap_req <= 1'b1; snap_rle <= 1'b0; end
                     "c", "C": begin snap_req <= 1'b1; snap_rle <= 1'b1; end
                     default: ;
@@ -488,19 +525,10 @@ module lcd_test_top (
         else                   logo_color = 16'hF81F;  // k  品红
     end
 
-    // 背景：上下对称的深蓝渐变
+    // 背景：纯黑（消除中间绿带，提升对比度）
     reg [15:0] spark_bg;
     always @(*) begin
-        case (py[8:6])
-            3'd0:    spark_bg = 16'h0000;
-            3'd1:    spark_bg = 16'h0841;
-            3'd2:    spark_bg = 16'h0861;
-            3'd3:    spark_bg = 16'h10A2;
-            3'd4:    spark_bg = 16'h10A2;
-            3'd5:    spark_bg = 16'h0861;
-            3'd6:    spark_bg = 16'h0841;
-            default: spark_bg = 16'h0000;
-        endcase
+        spark_bg = 16'h0000;
     end
 
     wire [15:0] spark_color = (in_logo && lon) ? logo_color : spark_bg;
@@ -522,7 +550,7 @@ module lcd_test_top (
 
     reg  [15:0] color;
     always @(*) begin
-        if (!pat_lock) color = spark_color;          // 默认：spark Logo
+        if (!pat_lock) color = bar_color;          // 默认：spark Logo
         else case (pat_sel)
             3'd0:    color = 16'hFFFF; // White
             3'd1:    color = 16'hF800; // Red
@@ -664,7 +692,7 @@ module lcd_test_top (
     reg [3:0]  ms;
     reg [3:0]  tx_ret_ms;
     reg [1:0]  seg;           // 0 = init, 1 = frame header, 2 = diag, 3 = snap prep
-    reg [5:0]  ph;            // phase counter within bus cycle
+    reg [6:0]  ph;            // phase counter within bus cycle (0..127)
     reg        init_done;
 
     // Screenshot engine registers
@@ -678,27 +706,31 @@ module lcd_test_top (
 
     always @(posedge sys_clk or negedge rst_n) begin
         if (!rst_n) begin
-            ms <= M_RST_LO; tx_ret_ms <= M_RST_LO; seg <= 0; pc <= SEG_INIT; ph <= 0; dly <= 24'd1000000;
+            ms <= M_RST_LO; tx_ret_ms <= M_RST_LO; seg <= 0; pc <= SEG_INIT; ph <= 0; dly <= 24'd2500000;
             lcd_cs <= 1'b1; lcd_rs <= 1'b1; lcd_wr <= 1'b1; lcd_rd <= 1'b1; lcd_rst <= 1'b0;
             db_out <= 16'h0000; db_oe <= 1'b1;
             px <= 0; py <= 0; frame_cnt <= 0; init_done <= 1'b0; dptr <= 0;
             print_req <= 1'b0; sframe <= 0;
             snap_active <= 1'b0; snap_u_start <= 1'b0; snap_u_byte <= 8'h00;
-            snap_clear_req <= 1'b0; frame_end_pulse <= 1'b0;
+            snap_clear_req <= 1'b0; reinit_clear_req <= 1'b0; frame_end_pulse <= 1'b0;
             tx_idx <= 0; tx_len <= 0; cur_pix <= 0; rle_pix <= 0; rle_cnt <= 0; last_pix_flag <= 1'b0;
         end else begin
             print_req       <= 1'b0;
             snap_u_start    <= 1'b0;
-            snap_clear_req  <= 1'b0;
-            frame_end_pulse <= 1'b0;
+            snap_clear_req   <= 1'b0;
+            reinit_clear_req <= 1'b0;
+            frame_end_pulse  <= 1'b0;
 
             case (ms)
             M_RST_LO: begin
-                lcd_rst <= 1'b0;
-                if (dly == 0) begin lcd_rst <= 1'b1; dly <= 24'd2000000; ms <= M_RST_HI; end
+                lcd_rst <= 1'b0; lcd_cs <= 1'b1; lcd_rs <= 1'b1; lcd_wr <= 1'b1; lcd_rd <= 1'b1;
+                db_out  <= 16'hFFFF; db_oe <= 1'b1;
+                if (dly == 0) begin lcd_rst <= 1'b1; dly <= 24'd5000000; ms <= M_RST_HI; end
                 else dly <= dly - 1'b1;
             end
             M_RST_HI: begin
+                lcd_cs <= 1'b1; lcd_rs <= 1'b1; lcd_wr <= 1'b1; lcd_rd <= 1'b1;
+                db_out <= 16'hFFFF; db_oe <= 1'b1;
                 if (dly == 0) begin pc <= SEG_INIT; seg <= 0; ms <= M_SEQ; end
                 else dly <= dly - 1'b1;
             end
@@ -707,16 +739,16 @@ module lcd_test_top (
             M_SEQ: begin
                 ph <= 0;
                 case (op_kind)
-                K_WR : begin db_out <= op_data[15:0]; lcd_rs <= op_rs; ms <= M_WR; end
+                K_WR : begin db_out <= op_data[15:0]; db_oe <= 1'b1; lcd_rs <= op_rs; ms <= M_WR; end
                 K_RD : begin lcd_rs <= 1'b1; ms <= M_RD; end
-                K_DLY: begin dly <= op_data; ms <= M_DLY; end
+                K_DLY: begin dly <= op_data; db_out <= 16'hFFFF; db_oe <= 1'b1; ms <= M_DLY; end
                 K_END: begin
                     if (seg == 2'd0) begin
                         init_done <= 1'b1;
                         seg <= 2'd1; pc <= SEG_FRAME;
                     end else if (seg == 2'd1) begin
                         px <= 0; py <= 0; ms <= M_PIX;
-                        db_out <= color; lcd_rs <= 1'b1;
+                        db_out <= color; db_oe <= 1'b1; lcd_rs <= 1'b1;
                     end else if (seg == 2'd2) begin
                         ms <= M_PRINT;
                     end else begin
@@ -729,65 +761,79 @@ module lcd_test_top (
             end
 
             M_DLY: begin
-                lcd_cs <= 1'b1;
+                lcd_cs <= 1'b1; lcd_wr <= 1'b1; lcd_rd <= 1'b1;
+                db_out <= 16'hFFFF; db_oe <= 1'b1;
                 if (dly == 0) begin pc <= pc + 1'b1; ms <= M_SEQ; end
                 else dly <= dly - 1'b1;
             end
 
-            // ---------------- Write cycle (cmd/param or pixel) ----------
-            M_WR, M_PIX: begin
+            // ---------------- Command/Param Write cycle (with 16'hFFFF precharge) ----------
+            M_WR: begin
                 db_oe <= 1'b1;
                 ph <= ph + 1'b1;
                 case (ph)
-                    6'd0 : begin
-                        lcd_cs <= 1'b0; lcd_wr <= 1'b1; lcd_rd <= 1'b1;
-                        if (ms == M_PIX) db_out <= color;
+                    7'd0  : begin lcd_cs <= 1'b0; lcd_wr <= 1'b1; lcd_rd <= 1'b1; end
+                    7'd20 : lcd_wr <= 1'b0;   // 400ns RS/DB/CS setup before WR# falls
+                    7'd52 : lcd_wr <= 1'b1;   // 640ns WR# low pulse
+                    7'd72 : begin             // 400ns WR# high hold before CS# rises + bus precharge
+                        lcd_cs <= 1'b1;
+                        db_out <= 16'hFFFF;
                     end
-                    6'd4 : lcd_wr <= 1'b0;
-                    6'd10: lcd_wr <= 1'b1;
-                    6'd14: begin
-                        if (ms == M_WR) lcd_cs <= 1'b1;
-                    end
-                    6'd15: begin
-                        ph <= 0;
-                        if (ms == M_WR) begin
-                            pc <= pc + 1'b1; ms <= M_SEQ;
-                        end else begin
-                            // next pixel
-                            if (px == 10'd799) begin
-                                px <= 0;
-                                if (py == 9'd479) begin
-                                    lcd_cs          <= 1'b1;
-                                    py              <= 0;
-                                    frame_end_pulse <= 1'b1;
-                                    // Check if a screenshot is requested (and any pattern change has settled)
-                                    if (snap_req && snap_wait_frm == 2'd0) begin
-                                        snap_clear_req <= 1'b1;
-                                        snap_active    <= 1'b1;
-                                        seg            <= 2'd3;
-                                        pc             <= SEG_SNAP_PREP;
-                                        ms             <= M_SEQ;
-                                    end else begin
-                                        seg  <= 2'd2;
-                                        pc   <= SEG_DIAG;
-                                        dptr <= 0;
-                                        ms   <= M_SEQ;
-                                    end
-                                end else py <= py + 1'b1;
-                            end else px <= px + 1'b1;
-                        end
+                    7'd100: begin             // 560ns CS# high precharge (db_out = 16'hFFFF)
+                        ph <= 7'd0;
+                        pc <= pc + 1'b1;
+                        ms <= M_SEQ;
                     end
                     default: ;
                 endcase
             end
 
-            // ---------------- Read cycle (for SEG_DIAG) -----------------
+            // ---------------- Pixel Burst Write cycle (400ns/pixel: 160ns low, 240ns high) ---
+            M_PIX: begin
+                db_oe <= 1'b1;
+                ph <= ph + 1'b1;
+                case (ph)
+                    7'd0 : begin
+                        lcd_cs <= 1'b0; lcd_wr <= 1'b1; lcd_rd <= 1'b1;
+                        db_out <= color;
+                    end
+                    7'd4 : lcd_wr <= 1'b0;    // 160ns WR# low (ph=4..11)
+                    7'd12: lcd_wr <= 1'b1;    // 160ns WR# high (ph=12..19) + 80ns (ph=0..3) = 240ns
+                    7'd19: begin
+                        ph <= 7'd0;
+                        if (px == 10'd799) begin
+                            px <= 0;
+                            if (py == 9'd479) begin
+                                lcd_cs          <= 1'b1;
+                                db_out          <= 16'hFFFF;
+                                py              <= 0;
+                                frame_end_pulse <= 1'b1;
+                                if (snap_req && snap_wait_frm == 2'd0) begin
+                                    snap_clear_req <= 1'b1;
+                                    snap_active    <= 1'b1;
+                                    seg            <= 2'd3;
+                                    pc             <= SEG_SNAP_PREP;
+                                    ms             <= M_SEQ;
+                                end else begin
+                                    seg  <= 2'd2;
+                                    pc   <= SEG_DIAG;
+                                    dptr <= 0;
+                                    ms   <= M_SEQ;
+                                end
+                            end else py <= py + 1'b1;
+                        end else px <= px + 1'b1;
+                    end
+                    default: ;
+                endcase
+            end
+
+            // ---------------- Read cycle (matches M_SNAP_RD waveform + restores db_oe) -----------------
             M_RD: begin
                 ph <= ph + 1'b1;
                 case (ph)
-                    6'd0 : begin db_oe <= 1'b0; lcd_cs <= 1'b0; lcd_wr <= 1'b1; lcd_rd <= 1'b1; end
-                    6'd6 : lcd_rd <= 1'b0;
-                    6'd28: begin
+                    7'd0  : begin db_oe <= 1'b0; lcd_cs <= 1'b0; lcd_rs <= 1'b1; lcd_wr <= 1'b1; lcd_rd <= 1'b1; end
+                    7'd6  : lcd_rd <= 1'b0;   // 440ns RD# low pulse
+                    7'd28 : begin
                         if (op_w16) begin
                             dbuf[dptr]       <= db_in_s2[15:8];
                             dbuf[dptr+1'b1]  <= db_in_s2[7:0];
@@ -798,9 +844,13 @@ module lcd_test_top (
                         end
                         lcd_rd <= 1'b1;
                     end
-                    6'd38: begin
-                        ph <= 0; pc <= pc + 1'b1; ms <= M_SEQ;
-                        db_oe <= 1'b1;
+                    7'd36 : lcd_cs <= 1'b1;
+                    7'd52 : begin
+                        ph     <= 7'd0;
+                        pc     <= pc + 1'b1;
+                        db_oe  <= 1'b1;
+                        db_out <= 16'hFFFF;
+                        ms     <= M_SEQ;
                     end
                     default: ;
                 endcase
@@ -809,6 +859,8 @@ module lcd_test_top (
             // ---------------- Print diag line ---------------------------
             M_PRINT: begin
                 lcd_cs <= 1'b1;
+                db_oe  <= 1'b1;
+                db_out <= 16'hFFFF;
                 if (!print_busy && us == U_IDLE) begin
                     sframe    <= frame_cnt;
                     print_req <= 1'b1;
@@ -817,7 +869,16 @@ module lcd_test_top (
             end
             M_PRINT_WAIT: begin
                 frame_cnt <= frame_cnt + 1'b1;
-                seg <= 2'd1; pc <= SEG_FRAME; ms <= M_SEQ;
+                if (reinit_req) begin
+                    reinit_clear_req <= 1'b1;
+                    seg              <= 2'd0;
+                    pc               <= SEG_INIT;
+                    ms               <= M_SEQ;
+                end else begin
+                    seg              <= 2'd1;
+                    pc               <= SEG_FRAME;
+                    ms               <= M_SEQ;
+                end
             end
 
             // ================================================================
@@ -846,20 +907,23 @@ module lcd_test_top (
             M_SNAP_RD: begin
                 ph <= ph + 1'b1;
                 case (ph)
-                    6'd0 : begin
+                    7'd0 : begin
                         db_oe  <= 1'b0; // FPGA High-Z
                         lcd_cs <= 1'b0;
                         lcd_rs <= 1'b1; // DATA
                         lcd_wr <= 1'b1;
                         lcd_rd <= 1'b1;
                     end
-                    6'd4 : lcd_rd <= 1'b0; // Assert RD# low (360ns)
-                    6'd22: begin
+                    7'd6 : lcd_rd <= 1'b0; // Assert RD# low (440ns)
+                    7'd28: begin
                         cur_pix <= db_in_s2;
                         lcd_rd  <= 1'b1;
                     end
-                    6'd28: begin
-                        ph <= 6'd0;
+                    7'd36: begin
+                        lcd_cs <= 1'b1; // CS pulse high between reads (360ns high)
+                    end
+                    7'd52: begin
+                        ph <= 7'd0;
                         ms <= M_SNAP_PROC;
                     end
                     default: ;
@@ -975,10 +1039,10 @@ module lcd_test_top (
     // ------------------------------------------------------------------------
     reg [23:0] ws_color; // GRB
     always @(*) begin
-        if (!init_done)        ws_color = 24'h10_00_00;  // 暗红：初始化中
+        if (!init_done)        ws_color = 24'h00_20_00;  // 暗红：复位与500ms晶振稳定等待中
         else if (snap_active)  ws_color = 24'h20_20_40;  // 蓝紫：正在截图回传电脑
-        else if (frame_cnt[3]) ws_color = 24'h00_30_00;  // 亮绿
-        else                   ws_color = 24'h00_10_00;  // 暗绿
+        else if (frame_cnt[3]) ws_color = 24'h30_00_00;  // 亮绿：正常逐帧刷新
+        else                   ws_color = 24'h10_00_00;  // 暗绿：正常逐帧刷新
     end
 
     ws2812_drv u_ws2812 (
