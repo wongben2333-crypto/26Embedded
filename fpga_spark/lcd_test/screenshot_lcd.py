@@ -43,6 +43,7 @@ PATTERN_CMDS = {
     "green":   b"2",
     "blue":    b"3",
     "bars":    b"4",
+    "spark":   b"5",
     "auto":    b"a",
 }
 
@@ -124,9 +125,12 @@ def capture_quick(ser: serial.Serial) -> tuple[int, int, list[int]]:
     print(f"[2/3] Header matched: {w}x{h} RGB565 ({total_bytes} bytes, ~{total_bytes * 10 / 115200:.1f}s)...")
 
     raw = read_exact(ser, total_bytes, timeout=15.0, show_progress=True)
-    ftr = read_exact(ser, 6, timeout=3.0)
-    if not ftr.startswith(b"END!"):
-        print(f"  [Warning] Expected 'END!' footer, got {ftr!r}")
+    try:
+        ftr = read_exact(ser, 6, timeout=1.0)
+        if not ftr.startswith(b"END!"):
+            print(f"  [Warning] Expected 'END!' footer, got {ftr!r}")
+    except Exception as e:
+        print(f"  [Notice] Footer ignored: {e}")
 
     pixels_565 = [
         (raw[i] << 8) | raw[i + 1]
@@ -175,9 +179,12 @@ def capture_rle(ser: serial.Serial) -> tuple[int, int, list[int]]:
             last_print = now
     sys.stdout.write("\n")
 
-    ftr = read_exact(ser, 6, timeout=3.0)
-    if not ftr.startswith(b"END!"):
-        print(f"  [Warning] Expected 'END!' footer, got {ftr!r}")
+    try:
+        ftr = read_exact(ser, 6, timeout=1.0)
+        if not ftr.startswith(b"END!"):
+            print(f"  [Warning] Expected 'END!' footer, got {ftr!r}")
+    except Exception as e:
+        print(f"  [Notice] Footer ignored: {e}")
 
     return w, h, pixels_565[:total_pixels]
 
@@ -188,9 +195,9 @@ def main() -> int:
     parser.add_argument("--baud", type=int, default=115200, help="Baud rate (default: 115200)")
     parser.add_argument(
         "--mode",
-        choices=["quick", "rle"],
-        default="quick",
-        help="'quick' = 200x120 raw RGB565 upscaled to 800x480 (~4.2s); 'rle' = 800x480 RLE stream",
+        choices=["rle", "quick"],
+        default="rle",
+        help="'rle' = Full-resolution lossless 800x480 RLE capture (default, crystal clear, ~5-8s); 'quick' = 200x120 downsampled preview (~4.2s)",
     )
     parser.add_argument(
         "--pattern",

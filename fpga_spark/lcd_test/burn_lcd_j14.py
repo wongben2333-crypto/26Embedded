@@ -15,7 +15,7 @@ import time
 
 CLI = r"D:\Gowin\Gowin_V1.9.12.04_x64\Programmer\bin\programmer_cli.exe"
 SRC = os.path.dirname(os.path.abspath(__file__))
-FS  = os.path.join(SRC, "bitstream", "lcd_test_j14_138c_verified.fs")
+FS  = os.path.join(SRC, "bitstream", "lcd_ui_j14_138c_verified.fs")
 DEV = "GW5AST-138C"
 
 if not os.path.exists(CLI):

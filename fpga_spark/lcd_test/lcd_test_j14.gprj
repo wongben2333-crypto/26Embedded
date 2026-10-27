@@ -2,4 +2,35 @@
 <!DOCTYPE gowin-fpga-project>
 <Project><Template>FPGA</Template><Version>5</Version>
 <Device name="GW5AST-138C" pn="GW5AST-LV138PG484AC1/I0">gw5ast138c-007</Device>
-<FileList><File path="rtl/lcd_test_top.v" type="file.verilog" enable="1"/><File path="rtl/ws2812_drv.v" type="file.verilog" enable="1"/><File path="constraints/lcd_test_j14.cst" type="file.cst" enable="1"/></FileList></Project>
+<FileList>
+<File path="rtl/audio/pt8211_tx.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/audio_fx.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/cab_biquad.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/cab_sim.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/fx_allpass.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/fx_chorus.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/fx_comb.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/fx_dist.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/fx_echo.v" type="file.verilog" enable="1"/>
+<File path="rtl/effects/guitar_fx.v" type="file.verilog" enable="1"/>
+<File path="rtl/io/midi_rx.v" type="file.verilog" enable="1"/>
+<File path="rtl/io/touch_key.v" type="file.verilog" enable="1"/>
+<File path="rtl/io/touch_notes.v" type="file.verilog" enable="1"/>
+<File path="rtl/io/uart_rx.v" type="file.verilog" enable="1"/>
+<File path="rtl/lcd_test_top.v" type="file.verilog" enable="1"/>
+<File path="rtl/lcd_ui.v" type="file.verilog" enable="1"/>
+<File path="rtl/synth/adsr.v" type="file.verilog" enable="1"/>
+<File path="rtl/synth/piano_engine.v" type="file.verilog" enable="1"/>
+<File path="rtl/synth/piano_rom.v" type="file.verilog" enable="1"/>
+<File path="rtl/synth/song_player.v" type="file.verilog" enable="1"/>
+<File path="rtl/synth/song_rom.v" type="file.verilog" enable="1"/>
+<File path="rtl/synth/tone_bank.v" type="file.verilog" enable="1"/>
+<File path="rtl/synth/wave_rom.v" type="file.verilog" enable="1"/>
+<File path="rtl/ws2812_drv.v" type="file.verilog" enable="1"/>
+<File path="constraints/lcd_test_j14.cst" type="file.cst" enable="1"/>
+</FileList>
+<OptionList>
+    <Option key="top_module" value="lcd_test_top"/>
+    <Option key="verilog_std" value="sysv2017"/>
+</OptionList>
+</Project>
