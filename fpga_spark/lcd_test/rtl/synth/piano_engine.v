@@ -168,6 +168,7 @@ module piano_engine #(
     input  wire        sustain,       // CC64 ≥64：延音踏板
     input  wire [1:0]  inst_sel,      // ★ 多乐器（2026-10-06）：0=钢琴 1=电吉他 2=古筝
     input  wire [6:0]  bow_speed,     // ★ CC21 弓速 0..127（二胡用；0 ⇒ 固定中速兜底 64）
+    input  wire        reset_all,     // ★ CC120/CC121 紧急全静音/复位所有声部
                                       //   全局切换（8 声部同一乐器）；只影响【新的音符】——
                                       //   系数在 note-on 装载期被采样，正在发声的音符保持原音色。
                                       //   ⚠️ 未接时（z/x）会落到 default 分支 = 钢琴，
@@ -175,7 +176,8 @@ module piano_engine #(
 
     // ---- 输出 ----
     output reg  signed [15:0]  mix_out,   // 混音输出（与 32 路振荡器组相加前）
-    output wire [N_VOICES-1:0] active     // 每个声部是否在发声（给 LED 用）
+    output wire [N_VOICES-1:0] active,    // 每个声部是否在发声（给 LED 用）
+    output wire [11:0]         key_sound_active // 12路半音琴键发声状态 (C..B)
 );
 
     // ---------------------------------------------------------------- 常量 ----
@@ -813,6 +815,7 @@ module piano_engine #(
             .on_pluck_fast(inst_ok == 2'd1),   // 只有电吉他加速激励衰减
             .bow_speed    (bow_speed),         // ★ CC21 弓速
             .drv_on       (inst_ok == 2'd2),   // ★ 只有二胡持续供能 ⇒ 钢琴/吉他逐值不变
+            .reset_all    (reset_all),         // ★ 紧急全静音
 
             .on_beat      (beat_bus),
             .ld_for_me    (ld_stb & (ld_sel == gv[SEL_W-1:0])),
@@ -849,6 +852,44 @@ module piano_engine #(
     assign v_gate      = v_gate_w;
     assign v_note_flat = v_note_w;
     assign v_f0_flat   = v_f0_w;
+
+    // 12-bit Chromatic Key Active Engine (Natural Acoustic Ring & Sustain Pedal Tracking)
+    function [3:0] get_semi;
+        input [6:0] note;
+        reg [6:0] n;
+        begin
+            if      (note >= 7'd120) n = note - 7'd120;
+            else if (note >= 7'd108) n = note - 7'd108;
+            else if (note >= 7'd96)  n = note - 7'd96;
+            else if (note >= 7'd84)  n = note - 7'd84;
+            else if (note >= 7'd72)  n = note - 7'd72;
+            else if (note >= 7'd60)  n = note - 7'd60;
+            else if (note >= 7'd48)  n = note - 7'd48;
+            else if (note >= 7'd36)  n = note - 7'd36;
+            else if (note >= 7'd24)  n = note - 7'd24;
+            else if (note >= 7'd12)  n = note - 7'd12;
+            else                     n = note;
+            get_semi = n[3:0];
+        end
+    endfunction
+
+    reg [11:0] v_key_active;
+    integer v_i;
+    always @(*) begin
+        v_key_active = 12'd0;
+        for (v_i = 0; v_i < N_VOICES; v_i = v_i + 1) begin
+            if (v_act_w[v_i]) begin
+                v_key_active = v_key_active | (12'd1 << get_semi(v_note_w[v_i*7 +: 7]));
+            end
+        end
+    end
+
+    reg [11:0] key_sound_active_r;
+    always @(posedge clk) begin
+        if (!rst_n) key_sound_active_r <= 12'd0;
+        else        key_sound_active_r <= v_key_active;
+    end
+    assign key_sound_active = key_sound_active_r;
 
     // --------------------------------------------------- 混音 + 软膝限幅 ----
     // ★ 只累加【仍在发声】的声部：
@@ -1055,6 +1096,7 @@ module piano_voice #(
     input  wire [11:0]          vib_depth_k,  // 深度（Q16 分数，≤1905）
     input  wire                 sustain,      // 延音踏板
     input  wire                 sus_fall,     // 踏板抬起脉冲
+    input  wire                 reset_all,    // 紧急全静音脉冲
 
     output wire [31:0]          f0_out,       // 当前基频（引擎算滑音 delta 用）
     output reg  signed [24:0]   vout,
@@ -1304,7 +1346,7 @@ module piano_voice #(
     always @(*) begin
         act_c = gate_r;
         for (j = 0; j < N_PART; j = j + 1)
-            act_c = act_c | (|env[j][ENV_W-1 -: 8]);
+            act_c = act_c | (|env[j][ENV_W-1 -: 15]);
     end
     assign active   = act_c;
     assign gate_out = gate_r;
@@ -1436,15 +1478,22 @@ module piano_voice #(
                 //      ⇒ 4.261e9 < 2^32=4.295e9 ⇒ **不会溢出** ✓
                 //   ⚠️ !gate_r ⇒ 不加驱动 ⇒ 抬弓自动归零、s_damp 快释放生效 ✓
                 for (j = 0; j < N_PART; j = j + 1) begin
-                    if (!gate_r)
-                        env[j] <= env[j] - (env[j] >> cf_sd[j]);
-                    else if (env_en) begin
+                    if (!gate_r) begin
+                        if (env[j] <= (32'd1 << cf_sd[j]))
+                            env[j] <= 32'd0;
+                        else
+                            env[j] <= env[j] - (env[j] >> cf_sd[j]);
+                    end else if (env_en) begin
                         if (drv_act && ((env[j] >> cf_sr[j]) < drv_q))
                             env[j] <= env[j] + drv_r4;                       // 定速斜坡（常量左移）
                         else if (drv_act)
                             env[j] <= env[j] - (env[j] >> cf_sr[j]) + drv_q; // 稳态
-                        else
-                            env[j] <= env[j] - (env[j] >> cf_sr[j]);         // 钢琴/吉他：原样
+                        else begin
+                            if (env[j] <= (32'd1 << cf_sr[j]))
+                                env[j] <= 32'd0;
+                            else
+                                env[j] <= env[j] - (env[j] >> cf_sr[j]);     // 钢琴/吉他：自然衰减到底直接归零
+                        end
                     end
                 end
 
@@ -1477,7 +1526,10 @@ module piano_voice #(
             //   ⚠️ 刻意用"常量移位 + 门控"，不是变量移位（那会长出桶形移位器，
             //      而 MODE=1 的最差裕量只有 +0.009 ns）。
             //   ⚠️ 钢琴 on_pluck_fast=0 ⇒ 该项恒为 0 ⇒ 逐位不变。
-            ham_env <= ham_env - (ham_env >> HAM_SH)
+            if (ham_env <= (32'd1 << HAM_SH))
+                ham_env <= 32'd0;
+            else
+                ham_env <= ham_env - (ham_env >> HAM_SH)
                               - (on_pluck_fast ? (ham_env >> (HAM_SH-2)) : 32'd0);
                 lfsr    <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
                 nz_lp   <= nz_lp + ((nz_s - nz_lp) >>> lpsh_r);
@@ -1511,14 +1563,22 @@ module piano_voice #(
                 glide_hold <= glide_act && (gate_r || act_c);
             end
 
-            // ---------------- 3) note-off / 延音踏板 ----------------
-            if (off_hit) begin
+            // ---------------- 3) note-off / 延音踏板 / 全复位 ----------------
+            if (reset_all) begin
+                gate_r   <= 1'b0;
+                sus_pend <= 1'b0;
+                for (j = 0; j < N_PART; j = j + 1) begin
+                    env[j]   <= 32'd0;
+                    env_q[j] <= 18'd0;
+                end
+                ham_env  <= 32'd0;
+                ham_g_q  <= 18'd0;
+            end else if (off_hit) begin
                 if (sustain) sus_pend <= 1'b1;   // 踏板踩着：只记账，不落阻尼器
-                else         gate_r   <= 1'b0;   // 与加踏板之前完全一致
+                else         gate_r   <= 1'b0;   // 立即落阻尼器释放
             end
             // 踏板抬起：把"待释放"的声部一次性放掉
-            //   （加 ~on_pulse：同一拍正好有新击弦时不要把它掐掉）
-            if (sus_fall && sus_pend && !on_pulse) begin
+            if (sus_fall && sus_pend && !on_pulse && !reset_all) begin
                 gate_r   <= 1'b0;
                 sus_pend <= 1'b0;
             end

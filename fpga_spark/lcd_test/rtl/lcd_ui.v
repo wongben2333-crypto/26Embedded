@@ -29,6 +29,14 @@ module lcd_ui (
     input  wire [2:0]  song_index,     // 0..4
     input  wire        song_playing,
     input  wire [7:0]  song_progress,  // 0..100%
+    input  wire [6:0]  master_vol,     // 0..127 硬件主音量 (MIDI CC 7)
+    input  wire [11:0] key_active_mask,// 12路琴键发声状态 (bit 0=C4..bit 11=B4)
+    input  wire [7:0]  song_elapsed_sec, // 0..59
+    input  wire [7:0]  song_elapsed_min, // 0..59
+    input  wire [7:0]  song_total_sec,   // total seconds of song
+    input  wire [8:0]  song_note_idx,    // current note index
+    input  wire [5:0]  song_sub_scroll,  // 0..59 pixels
+    input  wire [6:0]  song_active_note, // active MIDI note
 
     // 像素颜色输出 (RGB565)
     output reg  [15:0] color
@@ -40,7 +48,7 @@ module lcd_ui (
     localparam [15:0] C_BG         = 16'h08A7; // Deep Midnight Navy Blue #081439
     localparam [15:0] C_NAV        = 16'h08A6; // Top Navigation Header #081430
     localparam [15:0] C_PANEL      = 16'h110C; // Deep Sapphire Slate Panel #102062
-    localparam [15:0] C_BORDER     = 16'h21D4; // Crisp Slate Blue Border #2038A4
+    localparam [15:0] C_BORDER     = 16'h1A7A; // Crisp Slate Blue Border #2038A4
     localparam [15:0] C_TEXT_PRI   = 16'hFFFF; // Pure White #FFFFFF
     localparam [15:0] C_TEXT_SEC   = 16'h7D99; // Crisp Ice Blue Text #7BB2CD
     localparam [15:0] C_CYAN       = 16'h07FF; // Electric Cyan #00FFFF
@@ -51,8 +59,39 @@ module lcd_ui (
     localparam [15:0] C_GRID       = 16'h0927; // Scope Reticle Grid #082439
     localparam [15:0] C_ZERO_LINE  = 16'h11AE; // Scope Zero Center Line #103473
     localparam [15:0] C_KEY_WHITE  = 16'hFFFF; // Pure White Piano Key #FFFFFF
-    localparam [15:0] C_KEY_BORDER = 16'h21D4; // Key Border #2038A4
+    localparam [15:0] C_KEY_BORDER = 16'h1A7A; // Key Border #2038A4
     localparam [15:0] C_KEY_BLACK  = 16'h0824; // Deep Charcoal Black Key #080820
+
+    // Include song note table
+    `include "gen_song_notes.vh"
+
+    // Map MIDI note to treble/bass stave Y coordinate
+    function [8:0] note_to_y;
+        input [6:0] n;
+        begin
+            case (n)
+                7'd77: note_to_y = 9'd280; // F5 (top stave line)
+                7'd76: note_to_y = 9'd292; // E5
+                7'd75, 7'd74: note_to_y = 9'd305; // D#5, D5 (4th line)
+                7'd73, 7'd72: note_to_y = 9'd317; // C#5, C5
+                7'd71: note_to_y = 9'd330; // B4 (3rd line)
+                7'd70, 7'd69: note_to_y = 9'd342; // A#4, A4
+                7'd68, 7'd67: note_to_y = 9'd355; // G#4, G4 (2nd line)
+                7'd66, 7'd65: note_to_y = 9'd367; // F#4, F4
+                7'd64: note_to_y = 9'd380; // E4 (bottom line)
+                7'd63, 7'd62: note_to_y = 9'd392; // D#4, D4
+                7'd61, 7'd60: note_to_y = 9'd405; // C#4, C4 (ledger line)
+                7'd59: note_to_y = 9'd410; // B3
+                7'd58, 7'd57: note_to_y = 9'd418; // A#3, A3
+                7'd56, 7'd55: note_to_y = 9'd426; // G#3, G3
+                7'd54, 7'd53: note_to_y = 9'd434; // F#3, F3
+                7'd52, 7'd51: note_to_y = 9'd442; // E3, D#3
+                7'd50, 7'd49: note_to_y = 9'd450; // D3, C#3
+                7'd48:        note_to_y = 9'd458; // C3
+                default: note_to_y = 9'd0; // Rest / unmapped
+            endcase
+        end
+    endfunction
 
     // -------------------------------------------------------------------------
     // 字体 ROM 与字符渲染函数
@@ -654,6 +693,7 @@ module lcd_ui (
                 7'd77: get_str_len = 6'd35;
                 7'd78: get_str_len = 6'd30;
                 7'd79: get_str_len = 6'd8;
+                7'd80: get_str_len = 6'd4;
                 default: get_str_len = 6'd0;
             endcase
         end
@@ -1098,16 +1138,18 @@ module lcd_ui (
                     default: get_char = 8'd0;
                 endcase
                 7'd16: case (idx)
-                    6'd0: get_char = 8'd80;
-                    6'd1: get_char = 8'd84;
-                    6'd2: get_char = 8'd56;
-                    6'd3: get_char = 8'd50;
-                    6'd4: get_char = 8'd49;
-                    6'd5: get_char = 8'd49;
-                    6'd6: get_char = 8'd32;
-                    6'd7: get_char = 8'd73;
-                    6'd8: get_char = 8'd50;
-                    6'd9: get_char = 8'd83;
+                    6'd0: get_char = 8'd51; // '3'
+                    6'd1: get_char = 8'd46; // '.'
+                    6'd2: get_char = 8'd48; // '0'
+                    6'd3: get_char = 8'd83; // 'S'
+                    6'd4: get_char = 8'd32; // ' '
+                    6'd5: get_char = 8'd82; // 'R'
+                    6'd6: get_char = 8'd79; // 'O'
+                    6'd7: get_char = 8'd76; // 'L'
+                    6'd8: get_char = 8'd76; // 'L'
+                    6'd9: get_char = 8'd73; // 'I'
+                    6'd10: get_char = 8'd78; // 'N'
+                    6'd11: get_char = 8'd71; // 'G'
                     default: get_char = 8'd0;
                 endcase
                 7'd17: case (idx)
@@ -1974,168 +2016,145 @@ module lcd_ui (
                     default: get_char = 8'd0;
                 endcase
                 7'd71: case (idx)
-                    6'd0: get_char = 8'd78;
-                    6'd1: get_char = 8'd79;
-                    6'd2: get_char = 8'd87;
-                    6'd3: get_char = 8'd32;
-                    6'd4: get_char = 8'd80;
-                    6'd5: get_char = 8'd76;
-                    6'd6: get_char = 8'd65;
-                    6'd7: get_char = 8'd89;
-                    6'd8: get_char = 8'd73;
-                    6'd9: get_char = 8'd78;
-                    6'd10: get_char = 8'd71;
-                    6'd11: get_char = 8'd58;
-                    6'd12: get_char = 8'd32;
-                    6'd13: get_char = 8'd84;
-                    6'd14: get_char = 8'd82;
-                    6'd15: get_char = 8'd65;
-                    6'd16: get_char = 8'd67;
-                    6'd17: get_char = 8'd75;
-                    6'd18: get_char = 8'd32;
-                    6'd19: get_char = 8'd48;
-                    6'd20: get_char = 8'd49;
-                    6'd21: get_char = 8'd32;
-                    6'd22: get_char = 8'd47;
-                    6'd23: get_char = 8'd32;
-                    6'd24: get_char = 8'd48;
-                    6'd25: get_char = 8'd53;
+                    6'd0: get_char = 8'd78; // N
+                    6'd1: get_char = 8'd79; // O
+                    6'd2: get_char = 8'd87; // W
+                    6'd3: get_char = 8'd32; // ' '
+                    6'd4: get_char = 8'd80; // P
+                    6'd5: get_char = 8'd76; // L
+                    6'd6: get_char = 8'd65; // A
+                    6'd7: get_char = 8'd89; // Y
+                    6'd8: get_char = 8'd73; // I
+                    6'd9: get_char = 8'd78; // N
+                    6'd10: get_char = 8'd71; // G
+                    6'd11: get_char = 8'd58; // :
+                    6'd12: get_char = 8'd32; // ' '
+                    6'd13: get_char = 8'd84; // T
+                    6'd14: get_char = 8'd82; // R
+                    6'd15: get_char = 8'd65; // A
+                    6'd16: get_char = 8'd67; // C
+                    6'd17: get_char = 8'd75; // K
+                    6'd18: get_char = 8'd32; // ' '
+                    6'd19: get_char = 8'd48; // 0
+                    6'd20: get_char = 8'd49 + {5'd0, song_index}; // 1..5
+                    6'd21: get_char = 8'd32; // ' '
+                    6'd22: get_char = 8'd47; // /
+                    6'd23: get_char = 8'd32; // ' '
+                    6'd24: get_char = 8'd48; // 0
+                    6'd25: get_char = 8'd53; // 5
                     default: get_char = 8'd0;
                 endcase
-                7'd72: case (idx)
-                    6'd0: get_char = 8'd66;
-                    6'd1: get_char = 8'd69;
-                    6'd2: get_char = 8'd69;
-                    6'd3: get_char = 8'd84;
-                    6'd4: get_char = 8'd72;
-                    6'd5: get_char = 8'd79;
-                    6'd6: get_char = 8'd86;
-                    6'd7: get_char = 8'd69;
-                    6'd8: get_char = 8'd78;
-                    6'd9: get_char = 8'd32;
-                    6'd10: get_char = 8'd79;
-                    6'd11: get_char = 8'd80;
-                    6'd12: get_char = 8'd46;
-                    6'd13: get_char = 8'd49;
-                    6'd14: get_char = 8'd50;
-                    6'd15: get_char = 8'd53;
-                    6'd16: get_char = 8'd32;
-                    6'd17: get_char = 8'd79;
-                    6'd18: get_char = 8'd68;
-                    6'd19: get_char = 8'd69;
-                    6'd20: get_char = 8'd32;
-                    6'd21: get_char = 8'd84;
-                    6'd22: get_char = 8'd79;
-                    6'd23: get_char = 8'd32;
-                    6'd24: get_char = 8'd74;
-                    6'd25: get_char = 8'd79;
-                    6'd26: get_char = 8'd89;
-                    default: get_char = 8'd0;
-                endcase
+                7'd72: begin
+                    case (song_index)
+                        3'd0: case (idx) // WO LUO LEI QING XU LING SUI
+                            6'd0: get_char = 8'd87; 6'd1: get_char = 8'd79; 6'd2: get_char = 8'd32;
+                            6'd3: get_char = 8'd76; 6'd4: get_char = 8'd85; 6'd5: get_char = 8'd79; 6'd6: get_char = 8'd32;
+                            6'd7: get_char = 8'd76; 6'd8: get_char = 8'd69; 6'd9: get_char = 8'd73; 6'd10: get_char = 8'd32;
+                            6'd11: get_char = 8'd81; 6'd12: get_char = 8'd73; 6'd13: get_char = 8'd78; 6'd14: get_char = 8'd71; 6'd15: get_char = 8'd32;
+                            6'd16: get_char = 8'd88; 6'd17: get_char = 8'd85; 6'd18: get_char = 8'd32;
+                            6'd19: get_char = 8'd76; 6'd20: get_char = 8'd73; 6'd21: get_char = 8'd78; 6'd22: get_char = 8'd71; 6'd23: get_char = 8'd32;
+                            6'd24: get_char = 8'd83; 6'd25: get_char = 8'd85; 6'd26: get_char = 8'd73;
+                            default: get_char = 8'd0;
+                        endcase
+                        3'd1: case (idx) // BEETHOVEN OP.125 ODE TO JOY
+                            6'd0: get_char = 8'd66; 6'd1: get_char = 8'd69; 6'd2: get_char = 8'd69; 6'd3: get_char = 8'd84;
+                            6'd4: get_char = 8'd72; 6'd5: get_char = 8'd79; 6'd6: get_char = 8'd86; 6'd7: get_char = 8'd69;
+                            6'd8: get_char = 8'd78; 6'd9: get_char = 8'd32; 6'd10: get_char = 8'd79; 6'd11: get_char = 8'd80;
+                            6'd12: get_char = 8'd46; 6'd13: get_char = 8'd49; 6'd14: get_char = 8'd50; 6'd15: get_char = 8'd53;
+                            6'd16: get_char = 8'd32; 6'd17: get_char = 8'd79; 6'd18: get_char = 8'd68; 6'd19: get_char = 8'd69;
+                            6'd20: get_char = 8'd32; 6'd21: get_char = 8'd84; 6'd22: get_char = 8'd79; 6'd23: get_char = 8'd32;
+                            6'd24: get_char = 8'd74; 6'd25: get_char = 8'd79; 6'd26: get_char = 8'd89;
+                            default: get_char = 8'd0;
+                        endcase
+                        3'd2: case (idx) // TWINKLE TWINKLE LITTLE STAR
+                            6'd0: get_char = 8'd84; 6'd1: get_char = 8'd87; 6'd2: get_char = 8'd73; 6'd3: get_char = 8'd78;
+                            6'd4: get_char = 8'd75; 6'd5: get_char = 8'd76; 6'd6: get_char = 8'd69; 6'd7: get_char = 8'd32;
+                            6'd8: get_char = 8'd76; 6'd9: get_char = 8'd73; 6'd10: get_char = 8'd84; 6'd11: get_char = 8'd84;
+                            6'd12: get_char = 8'd76; 6'd13: get_char = 8'd69; 6'd14: get_char = 8'd32; 6'd15: get_char = 8'd83;
+                            6'd16: get_char = 8'd84; 6'd17: get_char = 8'd65; 6'd18: get_char = 8'd82; 6'd19: get_char = 8'd32;
+                            6'd20: get_char = 8'd83; 6'd21: get_char = 8'd79; 6'd22: get_char = 8'd78; 6'd23: get_char = 8'd71;
+                            6'd24: get_char = 8'd32; 6'd25: get_char = 8'd32; 6'd26: get_char = 8'd32;
+                            default: get_char = 8'd0;
+                        endcase
+                        3'd3: case (idx) // JINGLE BELLS TRADITIONAL
+                            6'd0: get_char = 8'd74; 6'd1: get_char = 8'd73; 6'd2: get_char = 8'd78; 6'd3: get_char = 8'd71;
+                            6'd4: get_char = 8'd76; 6'd5: get_char = 8'd69; 6'd6: get_char = 8'd32; 6'd7: get_char = 8'd66;
+                            6'd8: get_char = 8'd69; 6'd9: get_char = 8'd76; 6'd10: get_char = 8'd76; 6'd11: get_char = 8'd83;
+                            6'd12: get_char = 8'd32; 6'd13: get_char = 8'd84; 6'd14: get_char = 8'd82; 6'd15: get_char = 8'd65;
+                            6'd16: get_char = 8'd68; 6'd17: get_char = 8'd73; 6'd18: get_char = 8'd84; 6'd19: get_char = 8'd73;
+                            6'd20: get_char = 8'd79; 6'd21: get_char = 8'd78; 6'd22: get_char = 8'd65; 6'd23: get_char = 8'd76;
+                            6'd24: get_char = 8'd32; 6'd25: get_char = 8'd32; 6'd26: get_char = 8'd32;
+                            default: get_char = 8'd0;
+                        endcase
+                        default: case (idx) // BEETHOVEN FUR ELISE
+                            6'd0: get_char = 8'd66; 6'd1: get_char = 8'd69; 6'd2: get_char = 8'd69; 6'd3: get_char = 8'd84;
+                            6'd4: get_char = 8'd72; 6'd5: get_char = 8'd79; 6'd6: get_char = 8'd86; 6'd7: get_char = 8'd69;
+                            6'd8: get_char = 8'd78; 6'd9: get_char = 8'd32; 6'd10: get_char = 8'd70; 6'd11: get_char = 8'd85;
+                            6'd12: get_char = 8'd82; 6'd13: get_char = 8'd32; 6'd14: get_char = 8'd69; 6'd15: get_char = 8'd76;
+                            6'd16: get_char = 8'd73; 6'd17: get_char = 8'd83; 6'd18: get_char = 8'd69; 6'd19: get_char = 8'd32;
+                            6'd20: get_char = 8'd80; 6'd21: get_char = 8'd73; 6'd22: get_char = 8'd65; 6'd23: get_char = 8'd78;
+                            6'd24: get_char = 8'd79; 6'd25: get_char = 8'd32; 6'd26: get_char = 8'd32;
+                            default: get_char = 8'd0;
+                        endcase
+                    endcase
+                end
                 7'd73: case (idx)
-                    6'd0: get_char = 8'd84;
-                    6'd1: get_char = 8'd73;
-                    6'd2: get_char = 8'd77;
-                    6'd3: get_char = 8'd66;
-                    6'd4: get_char = 8'd82;
-                    6'd5: get_char = 8'd69;
-                    6'd6: get_char = 8'd58;
-                    6'd7: get_char = 8'd32;
-                    6'd8: get_char = 8'd71;
-                    6'd9: get_char = 8'd82;
-                    6'd10: get_char = 8'd65;
-                    6'd11: get_char = 8'd78;
-                    6'd12: get_char = 8'd68;
-                    6'd13: get_char = 8'd32;
-                    6'd14: get_char = 8'd80;
-                    6'd15: get_char = 8'd73;
-                    6'd16: get_char = 8'd65;
-                    6'd17: get_char = 8'd78;
-                    6'd18: get_char = 8'd79;
-                    6'd19: get_char = 8'd32;
-                    6'd20: get_char = 8'd54;
-                    6'd21: get_char = 8'd45;
-                    6'd22: get_char = 8'd72;
-                    6'd23: get_char = 8'd65;
-                    6'd24: get_char = 8'd82;
-                    6'd25: get_char = 8'd77;
-                    6'd26: get_char = 8'd32;
-                    6'd27: get_char = 8'd124;
-                    6'd28: get_char = 8'd32;
-                    6'd29: get_char = 8'd84;
-                    6'd30: get_char = 8'd69;
-                    6'd31: get_char = 8'd77;
-                    6'd32: get_char = 8'd80;
-                    6'd33: get_char = 8'd79;
-                    6'd34: get_char = 8'd58;
-                    6'd35: get_char = 8'd32;
-                    6'd36: get_char = 8'd49;
-                    6'd37: get_char = 8'd50;
-                    6'd38: get_char = 8'd48;
-                    6'd39: get_char = 8'd32;
-                    6'd40: get_char = 8'd66;
-                    6'd41: get_char = 8'd80;
-                    6'd42: get_char = 8'd77;
-                    6'd43: get_char = 8'd32;
-                    6'd44: get_char = 8'd124;
-                    6'd45: get_char = 8'd32;
-                    6'd46: get_char = 8'd83;
-                    6'd47: get_char = 8'd84;
-                    6'd48: get_char = 8'd65;
-                    6'd49: get_char = 8'd84;
-                    6'd50: get_char = 8'd85;
-                    6'd51: get_char = 8'd83;
-                    6'd52: get_char = 8'd58;
-                    6'd53: get_char = 8'd32;
-                    6'd54: get_char = 8'd80;
-                    6'd55: get_char = 8'd76;
-                    6'd56: get_char = 8'd65;
-                    6'd57: get_char = 8'd89;
-                    6'd58: get_char = 8'd73;
-                    6'd59: get_char = 8'd78;
-                    6'd60: get_char = 8'd71;
+                    6'd0: get_char = 8'd84; 6'd1: get_char = 8'd73; 6'd2: get_char = 8'd77; 6'd3: get_char = 8'd66; 6'd4: get_char = 8'd82; 6'd5: get_char = 8'd69; 6'd6: get_char = 8'd58; 6'd7: get_char = 8'd32;
+                    6'd8: get_char = 8'd71; 6'd9: get_char = 8'd82; 6'd10: get_char = 8'd65; 6'd11: get_char = 8'd78; 6'd12: get_char = 8'd68; 6'd13: get_char = 8'd32;
+                    6'd14: get_char = 8'd80; 6'd15: get_char = 8'd73; 6'd16: get_char = 8'd65; 6'd17: get_char = 8'd78; 6'd18: get_char = 8'd79; 6'd19: get_char = 8'd32;
+                    6'd20: get_char = 8'd54; 6'd21: get_char = 8'd45; 6'd22: get_char = 8'd72; 6'd23: get_char = 8'd65; 6'd24: get_char = 8'd82; 6'd25: get_char = 8'd77; 6'd26: get_char = 8'd32; 6'd27: get_char = 8'd124; 6'd28: get_char = 8'd32;
+                    6'd29: get_char = 8'd84; 6'd30: get_char = 8'd69; 6'd31: get_char = 8'd77; 6'd32: get_char = 8'd80; 6'd33: get_char = 8'd79; 6'd34: get_char = 8'd58; 6'd35: get_char = 8'd32;
+                    6'd36: get_char = 8'd49; 6'd37: get_char = 8'd50; 6'd38: get_char = 8'd48; 6'd39: get_char = 8'd32; 6'd40: get_char = 8'd66; 6'd41: get_char = 8'd80; 6'd42: get_char = 8'd77; 6'd43: get_char = 8'd32; 6'd44: get_char = 8'd124; 6'd45: get_char = 8'd32;
+                    6'd46: get_char = 8'd83; 6'd47: get_char = 8'd84; 6'd48: get_char = 8'd65; 6'd49: get_char = 8'd84; 6'd50: get_char = 8'd85; 6'd51: get_char = 8'd83; 6'd52: get_char = 8'd58; 6'd53: get_char = 8'd32;
+                    6'd54: get_char = 8'd80; // P
+                    6'd55: get_char = song_playing ? 8'd76 : 8'd65; // L : A
+                    6'd56: get_char = song_playing ? 8'd65 : 8'd85; // A : U
+                    6'd57: get_char = song_playing ? 8'd89 : 8'd83; // Y : S
+                    6'd58: get_char = song_playing ? 8'd73 : 8'd69; // I : E
+                    6'd59: get_char = song_playing ? 8'd78 : 8'd68; // N : D
+                    6'd60: get_char = song_playing ? 8'd71 : 8'd32; // G : ' '
                     default: get_char = 8'd0;
                 endcase
                 7'd74: case (idx)
-                    6'd0: get_char = 8'd80;
-                    6'd1: get_char = 8'd76;
-                    6'd2: get_char = 8'd65;
-                    6'd3: get_char = 8'd89;
-                    6'd4: get_char = 8'd66;
-                    6'd5: get_char = 8'd65;
-                    6'd6: get_char = 8'd67;
-                    6'd7: get_char = 8'd75;
-                    6'd8: get_char = 8'd32;
-                    6'd9: get_char = 8'd80;
-                    6'd10: get_char = 8'd82;
-                    6'd11: get_char = 8'd79;
-                    6'd12: get_char = 8'd71;
-                    6'd13: get_char = 8'd82;
-                    6'd14: get_char = 8'd69;
-                    6'd15: get_char = 8'd83;
-                    6'd16: get_char = 8'd83;
-                    6'd17: get_char = 8'd58;
-                    6'd18: get_char = 8'd32;
-                    6'd19: get_char = 8'd48;
-                    6'd20: get_char = 8'd49;
-                    6'd21: get_char = 8'd58;
-                    6'd22: get_char = 8'd50;
-                    6'd23: get_char = 8'd56;
-                    6'd24: get_char = 8'd32;
-                    6'd25: get_char = 8'd47;
-                    6'd26: get_char = 8'd32;
-                    6'd27: get_char = 8'd48;
-                    6'd28: get_char = 8'd50;
-                    6'd29: get_char = 8'd58;
-                    6'd30: get_char = 8'd52;
-                    6'd31: get_char = 8'd53;
-                    6'd32: get_char = 8'd32;
-                    6'd33: get_char = 8'd32;
-                    6'd34: get_char = 8'd40;
-                    6'd35: get_char = 8'd53;
-                    6'd36: get_char = 8'd51;
-                    6'd37: get_char = 8'd37;
-                    6'd38: get_char = 8'd41;
+                    6'd0: get_char = 8'd80; // P
+                    6'd1: get_char = 8'd76; // L
+                    6'd2: get_char = 8'd65; // A
+                    6'd3: get_char = 8'd89; // Y
+                    6'd4: get_char = 8'd66; // B
+                    6'd5: get_char = 8'd65; // A
+                    6'd6: get_char = 8'd67; // C
+                    6'd7: get_char = 8'd75; // K
+                    6'd8: get_char = 8'd32; // ' '
+                    6'd9: get_char = 8'd80; // P
+                    6'd10: get_char = 8'd82; // R
+                    6'd11: get_char = 8'd79; // O
+                    6'd12: get_char = 8'd71; // G
+                    6'd13: get_char = 8'd82; // R
+                    6'd14: get_char = 8'd69; // E
+                    6'd15: get_char = 8'd83; // S
+                    6'd16: get_char = 8'd83; // S
+                    6'd17: get_char = 8'd58; // :
+                    6'd18: get_char = 8'd32; // ' '
+                    6'd19: get_char = 8'd48; // 0
+                    6'd20: get_char = 8'd48 + {4'd0, song_elapsed_min[3:0]}; // m
+                    6'd21: get_char = 8'd58; // :
+                    6'd22: get_char = 8'd48 + cur_sec_d10; // s10
+                    6'd23: get_char = 8'd48 + cur_sec_rem; // s1
+                    6'd24: get_char = 8'd32; // ' '
+                    6'd25: get_char = 8'd47; // /
+                    6'd26: get_char = 8'd32; // ' '
+                    6'd27: get_char = 8'd48; // 0
+                    6'd28: get_char = 8'd48; // 0
+                    6'd29: get_char = 8'd58; // :
+                    6'd30: get_char = 8'd48 + tot_sec_d10; // S10
+                    6'd31: get_char = 8'd48 + tot_sec_rem; // S1
+                    6'd32: get_char = 8'd32; // ' '
+                    6'd33: get_char = 8'd32; // ' '
+                    6'd34: get_char = 8'd40; // (
+                    6'd35: get_char = pct_d100 ? 8'd49 : (pct_d10 > 0 ? (8'd48 + pct_d10) : 8'd48);
+                    6'd36: get_char = pct_d100 ? 8'd48 : (8'd48 + pct_rem10);
+                    6'd37: get_char = 8'd37; // %
+                    6'd38: get_char = 8'd41; // )
                     default: get_char = 8'd0;
                 endcase
                 7'd75: case (idx)
@@ -2260,36 +2279,76 @@ module lcd_ui (
                     default: get_char = 8'd0;
                 endcase
                 7'd78: case (idx)
-                    6'd0: get_char = 8'd77;
-                    6'd1: get_char = 8'd69;
-                    6'd2: get_char = 8'd76;
-                    6'd3: get_char = 8'd79;
-                    6'd4: get_char = 8'd68;
-                    6'd5: get_char = 8'd89;
-                    6'd6: get_char = 8'd58;
-                    6'd7: get_char = 8'd32;
-                    6'd8: get_char = 8'd69;
-                    6'd9: get_char = 8'd52;
+                    6'd0: get_char = 8'd77; // M
+                    6'd1: get_char = 8'd69; // E
+                    6'd2: get_char = 8'd76; // L
+                    6'd3: get_char = 8'd79; // O
+                    6'd4: get_char = 8'd68; // D
+                    6'd5: get_char = 8'd89; // Y
+                    6'd6: get_char = 8'd58; // :
+                    6'd7: get_char = 8'd32; // ' '
+                    6'd8: begin
+                        case (song_active_note)
+                            7'd60, 7'd72: get_char = 8'd67; // C
+                            7'd62, 7'd74: get_char = 8'd68; // D
+                            7'd64, 7'd76: get_char = 8'd69; // E
+                            7'd65, 7'd77: get_char = 8'd70; // F
+                            7'd67:        get_char = 8'd71; // G
+                            7'd69:        get_char = 8'd65; // A
+                            7'd71:        get_char = 8'd66; // B
+                            7'd61, 7'd63, 7'd66, 7'd68, 7'd70: get_char = 8'd35; // #
+                            default:      get_char = 8'd45; // -
+                        endcase
+                    end
+                    6'd9: begin
+                        case (song_active_note)
+                            7'd60, 7'd62, 7'd64, 7'd65, 7'd67, 7'd69, 7'd71: get_char = 8'd52; // 4
+                            7'd72, 7'd74, 7'd76, 7'd77:                     get_char = 8'd53; // 5
+                            default: get_char = 8'd32;
+                        endcase
+                    end
                     6'd10: get_char = 8'd32;
-                    6'd11: get_char = 8'd40;
-                    6'd12: get_char = 8'd77;
-                    6'd13: get_char = 8'd73;
-                    6'd14: get_char = 8'd41;
-                    6'd15: get_char = 8'd32;
-                    6'd16: get_char = 8'd124;
-                    6'd17: get_char = 8'd32;
-                    6'd18: get_char = 8'd67;
-                    6'd19: get_char = 8'd72;
-                    6'd20: get_char = 8'd79;
-                    6'd21: get_char = 8'd82;
-                    6'd22: get_char = 8'd68;
-                    6'd23: get_char = 8'd58;
-                    6'd24: get_char = 8'd32;
-                    6'd25: get_char = 8'd67;
-                    6'd26: get_char = 8'd32;
-                    6'd27: get_char = 8'd77;
-                    6'd28: get_char = 8'd65;
-                    6'd29: get_char = 8'd74;
+                    6'd11: get_char = 8'd40; // (
+                    6'd12: begin
+                        case (song_active_note)
+                            7'd60, 7'd72: get_char = 8'd68; // DO: D
+                            7'd62, 7'd74: get_char = 8'd82; // RE: R
+                            7'd64, 7'd76: get_char = 8'd77; // MI: M
+                            7'd65, 7'd77: get_char = 8'd70; // FA: F
+                            7'd67:        get_char = 8'd83; // SOL: S
+                            7'd69:        get_char = 8'd76; // LA: L
+                            7'd71:        get_char = 8'd84; // TI: T
+                            default:      get_char = 8'd45; // -
+                        endcase
+                    end
+                    6'd13: begin
+                        case (song_active_note)
+                            7'd60, 7'd72: get_char = 8'd79; // O
+                            7'd62, 7'd74: get_char = 8'd69; // E
+                            7'd64, 7'd76: get_char = 8'd73; // I
+                            7'd65, 7'd77: get_char = 8'd65; // A
+                            7'd67:        get_char = 8'd79; // O
+                            7'd69:        get_char = 8'd65; // A
+                            7'd71:        get_char = 8'd73; // I
+                            default:      get_char = 8'd45;
+                        endcase
+                    end
+                    6'd14: get_char = (song_active_note == 7'd67) ? 8'd76 : 8'd41; // L or )
+                    6'd15: get_char = (song_active_note == 7'd67) ? 8'd41 : 8'd32; // ) or ' '
+                    6'd16: get_char = 8'd32;
+                    6'd17: get_char = 8'd124; // |
+                    6'd18: get_char = 8'd32;
+                    6'd19: get_char = 8'd67; // C
+                    6'd20: get_char = 8'd72; // H
+                    6'd21: get_char = 8'd79; // O
+                    6'd22: get_char = 8'd82; // R
+                    6'd23: get_char = 8'd68; // D
+                    6'd24: get_char = 8'd58; // :
+                    6'd25: get_char = 8'd32;
+                    6'd26: get_char = 8'd67; // C
+                    6'd27: get_char = 8'd32;
+                    6'd28: get_char = 8'd77; // M
+                    6'd29: get_char = 8'd65; // A
                     default: get_char = 8'd0;
                 endcase
                 7'd79: case (idx)
@@ -2301,6 +2360,13 @@ module lcd_ui (
                     6'd5: get_char = 8'd69;
                     6'd6: get_char = 8'd65;
                     6'd7: get_char = 8'd68;
+                    default: get_char = 8'd0;
+                endcase
+                7'd80: case (idx)
+                    6'd0: get_char = 8'd86; // 'V'
+                    6'd1: get_char = 8'd79; // 'O'
+                    6'd2: get_char = 8'd76; // 'L'
+                    6'd3: get_char = 8'd58; // ':'
                     default: get_char = 8'd0;
                 endcase
                 default: get_char = 8'd0;
@@ -2362,6 +2428,16 @@ module lcd_ui (
         text_pixel(10, px, py, 10'd286, 9'd68, 2'd1) :
         text_pixel(11, px, py, 10'd286, 9'd68, 2'd1));
 
+    // Card 2 硬件音量指示条与标签 (x: 286..510, y: 84..94)
+    wire t_p0_vol_lbl = (page == 2'd0) && text_pixel(7'd80, px, py, 10'd286, 9'd86, 2'd1);
+    wire p0_vol_bar_box = (page == 2'd0) && (px >= 10'd316 && px <= 10'd510 && py >= 9'd85 && py <= 9'd93);
+    wire p0_vol_bar_border = (page == 2'd0) && (
+        ((px == 10'd316 || px == 10'd510) && py >= 9'd85 && py <= 9'd93) ||
+        ((py == 9'd85 || py == 9'd93) && px >= 10'd316 && px <= 10'd510)
+    );
+    wire [7:0] p0_vol_fill_w = master_vol + (master_vol >> 1);
+    wire p0_vol_bar_fill = (page == 2'd0) && (px >= 10'd318 && px <= (10'd318 + {2'b0, p0_vol_fill_w}) && py >= 9'd87 && py <= 9'd91) && (master_vol != 7'd0);
+
     wire t_p0_c3_t  = (page == 2'd0) && text_pixel(12, px, py, 10'd542, 9'd52, 2'd1);
     wire t_p0_c3_v1 = (page == 2'd0) && text_pixel(13, px, py, 10'd542, 9'd68, 2'd1);
     wire t_p0_c3_v2 = (page == 2'd0) && text_pixel(14, px, py, 10'd542, 9'd86, 2'd1);
@@ -2373,8 +2449,8 @@ module lcd_ui (
         ((py == 9'd114 || py == 9'd468) && px >= 10'd20 && px <= 10'd440)
     );
     wire t_p0_scp_hdr = (page == 2'd0) && text_pixel(15, px, py, 10'd32,  9'd122, 2'd1);
-    wire t_p0_scp_dac = (page == 2'd0) && text_pixel(16, px, py, 10'd360, 9'd122, 2'd1);
-    wire t_p0_silent  = (page == 2'd0) && !audio_active && text_pixel(17, px, py, 10'd180, 9'd294, 2'd1);
+    wire t_p0_scp_dac = (page == 2'd0) && text_pixel(16, px, py, 10'd348, 9'd122, 2'd1);
+    wire t_p0_silent  = 1'b0; // Continuous live scope, no popup silence overlay
 
     wire p0_scope_grid = p0_scope_box && (
         (((px - 10'd20) % 10'd42 == 0) && py >= 9'd140 && py <= 9'd460) ||
@@ -2384,8 +2460,11 @@ module lcd_ui (
 
     wire [8:0] p0_y_lo = (scope_wave_y < scope_prev_y) ? scope_wave_y : scope_prev_y;
     wire [8:0] p0_y_hi = (scope_wave_y > scope_prev_y) ? scope_wave_y : scope_prev_y;
-    wire p0_wave_hit   = (page == 2'd0) && p0_scope_box && audio_active &&
-                         (py >= p0_y_lo - 9'd1) && (py <= p0_y_hi + 9'd1) && (py >= 9'd140 && py <= 9'd460);
+    wire p0_wave_hit   = (page == 2'd0) && p0_scope_box &&
+                         (py >= p0_y_lo) && (py <= p0_y_hi) && (py >= 9'd140 && py <= 9'd460);
+    wire p0_wave_edge  = (page == 2'd0) && p0_scope_box &&
+                         ((py == p0_y_lo) || (py == p0_y_hi)) &&
+                         (py >= 9'd140 && py <= 9'd460);
 
     // 右上区: 立体声 VU 表与 ADSR 包络 (x: 456..778, y: 114..280)
     wire p0_vu_panel  = (page == 2'd0) && (px >= 10'd456 && px <= 10'd778 && py >= 9'd114 && py <= 9'd280);
@@ -2426,7 +2505,8 @@ module lcd_ui (
         ((px == 10'd456 || px == 10'd778) && py >= 9'd294 && py <= 9'd468) ||
         ((py == 9'd294 || py == 9'd468) && px >= 10'd456 && px <= 10'd778)
     );
-    wire t_p0_piano_hdr = (page == 2'd0) && (note_active ?
+    wire any_key_active = note_active || (|key_active_mask);
+    wire t_p0_piano_hdr = (page == 2'd0) && (any_key_active ?
         text_pixel(23, px, py, 10'd468, 9'd302, 2'd1) :
         text_pixel(24, px, py, 10'd468, 9'd302, 2'd1));
 
@@ -2461,23 +2541,23 @@ module lcd_ui (
     );
 
     // 实时按键点亮逻辑 (映射 C=0, C#=1, D=2, D#=3, E=4, F=5, F#=6, G=7, G#=8, A=9, A#=10, B=11)
-    wire [3:0] semi_note = (live_note >= 7'd60 && live_note <= 7'd71) ? (live_note[3:0] - 4'd12) : (live_note % 12);
-    wire is_active_key = (page == 2'd0) && note_active && (
+    // 支持全声部真实发声追踪、延音踏板发声状态、及多音和弦同时点亮
+    wire is_active_key = (page == 2'd0) && (
         (in_black_area && (
-            (semi_note == 4'd1  && black_c_d) ||
-            (semi_note == 4'd3  && black_d_e) ||
-            (semi_note == 4'd6  && black_f_g) ||
-            (semi_note == 4'd8  && black_g_a) ||
-            (semi_note == 4'd10 && black_a_b)
+            (key_active_mask[1]  && black_c_d) ||
+            (key_active_mask[3]  && black_d_e) ||
+            (key_active_mask[6]  && black_f_g) ||
+            (key_active_mask[8]  && black_g_a) ||
+            (key_active_mask[10] && black_a_b)
         )) ||
         (!in_black_area && in_white_area && (
-            (semi_note == 4'd0  && p0_w_idx == 3'd0) ||
-            (semi_note == 4'd2  && p0_w_idx == 3'd1) ||
-            (semi_note == 4'd4  && p0_w_idx == 3'd2) ||
-            (semi_note == 4'd5  && p0_w_idx == 3'd3) ||
-            (semi_note == 4'd7  && p0_w_idx == 3'd4) ||
-            (semi_note == 4'd9  && p0_w_idx == 3'd5) ||
-            (semi_note == 4'd11 && p0_w_idx == 3'd6)
+            (key_active_mask[0]  && p0_w_idx == 3'd0) ||
+            (key_active_mask[2]  && p0_w_idx == 3'd1) ||
+            (key_active_mask[4]  && p0_w_idx == 3'd2) ||
+            (key_active_mask[5]  && p0_w_idx == 3'd3) ||
+            (key_active_mask[7]  && p0_w_idx == 3'd4) ||
+            (key_active_mask[9]  && p0_w_idx == 3'd5) ||
+            (key_active_mask[11] && p0_w_idx == 3'd6)
         ))
     );
 
@@ -2508,7 +2588,7 @@ module lcd_ui (
     );
     wire t_p1_scp_hdr = (page == 2'd1) && text_pixel(15, px, py, 10'd32,  9'd52, 2'd1);
     wire t_p1_scp_scl = (page == 2'd1) && text_pixel(37, px, py, 10'd620, 9'd52, 2'd1);
-    wire t_p1_silent  = (page == 2'd1) && !audio_active && text_pixel(38, px, py, 10'd340, 9'd146, 2'd1);
+    wire t_p1_silent  = 1'b0; // Continuous live scope
 
     wire p1_scope_grid = p1_scope_box && (
         (((px - 10'd20) % 10'd76 == 0) && py >= 9'd68 && py <= 9'd240) ||
@@ -2518,8 +2598,11 @@ module lcd_ui (
 
     wire [8:0] p1_y_lo = (scope_wave_y < scope_prev_y) ? scope_wave_y : scope_prev_y;
     wire [8:0] p1_y_hi = (scope_wave_y > scope_prev_y) ? scope_wave_y : scope_prev_y;
-    wire p1_wave_hit   = (page == 2'd1) && p1_scope_box && audio_active &&
-                         (py >= p1_y_lo - 9'd1) && (py <= p1_y_hi + 9'd1) && (py >= 9'd68 && py <= 9'd240);
+    wire p1_wave_hit   = (page == 2'd1) && p1_scope_box &&
+                         (py >= p1_y_lo) && (py <= p1_y_hi) && (py >= 9'd68 && py <= 9'd240);
+    wire p1_wave_edge  = (page == 2'd1) && p1_scope_box &&
+                         ((py == p1_y_lo) || (py == p1_y_hi)) &&
+                         (py >= 9'd68 && py <= 9'd240);
 
     // 下半区: 760px 全宽 32 段 FFT 频谱仪 (x: 20..778, y: 254..468)
     wire p1_spec_box = (page == 2'd1) && (px >= 10'd20 && px <= 10'd778 && py >= 9'd254 && py <= 9'd468);
@@ -2692,7 +2775,36 @@ module lcd_ui (
     wire t_p3_pr_key = (page == 2'd3) && text_pixel(75, px, py, 10'd600, 9'd138, 2'd1);
     wire t_p3_pr_hdl = (page == 2'd3) && text_pixel(76, px, py, 10'd32,  9'd196, 2'd1);
 
-    wire [9:0] p3_fill_x = 10'd32 + ((song_progress * 10'd732) / 10'd100);
+    wire [7:0] cur_sec_d10 = (song_elapsed_sec >= 8'd50) ? 8'd5 :
+                             (song_elapsed_sec >= 8'd40) ? 8'd4 :
+                             (song_elapsed_sec >= 8'd30) ? 8'd3 :
+                             (song_elapsed_sec >= 8'd20) ? 8'd2 :
+                             (song_elapsed_sec >= 8'd10) ? 8'd1 : 8'd0;
+    wire [7:0] cur_sec_rem = song_elapsed_sec - (cur_sec_d10 * 8'd10);
+
+    wire [7:0] tot_sec_d10 = (song_total_sec >= 8'd50) ? 8'd5 :
+                             (song_total_sec >= 8'd40) ? 8'd4 :
+                             (song_total_sec >= 8'd30) ? 8'd3 :
+                             (song_total_sec >= 8'd20) ? 8'd2 :
+                             (song_total_sec >= 8'd10) ? 8'd1 : 8'd0;
+    wire [7:0] tot_sec_rem = song_total_sec - (tot_sec_d10 * 8'd10);
+
+    wire [7:0] pct_val = (song_progress > 8'd100) ? 8'd100 : song_progress;
+    wire [7:0] pct_d100 = (pct_val >= 8'd100) ? 8'd1 : 8'd0;
+    wire [7:0] pct_rem100 = pct_val - (pct_d100 ? 8'd100 : 8'd0);
+    wire [7:0] pct_d10 = (pct_rem100 >= 8'd90) ? 8'd9 :
+                         (pct_rem100 >= 8'd80) ? 8'd8 :
+                         (pct_rem100 >= 8'd70) ? 8'd7 :
+                         (pct_rem100 >= 8'd60) ? 8'd6 :
+                         (pct_rem100 >= 8'd50) ? 8'd5 :
+                         (pct_rem100 >= 8'd40) ? 8'd4 :
+                         (pct_rem100 >= 8'd30) ? 8'd3 :
+                         (pct_rem100 >= 8'd20) ? 8'd2 :
+                         (pct_rem100 >= 8'd10) ? 8'd1 : 8'd0;
+    wire [7:0] pct_rem10 = pct_rem100 - (pct_d10 * 8'd10);
+
+    wire [17:0] fill_prod = {10'd0, song_progress} * 18'd732;
+    wire [9:0] p3_fill_x = 10'd32 + (fill_prod / 18'd100);
     wire p3_bar_box = (page == 2'd3) && (px >= 10'd32 && px <= 10'd764 && py >= 9'd160 && py <= 9'd186);
     wire p3_bar_border = p3_bar_box && (px == 10'd32 || px == 10'd764 || py == 9'd160 || py == 9'd186);
     wire p3_bar_fill   = p3_bar_box && (px <= p3_fill_x) && (py >= 9'd162 && py <= 9'd184);
@@ -2713,13 +2825,74 @@ module lcd_ui (
 
     wire p3_playhead = (page == 2'd3) && (px == 10'd360) && (py >= 9'd260 && py <= 9'd420);
 
-    wire p3_note_e4_1 = (page == 2'd3) && (px >= 10'd340 && px <= 10'd380 && py >= 9'd320 && py <= 9'd340);
-    wire p3_note_e4_2 = (page == 2'd3) && (px >= 10'd420 && px <= 10'd460 && py >= 9'd320 && py <= 9'd340);
-    wire p3_note_f4   = (page == 2'd3) && (px >= 10'd500 && px <= 10'd540 && py >= 9'd295 && py <= 9'd315);
-    wire p3_note_g4_1 = (page == 2'd3) && (px >= 10'd580 && px <= 10'd620 && py >= 9'd270 && py <= 9'd290);
-    wire p3_note_g4_2 = (page == 2'd3) && (px >= 10'd660 && px <= 10'd700 && py >= 9'd270 && py <= 9'd290);
-    wire p3_note_c3   = (page == 2'd3) && (px >= 10'd340 && px <= 10'd420 && py >= 9'd370 && py <= 9'd390);
-    wire p3_note_g3   = (page == 2'd3) && (px >= 10'd500 && px <= 10'd580 && py >= 9'd345 && py <= 9'd365);
+    // -------------------------------------------------------------------------
+    // Real-Time Dynamic Scrolling Score Engine (8 Slots, Smooth Continuous Scroll)
+    // -------------------------------------------------------------------------
+    wire [8:0] s_idx_0 = (song_note_idx >= 9'd2) ? (song_note_idx - 9'd2) : 9'd511;
+    wire [8:0] s_idx_1 = (song_note_idx >= 9'd1) ? (song_note_idx - 9'd1) : 9'd511;
+    wire [8:0] s_idx_2 = song_note_idx;
+    wire [8:0] s_idx_3 = song_note_idx + 9'd1;
+    wire [8:0] s_idx_4 = song_note_idx + 9'd2;
+    wire [8:0] s_idx_5 = song_note_idx + 9'd3;
+    wire [8:0] s_idx_6 = song_note_idx + 9'd4;
+    wire [8:0] s_idx_7 = song_note_idx + 9'd5;
+
+    wire [6:0] s_note_0 = get_song_note(song_index, s_idx_0);
+    wire [6:0] s_note_1 = get_song_note(song_index, s_idx_1);
+    wire [6:0] s_note_2 = get_song_note(song_index, s_idx_2);
+    wire [6:0] s_note_3 = get_song_note(song_index, s_idx_3);
+    wire [6:0] s_note_4 = get_song_note(song_index, s_idx_4);
+    wire [6:0] s_note_5 = get_song_note(song_index, s_idx_5);
+    wire [6:0] s_note_6 = get_song_note(song_index, s_idx_6);
+    wire [6:0] s_note_7 = get_song_note(song_index, s_idx_7);
+
+    wire [8:0] s_y_0 = note_to_y(s_note_0);
+    wire [8:0] s_y_1 = note_to_y(s_note_1);
+    wire [8:0] s_y_2 = note_to_y(s_note_2);
+    wire [8:0] s_y_3 = note_to_y(s_note_3);
+    wire [8:0] s_y_4 = note_to_y(s_note_4);
+    wire [8:0] s_y_5 = note_to_y(s_note_5);
+    wire [8:0] s_y_6 = note_to_y(s_note_6);
+    wire [8:0] s_y_7 = note_to_y(s_note_7);
+
+    wire [8:0] s_yb_0 = note_to_y(s_note_0 >= 7'd60 ? (s_note_0 - 7'd12) : s_note_0);
+    wire [8:0] s_yb_1 = note_to_y(s_note_1 >= 7'd60 ? (s_note_1 - 7'd12) : s_note_1);
+    wire [8:0] s_yb_2 = note_to_y(s_note_2 >= 7'd60 ? (s_note_2 - 7'd12) : s_note_2);
+    wire [8:0] s_yb_3 = note_to_y(s_note_3 >= 7'd60 ? (s_note_3 - 7'd12) : s_note_3);
+    wire [8:0] s_yb_4 = note_to_y(s_note_4 >= 7'd60 ? (s_note_4 - 7'd12) : s_note_4);
+    wire [8:0] s_yb_5 = note_to_y(s_note_5 >= 7'd60 ? (s_note_5 - 7'd12) : s_note_5);
+    wire [8:0] s_yb_6 = note_to_y(s_note_6 >= 7'd60 ? (s_note_6 - 7'd12) : s_note_6);
+    wire [8:0] s_yb_7 = note_to_y(s_note_7 >= 7'd60 ? (s_note_7 - 7'd12) : s_note_7);
+
+    // Continuous X coordinates: 360 + (slot - 2)*60 - sub_scroll
+    wire signed [11:0] s_x_0 = 12'sd240 - $signed({6'd0, song_sub_scroll});
+    wire signed [11:0] s_x_1 = 12'sd300 - $signed({6'd0, song_sub_scroll});
+    wire signed [11:0] s_x_2 = 12'sd360 - $signed({6'd0, song_sub_scroll});
+    wire signed [11:0] s_x_3 = 12'sd420 - $signed({6'd0, song_sub_scroll});
+    wire signed [11:0] s_x_4 = 12'sd480 - $signed({6'd0, song_sub_scroll});
+    wire signed [11:0] s_x_5 = 12'sd540 - $signed({6'd0, song_sub_scroll});
+    wire signed [11:0] s_x_6 = 12'sd600 - $signed({6'd0, song_sub_scroll});
+    wire signed [11:0] s_x_7 = 12'sd660 - $signed({6'd0, song_sub_scroll});
+
+    wire signed [11:0] px_s = $signed({2'b00, px});
+
+    wire hit_m_0 = (page == 2'd3) && (s_y_0 != 9'd0) && (px_s >= s_x_0 - 12'sd18 && px_s <= s_x_0 + 12'sd18) && (py >= s_y_0 - 9'd7 && py <= s_y_0 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_m_1 = (page == 2'd3) && (s_y_1 != 9'd0) && (px_s >= s_x_1 - 12'sd18 && px_s <= s_x_1 + 12'sd18) && (py >= s_y_1 - 9'd7 && py <= s_y_1 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_m_2 = (page == 2'd3) && (s_y_2 != 9'd0) && (px_s >= s_x_2 - 12'sd18 && px_s <= s_x_2 + 12'sd18) && (py >= s_y_2 - 9'd7 && py <= s_y_2 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_m_3 = (page == 2'd3) && (s_y_3 != 9'd0) && (px_s >= s_x_3 - 12'sd18 && px_s <= s_x_3 + 12'sd18) && (py >= s_y_3 - 9'd7 && py <= s_y_3 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_m_4 = (page == 2'd3) && (s_y_4 != 9'd0) && (px_s >= s_x_4 - 12'sd18 && px_s <= s_x_4 + 12'sd18) && (py >= s_y_4 - 9'd7 && py <= s_y_4 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_m_5 = (page == 2'd3) && (s_y_5 != 9'd0) && (px_s >= s_x_5 - 12'sd18 && px_s <= s_x_5 + 12'sd18) && (py >= s_y_5 - 9'd7 && py <= s_y_5 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_m_6 = (page == 2'd3) && (s_y_6 != 9'd0) && (px_s >= s_x_6 - 12'sd18 && px_s <= s_x_6 + 12'sd18) && (py >= s_y_6 - 9'd7 && py <= s_y_6 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_m_7 = (page == 2'd3) && (s_y_7 != 9'd0) && (px_s >= s_x_7 - 12'sd18 && px_s <= s_x_7 + 12'sd18) && (py >= s_y_7 - 9'd7 && py <= s_y_7 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+
+    wire hit_b_0 = (page == 2'd3) && (s_yb_0 != 9'd0) && (px_s >= s_x_0 - 12'sd22 && px_s <= s_x_0 + 12'sd22) && (py >= s_yb_0 - 9'd6 && py <= s_yb_0 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_b_1 = (page == 2'd3) && (s_yb_1 != 9'd0) && (px_s >= s_x_1 - 12'sd22 && px_s <= s_x_1 + 12'sd22) && (py >= s_yb_1 - 9'd6 && py <= s_yb_1 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_b_2 = (page == 2'd3) && (s_yb_2 != 9'd0) && (px_s >= s_x_2 - 12'sd22 && px_s <= s_x_2 + 12'sd22) && (py >= s_yb_2 - 9'd6 && py <= s_yb_2 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_b_3 = (page == 2'd3) && (s_yb_3 != 9'd0) && (px_s >= s_x_3 - 12'sd22 && px_s <= s_x_3 + 12'sd22) && (py >= s_yb_3 - 9'd6 && py <= s_yb_3 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_b_4 = (page == 2'd3) && (s_yb_4 != 9'd0) && (px_s >= s_x_4 - 12'sd22 && px_s <= s_x_4 + 12'sd22) && (py >= s_yb_4 - 9'd6 && py <= s_yb_4 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_b_5 = (page == 2'd3) && (s_yb_5 != 9'd0) && (px_s >= s_x_5 - 12'sd22 && px_s <= s_x_5 + 12'sd22) && (py >= s_yb_5 - 9'd6 && py <= s_yb_5 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_b_6 = (page == 2'd3) && (s_yb_6 != 9'd0) && (px_s >= s_x_6 - 12'sd22 && px_s <= s_x_6 + 12'sd22) && (py >= s_yb_6 - 9'd6 && py <= s_yb_6 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
+    wire hit_b_7 = (page == 2'd3) && (s_yb_7 != 9'd0) && (px_s >= s_x_7 - 12'sd22 && px_s <= s_x_7 + 12'sd22) && (py >= s_yb_7 - 9'd6 && py <= s_yb_7 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
 
     // -------------------------------------------------------------------------
     // 最终像素颜色仲裁器 (Clean Hierarchical Priority Multiplexer)
@@ -2767,7 +2940,8 @@ module lcd_ui (
             if (p0_scope_border) color = C_BORDER;
             if (p0_scope_grid) color = C_GRID;
             if (p0_scope_zero) color = C_ZERO_LINE;
-            if (p0_wave_hit) color = C_CYAN;
+            if (p0_wave_hit)  color = 16'h0310; // Glowing Cyber-Blue Envelope Body
+            if (p0_wave_edge) color = C_CYAN;   // Crisp Cyan Peak Contours & Center Baseline
 
             // 紧凑型钢琴键盘
             if (in_white_area) color = C_KEY_WHITE;
@@ -2777,8 +2951,14 @@ module lcd_ui (
             if (is_active_key) color = C_GREEN;
 
             // 文字层
+            // 硬件音量指示条与标签
+            if (p0_vol_bar_box) color = C_SCOPE_BG;
+            if (p0_vol_bar_border) color = C_BORDER;
+            if (p0_vol_bar_fill) color = (master_vol == 7'd0) ? C_RED : (master_vol > 7'd110) ? C_AMBER : C_CYAN;
+            if (t_p0_vol_lbl) color = (master_vol == 7'd0) ? C_RED : C_TEXT_PRI;
+
             if (t_p0_c1_t || t_p0_c2_t || t_p0_c3_t) color = C_TEXT_SEC;
-            if (t_p0_piano_hdr) color = note_active ? C_GREEN : C_TEXT_SEC;
+            if (t_p0_piano_hdr) color = any_key_active ? C_GREEN : C_TEXT_SEC;
             if (t_p0_c1_v1 || t_p0_vu_hdr || t_p0_scp_hdr) color = C_TEXT_PRI;
             if (t_p0_c1_v2 || t_p0_scp_dac) color = C_CYAN;
             if (t_p0_c2_v1) color = audio_active ? C_GREEN : C_TEXT_SEC;
@@ -2798,7 +2978,8 @@ module lcd_ui (
 
             if (p1_scope_grid) color = C_GRID;
             if (p1_scope_zero) color = C_ZERO_LINE;
-            if (p1_wave_hit)   color = C_CYAN;
+            if (p1_wave_hit)   color = 16'h0310;
+            if (p1_wave_edge)  color = C_CYAN;
 
             if (p1_bar_hit) begin
                 if (py <= 9'd340) color = C_RED;
@@ -2859,9 +3040,10 @@ module lcd_ui (
             if (p3_stave)     color = C_GRID;
             if (p3_playhead)  color = C_RED;
 
-            if (p3_note_e4_1) color = C_AMBER;
-            if (p3_note_e4_2 || p3_note_f4 || p3_note_g4_1 || p3_note_g4_2) color = C_CYAN;
-            if (p3_note_c3 || p3_note_g3) color = C_GREEN;
+            if (hit_b_0 || hit_b_1 || hit_b_2 || hit_b_3 || hit_b_4 || hit_b_5 || hit_b_6 || hit_b_7) color = C_GREEN;
+            if (hit_m_0 || hit_m_1) color = 16'h128C; // Dim past notes
+            if (hit_m_3 || hit_m_4 || hit_m_5 || hit_m_6 || hit_m_7) color = C_CYAN; // Upcoming notes
+            if (hit_m_2)            color = C_AMBER;  // Current note on playhead
 
             if (t_p3_tr_idx || t_p3_pr_key || t_p3_pr_hdl) color = C_TEXT_SEC;
             if (t_p3_tr_nam || t_p3_pr_txt || t_p3_sc_hdr) color = C_TEXT_PRI;

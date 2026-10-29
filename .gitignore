@@ -36,3 +36,6 @@ fpga_hank/_tools/
 # ---- 临时分析与切片产物 ----
 /_*
 /patch.txt
+
+**/scratch/
+*.wav

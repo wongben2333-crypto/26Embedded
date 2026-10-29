@@ -138,7 +138,14 @@ module song_player #(
     output wire        playing,       // 正在播放
     output wire        paused,        // ★ 暂停中（note_idx/dur_cnt 已冻结、当前音已释放）
     output wire [3:0]  song_index,    // 当前第几首（0 起）
-    output wire [3:0]  song_count     // 共几首
+    output wire [3:0]  song_count,    // 共几首
+    output wire [7:0]  song_elapsed_sec, // 实时播放已过秒数 (0..59)
+    output wire [7:0]  song_elapsed_min, // 实时播放已过分钟数 (0..59)
+    output wire [7:0]  song_total_sec,   // 当前曲目总秒数
+    output wire [7:0]  song_progress_pct,// 实时播放进度百分比 (0..100)
+    output wire [8:0]  song_note_idx,    // 当前音符序号
+    output wire [5:0]  song_sub_scroll,  // 音符槽内平滑滚动像素 (0..59)
+    output wire [6:0]  song_active_note  // 当前正在发声的音符 (0=无)
 );
 
     // ------------------------------------------------------------- 状态编码 ----
@@ -185,6 +192,9 @@ module song_player #(
     reg [6:0]  active_vel;              // ★ 正在响的音的力度（恢复时要重发 note-on）
     reg        pause_had_note;          // ★ 暂停时那一刻"是否有音在响"（休止符上暂停 ⇒ 恢复也不发 note-on）
     reg [6:0]  alloff_cnt;      // all-notes-off 扫描计数 0..127
+    reg [16:0] sec_tick_cnt;    // 97656.25 Hz 节拍计数 (0..97655)
+    reg [7:0]  cur_sec;         // 当前秒数 (0..59)
+    reg [7:0]  cur_min;         // 当前分钟 (0..59)
 
     // ------------------------------------------------------------- 曲目 ROM ----
     wire [34:0] rom_dout;
@@ -211,6 +221,37 @@ module song_player #(
     assign paused     = paused_r;
     assign song_index = song_index_r;
     assign song_count = rom_n_songs;
+
+    reg [7:0] total_sec_r;
+    reg [7:0] total_notes_r;
+    always @(*) begin
+        case (song_index_r)
+            4'd0: begin total_sec_r = 8'd11; total_notes_r = 8'd18; end // 我落泪情绪零碎
+            4'd1: begin total_sec_r = 8'd38; total_notes_r = 8'd62; end // 欢乐颂
+            4'd2: begin total_sec_r = 8'd24; total_notes_r = 8'd42; end // 小星星
+            4'd3: begin total_sec_r = 8'd27; total_notes_r = 8'd50; end // 铃儿响叮当
+            4'd4: begin total_sec_r = 8'd6;  total_notes_r = 8'd37; end // 致爱丽丝
+            default: begin total_sec_r = 8'd30; total_notes_r = 8'd40; end
+        endcase
+    end
+
+    wire [8:0] cur_note_idx_w = (note_idx > 9'd0) ? (note_idx - 9'd1) : 9'd0;
+    wire [16:0] pct_prod = {8'd0, cur_note_idx_w} * 17'd100;
+    wire [7:0] pct_w = (cur_note_idx_w >= total_notes_r) ? 8'd100 :
+                       (pct_prod / {9'd0, total_notes_r});
+
+    wire [11:0] dur_top = dur_cnt[19:8];
+    wire [11:0] cur_top = (cur_dur[19:8] == 12'd0) ? 12'd1 : cur_dur[19:8];
+    wire [17:0] scroll_num = dur_top * 6'd60;
+    wire [5:0]  sub_scroll_w = ((scroll_num / cur_top) >= 6'd60) ? 6'd59 : (scroll_num / cur_top);
+
+    assign song_elapsed_sec = cur_sec;
+    assign song_elapsed_min = cur_min;
+    assign song_total_sec   = total_sec_r;
+    assign song_progress_pct= pct_w;
+    assign song_note_idx    = cur_note_idx_w;
+    assign song_sub_scroll  = (state == S_WAIT) ? sub_scroll_w : 6'd0;
+    assign song_active_note = has_active ? active_note : 7'd0;
 
     // ------------------------------------------------------------- 按键边沿 ----
     // key_play / key_next 是【顶层已同步去抖后的电平】。本模块只取上升沿：
@@ -249,6 +290,9 @@ module song_player #(
             paused_r     <= 1'b0;          // ★
             pause_had_note <= 1'b0;        // ★
             alloff_cnt   <= 7'd0;
+            sec_tick_cnt <= 17'd0;
+            cur_sec      <= 8'd0;
+            cur_min      <= 8'd0;
             on_valid     <= 1'b0;
             on_note      <= 7'd0;
             on_vel       <= 7'd0;
@@ -276,6 +320,9 @@ module song_player #(
                 note_idx   <= 9'd0;
                 dur_cnt    <= 20'd0;
                 has_active <= 1'b0;
+                sec_tick_cnt <= 17'd0;
+                cur_sec    <= 8'd0;
+                cur_min    <= 8'd0;
                 state      <= S_LOAD;
             end
             else begin
@@ -289,6 +336,9 @@ module song_player #(
                     note_idx   <= 9'd0;
                     dur_cnt    <= 20'd0;
                     has_active <= 1'b0;          // 停止时已经全 off 过
+                    sec_tick_cnt <= 17'd0;
+                    cur_sec    <= 8'd0;
+                    cur_min    <= 8'd0;
                     state      <= S_LOAD;
                 end
                 // key_next 在这里【故意】不响应：切歌只在播放时有效
@@ -302,10 +352,11 @@ module song_player #(
             // ------------------------------------- 锁存音符 + 发 note-on ----
             S_LATCH: begin
                 if (r_end) begin
-                    // 曲末 → 单曲循环（理由见文件头决策 (3)）
-                    // 到这里 has_active 必然是 0：每个音符的 off 都在 off_at
-                    // （≥1 且 < 槽末）发过，槽末之前就已经松开了。
+                    // 曲末 → 单曲循环
                     note_idx <= 9'd0;
+                    sec_tick_cnt <= 17'd0;
+                    cur_sec  <= 8'd0;
+                    cur_min  <= 8'd0;
                     state    <= S_LOAD;
                 end else begin
                     note_idx <= note_idx + 9'd1;   // 预取下一个音符
@@ -354,9 +405,23 @@ module song_player #(
                                     ? 4'd0 : (song_index_r + 4'd1);
                     note_idx  <= 9'd0;                 // 新曲从第 1 个音符放
                     dur_cnt   <= 20'd0;
+                    sec_tick_cnt <= 17'd0;
+                    cur_sec   <= 8'd0;
+                    cur_min   <= 8'd0;
                     state     <= has_active ? S_OFF : S_LOAD;
                 end else if (sample_tick) begin
                     dur_cnt <= dn[19:0];
+                    if (sec_tick_cnt >= 17'd97655) begin
+                        sec_tick_cnt <= 17'd0;
+                        if (cur_sec >= 8'd59) begin
+                            cur_sec <= 8'd0;
+                            cur_min <= cur_min + 8'd1;
+                        end else begin
+                            cur_sec <= cur_sec + 8'd1;
+                        end
+                    end else begin
+                        sec_tick_cnt <= sec_tick_cnt + 17'd1;
+                    end
                     // 槽末之前先静音，给下一个音符留出断句的缝
                     if (has_active && (dn >= off_at)) begin
                         off_valid  <= 1'b1;

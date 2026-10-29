@@ -151,6 +151,8 @@ module lcd_test_top #(
     wire [6:0]  m_cc_num, m_cc_val;
     wire        m_cc_any_valid;
 
+    wire        m_in_msg;
+
     midi_rx u_midi (
         .clk          (sys_clk),
         .rst_n        (rst_n),
@@ -171,7 +173,8 @@ module lcd_test_top #(
         .reset_all    (m_reset_all),
         .cc_num       (m_cc_num),
         .cc_val       (m_cc_val),
-        .cc_any_valid (m_cc_any_valid)
+        .cc_any_valid (m_cc_any_valid),
+        .in_midi_msg  (m_in_msg)
     );
 
     // CC Controls: CC20 -> Timbre, CC21 -> Distortion/Drive
@@ -188,24 +191,34 @@ module lcd_test_top #(
     end
 
     // ------------------------------------------------------------------------
-    // Song Player (Mode 1)
+    // Song Player (Autonomous Background Music Engine - Fully Decoupled from UI)
     // ------------------------------------------------------------------------
     wire        s_on_valid, s_off_valid;
     wire [6:0]  s_on_note,  s_on_vel,  s_off_note;
     wire        s_playing,  s_paused;
     wire [3:0]  s_song_index, s_song_count;
+    wire [7:0]  song_elapsed_sec;
+    wire [7:0]  song_elapsed_min;
+    wire [7:0]  song_total_sec;
+    wire [7:0]  song_progress_pct;
+    wire [8:0]  song_note_idx;
+    wire [5:0]  song_sub_scroll;
+    wire [6:0]  song_active_note;
 
-    wire song_en = (work_mode == 2'd1);
-    wire song_next_cmd = song_en && k1_press;
+    reg song_player_active = 1'b0;
+    reg song_pause_trig    = 1'b0;
+    reg song_next_trig     = 1'b0;
+
+    wire song_pause_cmd = ((ui_page == 2'd3) && k1_press) || song_pause_trig;
 
     song_player #(.CLK_HZ(50_000_000)) u_song (
         .clk        (sys_clk),
         .rst_n      (rst_n),
         .sample_tick(sample_tick),
         .key_play   (1'b0),
-        .key_next   (song_next_cmd),
-        .key_pause  (1'b0),
-        .run_en     (song_en),
+        .key_next   (song_next_trig),
+        .key_pause  (song_pause_cmd),
+        .run_en     (song_player_active),
         .on_valid   (s_on_valid),
         .on_note    (s_on_note),
         .on_vel     (s_on_vel),
@@ -214,27 +227,32 @@ module lcd_test_top #(
         .playing    (s_playing),
         .paused     (s_paused),
         .song_index (s_song_index),
-        .song_count (s_song_count)
+        .song_count (s_song_count),
+        .song_elapsed_sec (song_elapsed_sec),
+        .song_elapsed_min (song_elapsed_min),
+        .song_total_sec   (song_total_sec),
+        .song_progress_pct(song_progress_pct),
+        .song_note_idx    (song_note_idx),
+        .song_sub_scroll  (song_sub_scroll),
+        .song_active_note (song_active_note)
     );
 
     // ------------------------------------------------------------------------
     // Demo Key Play in Free Play Mode (Key1 press produces chord / note)
     // ------------------------------------------------------------------------
-    reg k1_play_on  = 1'b0;
-    reg k1_play_off = 1'b0;
-    always @(posedge sys_clk) begin
-        k1_play_on  <= (work_mode == 2'd0) && k1_press;
-        k1_play_off <= (work_mode == 2'd0) && (~k1_db & k1_db_d);
-    end
+    // Key1 in Mode 0 is dedicated to volume adjustment; disable dummy note injection
+    wire k1_play_on  = 1'b0;
+    wire k1_play_off = 1'b0;
 
     // ------------------------------------------------------------------------
-    // Unified Note Bus
+    // Unified Note Bus (Autonomous Song Player + Live Host Inputs)
     // ------------------------------------------------------------------------
-    wire        bus_on_valid = (work_mode == 2'd1) ? s_on_valid : (m_on_valid | k1_play_on);
-    wire [6:0]  bus_on_note  = (work_mode == 2'd1) ? s_on_note  : (k1_play_on ? 7'd69 : m_on_note);
-    wire [6:0]  bus_on_vel   = (work_mode == 2'd1) ? s_on_vel   : (k1_play_on ? 7'd110 : m_on_vel);
-    wire        bus_off_valid= (work_mode == 2'd1) ? s_off_valid: (m_off_valid | k1_play_off);
-    wire [6:0]  bus_off_note = (work_mode == 2'd1) ? s_off_note : (k1_play_off ? 7'd69 : m_off_note);
+    wire song_driving = song_player_active && s_playing;
+    wire        bus_on_valid = song_driving ? (s_on_valid | m_on_valid) : (m_on_valid | k1_play_on);
+    wire [6:0]  bus_on_note  = s_on_valid ? s_on_note  : (m_on_valid ? m_on_note : (k1_play_on ? 7'd69 : 7'd0));
+    wire [6:0]  bus_on_vel   = s_on_valid ? s_on_vel   : (m_on_valid ? m_on_vel  : (k1_play_on ? 7'd110 : 7'd0));
+    wire        bus_off_valid= song_driving ? (s_off_valid | m_off_valid) : (m_off_valid | k1_play_off);
+    wire [6:0]  bus_off_note = s_off_valid ? s_off_note : (m_off_valid ? m_off_note : (k1_play_off ? 7'd69 : 7'd0));
 
     // ------------------------------------------------------------------------
     // Piano Synthesis Engine (8 Voices x 6 Additive Harmonics)
@@ -263,8 +281,10 @@ module lcd_test_top #(
         .sustain    ((work_mode == 2'd0) ? m_sustain : 1'b0),
         .inst_sel   ((work_mode == 2'd1) ? 2'd0 : inst_sel),
         .bow_speed  ((work_mode == 2'd1) ? 7'd0 : drive_amt),
+        .reset_all  (m_reset_all),
         .mix_out    (mix_piano),
-        .active     (piano_active)
+        .active     (piano_active),
+        .key_sound_active (piano_key_active)
     );
 
     // ------------------------------------------------------------------------
@@ -316,23 +336,51 @@ module lcd_test_top #(
     reg [6:0] live_note = 7'd69;
     reg [6:0] live_vel  = 7'd100;
     reg [23:0] note_hold_timer = 24'd0;
+    reg        note_held = 1'b0;
 
     always @(posedge sys_clk) begin
-        if (!rst_n) begin
+        if (!rst_n || m_reset_all) begin
             live_note <= 7'd69;
             live_vel  <= 7'd100;
+            note_held <= 1'b0;
             note_hold_timer <= 24'd0;
         end else if (bus_on_valid) begin
             live_note <= bus_on_note;
             live_vel  <= bus_on_vel;
-            note_hold_timer <= 24'd12000000; // ~240ms display hold
-        end else if (bus_off_valid && bus_off_note == live_note) begin
-            note_hold_timer <= 24'd0;
+            note_held <= 1'b1;
+            note_hold_timer <= 24'd25000000; // ~500ms display hold minimum
+        end else if (bus_off_valid && (bus_off_note == live_note)) begin
+            note_held <= 1'b0;
+            if (note_hold_timer > 24'd8000000)
+                note_hold_timer <= 24'd8000000; // ~160ms release tail
         end else if (note_hold_timer != 0) begin
             note_hold_timer <= note_hold_timer - 1'b1;
         end
     end
-    wire note_active = (note_hold_timer != 0);
+    wire note_active = note_held || (note_hold_timer != 0);
+
+    wire [11:0] piano_key_active;
+    function [3:0] get_semi_top;
+        input [6:0] note;
+        reg [6:0] n;
+        begin
+            if      (note >= 7'd120) n = note - 7'd120;
+            else if (note >= 7'd108) n = note - 7'd108;
+            else if (note >= 7'd96)  n = note - 7'd96;
+            else if (note >= 7'd84)  n = note - 7'd84;
+            else if (note >= 7'd72)  n = note - 7'd72;
+            else if (note >= 7'd60)  n = note - 7'd60;
+            else if (note >= 7'd48)  n = note - 7'd48;
+            else if (note >= 7'd36)  n = note - 7'd36;
+            else if (note >= 7'd24)  n = note - 7'd24;
+            else if (note >= 7'd12)  n = note - 7'd12;
+            else                     n = note;
+            get_semi_top = n[3:0];
+        end
+    endfunction
+
+    wire [11:0] live_note_mask = (note_active) ? (12'd1 << get_semi_top(live_note)) : 12'd0;
+    wire [11:0] key_active_mask = (work_mode == 2'd2) ? 12'd0 : (piano_key_active | live_note_mask);
 
     wire [3:0] piano_voice_count = piano_active[0] + piano_active[1] + piano_active[2] + piano_active[3] +
                                    piano_active[4] + piano_active[5] + piano_active[6] + piano_active[7];
@@ -348,7 +396,7 @@ module lcd_test_top #(
     reg [17:0] tail_timer = 18'd0;
 
     always @(posedge sys_clk) begin
-        if (!rst_n) begin
+        if (!rst_n || m_reset_all) begin
             tail_timer <= 18'd0;
         end else if (any_note_sounding || work_mode == 2'd2) begin
             tail_timer <= 18'd150000; // ~1.5s hold after note ends
@@ -370,10 +418,23 @@ module lcd_test_top #(
         .fx_out     (fx_out)
     );
 
+    // High-Headroom Polyphonic Output Stage (Zero Digital Hard-Clipping Distortion)
+    // piano_engine already includes internal OUT_SHIFT(1) scaling and KNEE(24576) soft-limiting.
+    // Directly passing fx_out preserves full 16-bit dynamic headroom, completely eliminating
+    // square-wave flat-topping, intermodulation buzz, and hammer transient clipping noise
+    // during multi-voice polyphonic playback (e.g., live instrument play over background song).
+    wire signed [15:0] piano_hot = fx_out;
+
     // Final Audio Output Mux with Hardware Silence Gate
     wire signed [15:0] audio_synth = (work_mode == 2'd2) ? mix_bank :
-                                     is_audio_active     ? fx_out   : 16'sd0;
-    assign audio_mix = audio_synth;
+                                     is_audio_active     ? piano_hot : 16'sd0;
+
+    // Pure Hardware Digital Volume Scaler (Glitch-free Q7 multiplier)
+    reg  [6:0]         master_vol = 7'd100; // Default: ~79% (100/127)
+    wire signed [23:0] audio_scaled = audio_synth * $signed({1'b0, master_vol});
+    wire signed [15:0] audio_attenuated = (master_vol == 7'd127) ? audio_synth :
+                                          (master_vol == 7'd0)   ? 16'sd0      : audio_scaled[22:7];
+    assign audio_mix = audio_attenuated;
 
     // ------------------------------------------------------------------------
     // Real-Time VU Peak Meter & Audio Activity Detector
@@ -397,98 +458,166 @@ module lcd_test_top #(
     wire audio_active = is_audio_active && ((vu_peak > 16'd200) || (work_mode == 2'd2));
 
     // ------------------------------------------------------------------------
-    // Real-Time Dual-Bank Scope Buffer with Zero-Crossing Lock
+    // Real-Time 3.0-Second Audio Dynamic Oscilloscope Engine (Peak Min-Max Envelope)
     // ------------------------------------------------------------------------
-    reg signed [15:0] scope_bank_0 [0:799];
-    reg signed [15:0] scope_bank_1 [0:799];
-    reg wr_bank = 1'b0;
-    reg rd_bank = 1'b1;
-    reg [9:0]  scope_wr_idx = 10'd0;
-    reg [2:0]  scope_div    = 3'd0;
-    reg        scope_capturing = 1'b0;
-    reg        capture_done    = 1'b0;
-    reg signed [15:0] prev_sample = 16'd0;
-    wire zero_cross = (prev_sample < -16'd200 && audio_mix >= 16'd0);
+    // Timebase: Exactly 3.0 Seconds across the screen
+    // P0: 420 px width (20..440) -> 698 samples/col @ 97.656 kHz = 7.147 ms/col
+    // P1: 758 px width (20..778) -> 386 samples/col @ 97.656 kHz = 3.953 ms/col
+    // Rolling Stream: New audio enters from RIGHT, old audio exits on LEFT
+    // Anti-Clipping: Full 16-bit dynamic headroom (max offset 80 px, center Y=300)
+
+    reg        scope_mode = 1'b1; // Continuous Rolling Stream
+    reg [1:0]  scope_tbase_sel = 2'd0; // 3.0s window
+
+    reg [9:0] smp_cnt_p0 = 10'd0;
+    reg signed [15:0] cur_max_p0 = 16'sd0;
+    reg signed [15:0] cur_min_p0 = 16'sd0;
+
+    reg [9:0] smp_cnt_p1 = 10'd0;
+    reg signed [15:0] cur_max_p1 = 16'sd0;
+    reg signed [15:0] cur_min_p1 = 16'sd0;
+
+    // Page 0 scaling logic (anti-clipping, full 16-bit to +/- 80 px headroom)
+    wire signed [15:0] final_max_p0 = (audio_mix > cur_max_p0) ? audio_mix : cur_max_p0;
+    wire signed [15:0] final_min_p0 = (audio_mix < cur_min_p0) ? audio_mix : cur_min_p0;
+
+    wire [14:0] pos_abs_p0 = (final_max_p0 > 16'sd0) ? final_max_p0[14:0] : 15'd0;
+    wire [17:0] prod_pos_p0 = {pos_abs_p0, 2'b00} + {2'b00, pos_abs_p0}; // pos * 5
+    wire [8:0]  off_top_p0 = prod_pos_p0[17:11]; // >> 11 (0..80 px)
+    wire [8:0]  y_top_p0 = (off_top_p0 > 9'd80) ? 9'd220 : (9'd300 - off_top_p0);
+
+    wire [15:0] neg_raw_p0 = (-final_min_p0);
+    wire [14:0] neg_abs_p0 = (final_min_p0 < 16'sd0) ? neg_raw_p0[14:0] : 15'd0;
+    wire [17:0] prod_neg_p0 = {neg_abs_p0, 2'b00} + {2'b00, neg_abs_p0}; // neg * 5
+    wire [8:0]  off_bot_p0 = prod_neg_p0[17:11]; // >> 11 (0..80 px)
+    wire [8:0]  y_bot_p0 = (off_bot_p0 > 9'd80) ? 9'd380 : (9'd300 + off_bot_p0);
+
+    // Page 1 scaling logic (anti-clipping, full 16-bit to +/- 48 px headroom, center Y=154)
+    wire signed [15:0] final_max_p1 = (audio_mix > cur_max_p1) ? audio_mix : cur_max_p1;
+    wire signed [15:0] final_min_p1 = (audio_mix < cur_min_p1) ? audio_mix : cur_min_p1;
+
+    wire [14:0] pos_abs_p1 = (final_max_p1 > 16'sd0) ? final_max_p1[14:0] : 15'd0;
+    wire [17:0] prod_pos_p1 = {pos_abs_p1, 1'b0} + {1'b0, pos_abs_p1}; // pos * 3
+    wire [8:0]  off_top_p1 = prod_pos_p1[16:11]; // >> 11 (0..48 px)
+    wire [8:0]  y_top_p1 = (off_top_p1 > 9'd48) ? 9'd106 : (9'd154 - off_top_p1);
+
+    wire [15:0] neg_raw_p1 = (-final_min_p1);
+    wire [14:0] neg_abs_p1 = (final_min_p1 < 16'sd0) ? neg_raw_p1[14:0] : 15'd0;
+    wire [17:0] prod_neg_p1 = {neg_abs_p1, 1'b0} + {1'b0, neg_abs_p1}; // neg * 3
+    wire [8:0]  off_bot_p1 = prod_neg_p1[16:11]; // >> 11 (0..48 px)
+    wire [8:0]  y_bot_p1 = (off_bot_p1 > 9'd48) ? 9'd202 : (9'd154 + off_bot_p1);
+
+    // Circular Rolling Storage RAM (y_top[17:9], y_bot[8:0])
+    reg [17:0] scope_p0_ram  [0:511];
+    reg [17:0] scope_p0_disp [0:511];
+    reg [17:0] scope_p1_ram  [0:1023];
+    reg [17:0] scope_p1_disp [0:1023];
+
+    reg [9:0] scope_p0_wr      = 10'd0;
+    reg [9:0] scope_p1_wr      = 10'd0;
+    reg [9:0] scope_p0_wr_snap = 10'd0;
+    reg [9:0] scope_p1_wr_snap = 10'd0;
+
+    reg [9:0] copy_idx = 10'd0;
+    reg       copying  = 1'b0;
 
     reg [9:0] px;
     reg [8:0] py;
 
     always @(posedge sys_clk) begin
-        if (sample_tick) begin
-            prev_sample <= audio_mix;
-            scope_div   <= scope_div + 1'b1;
+        if (!rst_n) begin
+            scope_p0_wr      <= 10'd0;
+            scope_p1_wr      <= 10'd0;
+            scope_p0_wr_snap <= 10'd0;
+            scope_p1_wr_snap <= 10'd0;
+            smp_cnt_p0       <= 10'd0;
+            smp_cnt_p1       <= 10'd0;
+            cur_max_p0       <= 16'sd0;
+            cur_min_p0       <= 16'sd0;
+            cur_max_p1       <= 16'sd0;
+            cur_min_p1       <= 16'sd0;
+            copying          <= 1'b0;
+            copy_idx         <= 10'd0;
+        end else begin
+            // 1. Audio Sample Peak Collector (Active in background)
+            if (sample_tick) begin
+                // Page 0 Accumulator (698 samples = 7.147 ms per column, 420 cols = 3.00 seconds)
+                if (smp_cnt_p0 >= 10'd697) begin
+                    smp_cnt_p0 <= 10'd0;
+                    scope_p0_ram[scope_p0_wr] <= {y_top_p0, y_bot_p0};
+                    if (scope_p0_wr >= 10'd419)
+                        scope_p0_wr <= 10'd0;
+                    else
+                        scope_p0_wr <= scope_p0_wr + 1'b1;
+                    cur_max_p0 <= audio_mix;
+                    cur_min_p0 <= audio_mix;
+                end else begin
+                    smp_cnt_p0 <= smp_cnt_p0 + 1'b1;
+                    if (audio_mix > cur_max_p0) cur_max_p0 <= audio_mix;
+                    if (audio_mix < cur_min_p0) cur_min_p0 <= audio_mix;
+                end
 
-            if (scope_div == 3'd0) begin // 97.656 kHz / 8 = ~12.2 kHz
-                if (!scope_capturing && audio_active && zero_cross) begin
-                    scope_wr_idx    <= 10'd0;
-                    scope_capturing <= 1'b1;
-                    capture_done    <= 1'b0;
-                end else if (scope_capturing) begin
-                    if (wr_bank == 1'b0) scope_bank_0[scope_wr_idx] <= audio_mix;
-                    else                 scope_bank_1[scope_wr_idx] <= audio_mix;
-
-                    if (scope_wr_idx == 10'd799) begin
-                        scope_capturing <= 1'b0;
-                        capture_done    <= 1'b1;
-                    end else begin
-                        scope_wr_idx <= scope_wr_idx + 1'b1;
-                    end
+                // Page 1 Accumulator (386 samples = 3.953 ms per column, 758 cols = 3.00 seconds)
+                if (smp_cnt_p1 >= 10'd385) begin
+                    smp_cnt_p1 <= 10'd0;
+                    scope_p1_ram[scope_p1_wr] <= {y_top_p1, y_bot_p1};
+                    if (scope_p1_wr >= 10'd757)
+                        scope_p1_wr <= 10'd0;
+                    else
+                        scope_p1_wr <= scope_p1_wr + 1'b1;
+                    cur_max_p1 <= audio_mix;
+                    cur_min_p1 <= audio_mix;
+                end else begin
+                    smp_cnt_p1 <= smp_cnt_p1 + 1'b1;
+                    if (audio_mix > cur_max_p1) cur_max_p1 <= audio_mix;
+                    if (audio_mix < cur_min_p1) cur_min_p1 <= audio_mix;
                 end
             end
-        end
 
-        // Frame-locked swap at start of display frame
-        if (px == 10'd0 && py == 9'd0) begin
-            if (capture_done) begin
-                rd_bank <= wr_bank;
-                wr_bank <= ~wr_bank;
-                capture_done <= 1'b0;
-            end
-        end
-    end
-
-
-
-    // ------------------------------------------------------------------------
-    // LCD Scope Waveform Reader (Column px -> scope_wave_y & scope_prev_y)
-    // ------------------------------------------------------------------------
-    wire [9:0] scope_addr = (ui_page == 2'd0) ?
-        ((px >= 10'd20 && px <= 10'd440) ? ((px - 10'd20) << 1) : 10'd0) :
-        ((px >= 10'd20 && px <= 10'd778) ? (px - 10'd20) : 10'd0);
-
-    wire signed [15:0] live_scope_sample = audio_active ? ((rd_bank == 1'b0) ? scope_bank_0[scope_addr] : scope_bank_1[scope_addr]) : 16'sd0;
-    reg  signed [15:0] sample_curr_r = 16'd0;
-    reg  signed [15:0] sample_prev_r = 16'd0;
-    reg  [9:0]        px_scope_prev = 10'd0;
-
-    always @(posedge sys_clk) begin
-        if (!rst_n) begin
-            px_scope_prev <= 10'd0;
-            sample_curr_r <= 16'd0;
-            sample_prev_r <= 16'd0;
-        end else begin
-            if (px != px_scope_prev) begin
-                px_scope_prev <= px;
-                if (px <= 10'd20)
-                    sample_prev_r <= live_scope_sample;
+            // 2. High-Speed Frame Snapshot Copier during VSYNC (8.4 us)
+            if (frame_end_pulse) begin
+                copying          <= 1'b1;
+                copy_idx         <= 10'd0;
+                scope_p0_wr_snap <= scope_p0_wr;
+                scope_p1_wr_snap <= scope_p1_wr;
+            end else if (copying) begin
+                scope_p0_disp[copy_idx] <= scope_p0_ram[copy_idx];
+                scope_p1_disp[copy_idx] <= scope_p1_ram[copy_idx];
+                if (copy_idx >= 10'd757)
+                    copying <= 1'b0;
                 else
-                    sample_prev_r <= sample_curr_r;
+                    copy_idx <= copy_idx + 1'b1;
             end
-            sample_curr_r <= live_scope_sample;
         end
     end
 
-    wire signed [9:0] wave_offset_p0 = $signed(sample_curr_r >>> 8);
-    wire signed [9:0] wave_offset_p1 = $signed(sample_curr_r >>> 9);
-    wire [8:0] live_scope_wave_y = (ui_page == 2'd0) ?
-        (10'sd300 - wave_offset_p0) :
-        (10'sd154 - wave_offset_p1);
+    // ------------------------------------------------------------------------
+    // LCD Scope Waveform Reader (Continuous Leftward Scrolling)
+    // ------------------------------------------------------------------------
+    // col = 0 (px=20, left edge): oldest data (3.0s ago)
+    // col = 419 (px=440, right edge): newest data (just entered)
+    wire [9:0] p0_col = (px >= 10'd20 && px <= 10'd440) ? (px - 10'd20) : 10'd0;
+    wire [9:0] p1_col = (px >= 10'd20 && px <= 10'd778) ? (px - 10'd20) : 10'd0;
 
-    wire signed [9:0] prev_offset_p0 = $signed(sample_prev_r >>> 8);
-    wire signed [9:0] prev_offset_p1 = $signed(sample_prev_r >>> 9);
-    wire [8:0] live_scope_prev_y = (ui_page == 2'd0) ?
-        (10'sd300 - prev_offset_p0) :
-        (10'sd154 - prev_offset_p1);
+    wire [9:0] p0_rd_addr = (scope_p0_wr_snap + p0_col >= 10'd420) ?
+                            (scope_p0_wr_snap + p0_col - 10'd420) :
+                            (scope_p0_wr_snap + p0_col);
+
+    wire [9:0] p1_rd_addr = (scope_p1_wr_snap + p1_col >= 10'd758) ?
+                            (scope_p1_wr_snap + p1_col - 10'd758) :
+                            (scope_p1_wr_snap + p1_col);
+
+    wire [17:0] p0_data = scope_p0_disp[p0_rd_addr];
+    wire [17:0] p1_data = scope_p1_disp[p1_rd_addr];
+
+    wire [8:0] p0_disp_top = (p0_data[17:9] == 9'd0) ? 9'd300 : p0_data[17:9];
+    wire [8:0] p0_disp_bot = (p0_data[8:0]  == 9'd0) ? 9'd300 : p0_data[8:0];
+
+    wire [8:0] p1_disp_top = (p1_data[17:9] == 9'd0) ? 9'd154 : p1_data[17:9];
+    wire [8:0] p1_disp_bot = (p1_data[8:0]  == 9'd0) ? 9'd154 : p1_data[8:0];
+
+    wire [8:0] live_scope_wave_y = (ui_page == 2'd0) ? p0_disp_top : p1_disp_top;
+    wire [8:0] live_scope_prev_y = (ui_page == 2'd0) ? p0_disp_bot : p1_disp_bot;
 
     // ------------------------------------------------------------------------
     // LCD UI Module (Pure RTL Single-Cycle Multi-Page Engine)
@@ -516,7 +645,15 @@ module lcd_test_top #(
         .note_active   (note_active),
         .song_index    (s_song_index[2:0]),
         .song_playing  (s_playing),
-        .song_progress (frame_cnt),
+        .song_progress (song_progress_pct),
+        .master_vol    (master_vol),
+        .key_active_mask (key_active_mask),
+        .song_elapsed_sec(song_elapsed_sec),
+        .song_elapsed_min(song_elapsed_min),
+        .song_total_sec  (song_total_sec),
+        .song_note_idx   (song_note_idx),
+        .song_sub_scroll (song_sub_scroll),
+        .song_active_note(song_active_note),
         .color         (ui_color)
     );
 
@@ -539,32 +676,95 @@ module lcd_test_top #(
             snap_req  <= 1'b0;
             snap_rle  <= 1'b0;
             snap_wait_frm <= 2'd0;
+            master_vol<= 7'd100;
+            song_player_active <= 1'b0;
         end else begin
             if (reinit_clear_req) reinit_req <= 1'b0;
             if (snap_clear_req)   snap_req   <= 1'b0;
 
-            // Key2 switches mode
+            // Reset single-cycle control pulses
+            song_pause_trig <= 1'b0;
+            song_next_trig  <= 1'b0;
+
+            // Key2 cycles UI Page cleanly: 0 -> 1 -> 2 -> 3 -> 0
+            // Decoupled from sound: NEVER stops or interrupts music synthesis
             if (k2_press) begin
-                work_mode <= (work_mode == 2'd2) ? 2'd0 : (work_mode + 1'b1);
-                // Also jump page to match mode
-                if (work_mode == 2'd0) ui_page <= 2'd3;      // Go to song page
-                else if (work_mode == 2'd1) ui_page <= 2'd2; // Go to test page
-                else ui_page <= 2'd0;                        // Go to dashboard
+                ui_page <= (ui_page == 2'd3) ? 2'd0 : (ui_page + 1'b1);
             end
 
-            // UART Commands
-            if (rx_vld) begin
+            // Key1 (AB13)
+            if (k1_press) begin
+                if (ui_page == 2'd0) begin
+                    // On Page 0: Key1 cycles volume (100% -> 75% -> 50% -> 25% -> Mute -> 100%)
+                    if (master_vol >= 7'd110)      master_vol <= 7'd96;  // 75%
+                    else if (master_vol >= 7'd80)  master_vol <= 7'd64;  // 50%
+                    else if (master_vol >= 7'd48)  master_vol <= 7'd32;  // 25%
+                    else if (master_vol >= 7'd16)  master_vol <= 7'd0;   // Mute
+                    else                           master_vol <= 7'd127; // 100%
+                end else if (ui_page == 2'd3) begin
+                    // On Page 3: Key1 starts/pauses/resumes song
+                    if (!song_player_active) song_player_active <= 1'b1;
+                    else song_pause_trig <= 1'b1;
+                end
+            end
+
+            // 1. MIDI CC System Controls (Priority 1: 100% collision-free)
+            if (m_cc_any_valid) begin
+                if (m_cc_num == 7'd7)  master_vol <= m_cc_val; // MIDI CC 7: Channel/Master Volume (0..127)
+                if (m_cc_num == 7'd22) begin
+                    work_mode <= m_cc_val[1:0];
+                    if (m_cc_val[1:0] == 2'd1) song_player_active <= 1'b1;
+                    else song_player_active <= 1'b0;
+                end
+                if (m_cc_num == 7'd23) ui_page <= m_cc_val[1:0];
+                if (m_cc_num == 7'd24 && m_cc_val == 7'd127) reinit_req <= 1'b1;
+                if (m_cc_num == 7'd25) begin snap_req <= 1'b1; snap_rle <= m_cc_val[0]; end
+                if (m_cc_num == 7'd26) begin
+                    if (m_cc_val == 7'd0) song_player_active <= 1'b0;
+                    else if (m_cc_val == 7'd127) song_player_active <= 1'b1;
+                    else if (!song_player_active) song_player_active <= 1'b1;
+                    else song_pause_trig <= 1'b1;
+                end
+                if (m_cc_num == 7'd27) song_next_trig <= 1'b1;
+                if (m_cc_num == 7'd120 || m_cc_num == 7'd121) song_player_active <= 1'b0;
+                if (m_cc_num == 7'd28) scope_mode <= m_cc_val[0];
+                if (m_cc_num == 7'd29) scope_tbase_sel <= m_cc_val[1:0];
+            end
+
+            // 2. Standalone UART ASCII Commands (Only when NOT inside MIDI message and bit7 is 0)
+            else if (rx_vld && !rx_dat[7] && !m_in_msg) begin
                 case (rx_dat)
-                    "0": begin work_mode <= 2'd0; ui_page <= 2'd0; end
-                    "1": begin work_mode <= 2'd1; ui_page <= 2'd3; end
-                    "2": begin work_mode <= 2'd2; ui_page <= 2'd2; end
-                    "m", "M": begin ui_page <= 2'd0; end
+                    "0": begin ui_page <= 2'd0; song_player_active <= 1'b0; end
+                    "1": begin song_player_active <= 1'b1; ui_page <= 2'd3; end
+                    "2": begin ui_page <= 2'd2; song_player_active <= 1'b0; end
+                    "m", "M": begin ui_page <= 2'd0; song_player_active <= 1'b0; end
                     "v", "V": begin ui_page <= 2'd1; end
                     "t", "T": begin ui_page <= 2'd2; end
                     "g", "G": begin ui_page <= 2'd3; end
-                    "n", "N": begin ui_page <= ui_page + 1'b1; end
-                    "b", "B": begin ui_page <= ui_page - 1'b1; end
-                    "r", "R", "i", "I": begin reinit_req <= 1'b1; end
+                    "p", "P": begin
+                        if (!song_player_active) song_player_active <= 1'b1;
+                        else song_pause_trig <= 1'b1;
+                    end
+                    ">", "s", "S": begin
+                        song_next_trig <= 1'b1;
+                    end
+                    "!": begin
+                        song_player_active <= 1'b0;
+                    end
+                    "n", "N": begin ui_page <= (ui_page == 2'd3) ? 2'd0 : (ui_page + 1'b1); end
+                    "b", "B": begin ui_page <= (ui_page == 2'd0) ? 2'd3 : (ui_page - 1'b1); end
+                    "+", "=": begin
+                        if (master_vol <= 7'd119) master_vol <= master_vol + 7'd8;
+                        else master_vol <= 7'd127;
+                    end
+                    "-", "_": begin
+                        if (master_vol >= 7'd8) master_vol <= master_vol - 7'd8;
+                        else master_vol <= 7'd0;
+                    end
+                    "R": begin reinit_req <= 1'b1; end
+                    "w", "W": begin scope_mode <= ~scope_mode; end
+                    "[": begin scope_tbase_sel <= (scope_tbase_sel == 2'd0) ? 2'd3 : (scope_tbase_sel - 1'b1); end
+                    "]": begin scope_tbase_sel <= (scope_tbase_sel == 2'd3) ? 2'd0 : (scope_tbase_sel + 1'b1); end
                     "q", "Q": begin snap_req <= 1'b1; snap_rle <= 1'b0; end
                     "c", "C": begin snap_req <= 1'b1; snap_rle <= 1'b1; end
                     default: ;
@@ -764,12 +964,14 @@ module lcd_test_top #(
     reg        init_done;
     reg        print_req;
     reg [11:0] sframe;
+    reg [2:0]  pll_fail_cnt = 3'd0;
     reg        snap_active = 1'b0;
 
     // Screenshot state
     reg [15:0] cur_pix, rle_pix;
     reg [7:0]  rle_cnt;
     reg        last_pix_flag;
+    reg        snap_dummy_done = 1'b0;
     reg [7:0]  tx_buf [0:7];
     reg [3:0]  tx_idx, tx_len;
     reg        snap_u_start;
@@ -784,7 +986,7 @@ module lcd_test_top #(
             print_req <= 1'b0; sframe <= 0;
             snap_active <= 1'b0; snap_u_start <= 1'b0; snap_u_byte <= 8'h00;
             snap_clear_req <= 1'b0; reinit_clear_req <= 1'b0; frame_end_pulse <= 1'b0;
-            tx_idx <= 0; tx_len <= 0; cur_pix <= 0; rle_pix <= 0; rle_cnt <= 0; last_pix_flag <= 1'b0;
+            tx_idx <= 0; tx_len <= 0; cur_pix <= 0; rle_pix <= 0; rle_cnt <= 0; last_pix_flag <= 1'b0; snap_dummy_done <= 1'b0;
         end else begin
             print_req        <= 1'b0;
             snap_u_start     <= 1'b0;
@@ -823,6 +1025,7 @@ module lcd_test_top #(
                         ms <= M_PRINT;
                     end else begin
                         px <= 0; py <= 0; rle_cnt <= 8'd0; last_pix_flag <= 1'b0;
+                        snap_dummy_done <= 1'b0;
                         ms <= M_SNAP_HDR;
                     end
                 end
@@ -855,22 +1058,32 @@ module lcd_test_top #(
                 case (ph)
                     7'd0 : begin lcd_cs <= 1'b0; lcd_wr <= 1'b1; lcd_rd <= 1'b1; db_out <= ui_color; end
                     7'd4 : lcd_wr <= 1'b0;
-                    7'd12: lcd_wr <= 1'b1;
+                    7'd12: begin
+                        lcd_wr <= 1'b1;
+                        // Advance coordinates right when pixel write finishes, giving 160 ns settling time
+                        if (px == 10'd799) begin
+                            px <= 10'd0;
+                            if (py == 9'd479) begin
+                                py <= 9'd0;
+                            end else begin
+                                py <= py + 1'b1;
+                            end
+                        end else begin
+                            px <= px + 1'b1;
+                        end
+                    end
                     7'd19: begin
                         ph <= 7'd0;
-                        if (px == 10'd799) begin
-                            px <= 0;
-                            if (py == 9'd479) begin
-                                lcd_cs <= 1'b1; db_out <= 16'hFFFF; py <= 0;
-                                frame_end_pulse <= 1'b1;
-                                if (snap_req && snap_wait_frm == 2'd0) begin
-                                    snap_clear_req <= 1'b1; snap_active <= 1'b1;
-                                    seg <= 2'd3; pc <= SEG_SNAP_PREP; ms <= M_SEQ;
-                                end else begin
-                                    seg <= 2'd2; pc <= SEG_DIAG; dptr <= 0; ms <= M_SEQ;
-                                end
-                            end else py <= py + 1'b1;
-                        end else px <= px + 1'b1;
+                        if (px == 10'd0 && py == 9'd0) begin
+                            lcd_cs <= 1'b1; db_out <= 16'hFFFF;
+                            frame_end_pulse <= 1'b1;
+                            if (snap_req && snap_wait_frm == 2'd0) begin
+                                snap_clear_req <= 1'b1; snap_active <= 1'b1;
+                                seg <= 2'd3; pc <= SEG_SNAP_PREP; ms <= M_SEQ;
+                            end else begin
+                                seg <= 2'd2; pc <= SEG_DIAG; dptr <= 0; ms <= M_SEQ;
+                            end
+                        end
                     end
                     default: ;
                 endcase
@@ -909,10 +1122,16 @@ module lcd_test_top #(
 
             M_PRINT_WAIT: begin
                 frame_cnt <= frame_cnt + 1'b1;
-                // Auto Watchdog: If SSD1963 chip ID (0x5761) is valid but PLL is not locked,
-                // trigger a full hardware reset & reinitialization sequence.
-                if (reinit_req || (init_done && (dbuf[1] == 8'h57 && dbuf[2] == 8'h61 && dbuf[6] != 8'h04))) begin
+                // Auto Watchdog: Debounce PLL status check over 4 consecutive bad frames
+                if (init_done && dbuf[1] == 8'h57 && dbuf[2] == 8'h61 && (dbuf[6] & 8'h04) == 8'h00) begin
+                    if (pll_fail_cnt < 3'd4) pll_fail_cnt <= pll_fail_cnt + 1'b1;
+                end else begin
+                    pll_fail_cnt <= 3'd0;
+                end
+
+                if (reinit_req || (pll_fail_cnt >= 3'd4)) begin
                     reinit_clear_req <= 1'b1;
+                    pll_fail_cnt     <= 3'd0;
                     init_done        <= 1'b0;
                     dly              <= 24'd2500000; // 50ms RST low
                     ms               <= M_RST_LO;
@@ -942,11 +1161,12 @@ module lcd_test_top #(
                 ph <= ph + 1'b1;
                 case (ph)
                     7'd0 : begin db_oe <= 1'b0; lcd_cs <= 1'b0; lcd_rd <= 1'b1; lcd_wr <= 1'b1; end
-                    7'd10: lcd_rd <= 1'b0;
-                    7'd20: begin cur_pix <= db_in_s2; lcd_rd <= 1'b1; end
-                    7'd30: begin
-                        lcd_cs <= 1'b1;
-                        if (snap_rle) begin
+                    7'd6 : lcd_rd <= 1'b0;
+                    7'd26: begin cur_pix <= db_in_s2; lcd_rd <= 1'b1; end
+                    7'd34: begin
+                        if (!snap_dummy_done) begin
+                            // First cycle after 0x2E is SSD1963 dummy read: discard data
+                        end else if (snap_rle) begin
                             if (px == 0 && py == 0) begin
                                 rle_pix <= cur_pix; rle_cnt <= 8'd1;
                             end else if (cur_pix == rle_pix && rle_cnt < 8'd255) begin
@@ -963,13 +1183,19 @@ module lcd_test_top #(
                             end
                         end
                     end
-                    7'd31: begin
-                        if (tx_len > 0) begin tx_ret_ms <= M_SNAP_BURST; ms <= M_SNAP_TAIL; end
-                        else begin
+                    7'd35: begin
+                        if (!snap_dummy_done) begin
+                            snap_dummy_done <= 1'b1;
+                            ph <= 7'd0;
+                        end else if (tx_len > 0) begin
+                            tx_ret_ms <= M_SNAP_BURST;
+                            ms <= M_SNAP_TAIL;
+                        end else begin
                             ph <= 7'd0;
                             if (px == 10'd799) begin
                                 px <= 0;
                                 if (py == 9'd479) begin
+                                    lcd_cs <= 1'b1;
                                     if (snap_rle) begin
                                         tx_buf[0] <= rle_cnt; tx_buf[1] <= rle_pix[15:8]; tx_buf[2] <= rle_pix[7:0];
                                         tx_idx <= 0; tx_len <= 3;

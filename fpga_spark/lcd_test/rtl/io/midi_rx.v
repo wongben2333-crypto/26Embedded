@@ -80,7 +80,8 @@ module midi_rx (
     //  ⚠️ 现有 8 个表情端口**原样保留**（它们已 45 项 PASS 验证过），本直通是**附加**通道。
     output reg  [6:0] cc_num,        // 最近一个 CC 的编号（原样 0..127）
     output reg  [6:0] cc_val,        // 最近一个 CC 的值（原样 0..127）
-    output reg        cc_any_valid   // **任一** CC 收到就打 1 拍（含未支持的 CC）
+    output reg        cc_any_valid,  // **任一** CC 收到就打 1 拍（含未支持的 CC）
+    output wire       in_midi_msg    // 正在接收多字节 MIDI 数据（1=正在接收数据字节，0=等待状态字节）
 );
 
     // ---- CC 编号（与 host/piano_gui.py 严格一致，勿单方修改）----
@@ -98,6 +99,8 @@ module midi_rx (
     localparam [6:0] VIB_RATE_DEFAULT = 7'd50;    // 约定 50 → 5.0 Hz
 
     // ---- 解析状态机 ----
+    assign in_midi_msg = (wstate != W_STATUS);
+
     localparam [1:0] W_STATUS = 2'd0,   // 等状态字节
                      W_D1     = 2'd1,   // 等第 1 个数据字节（note / CC 号）
                      W_D2     = 2'd2;   // 等第 2 个数据字节（velocity / value）

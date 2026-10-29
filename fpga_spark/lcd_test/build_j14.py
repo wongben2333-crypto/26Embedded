@@ -70,8 +70,24 @@ def prepare(work):
 
 
 def run(work):
-    return subprocess.run([GW, "build_j14.tcl"], cwd=work, capture_output=True,
-                          text=True, encoding="utf-8", errors="replace")
+    p = subprocess.Popen([GW, "build_j14.tcl"], cwd=work, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+    output_lines = []
+    for line in iter(p.stdout.readline, ''):
+        output_lines.append(line)
+        sys.stdout.write(line)
+        sys.stdout.flush()
+    p.stdout.close()
+    ret = p.wait()
+    output = "".join(output_lines)
+    
+    class Result:
+        pass
+    res = Result()
+    res.returncode = ret
+    res.stdout = output
+    res.stderr = ""
+    return res
 
 
 def main():
