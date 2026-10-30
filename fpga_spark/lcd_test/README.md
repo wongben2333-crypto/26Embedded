@@ -10,9 +10,20 @@
 - 总线：16-bit Intel 8080
 - FPGA 系统时钟：50 MHz
 
-当前状态：**J14 LCD 时序已实机验证成功，面向电子乐器工程的基础 UI 已完成综合、布局布线、烧录和实机截图验证。**
+当前状态：**P0/P1 已改为约 3 秒的实心对称滚动包络，通过数值、滚动顺序和 UI 像素回归，并完成综合、布局布线及 SRAM 烧录。本次实机截图未收到 UART 响应，尚未确认新画面；验证范围与时序限制见 `docs/audio_visualizer.md`。**
 
-本版本默认显示四页音频仪表 UI：演奏波形、声部混音、谐波频谱、效果器/输出。页面使用与嵌赛方案一致的字段：声部数、音色、音量、音频引擎、效果器、I2S/DAC 和琴键/拨弦/特雷门输入。当前 LCD 测试工程中的数值和波形仍为演示数据，接入音频主工程时再替换为真实状态信号。
+本版本默认显示四页音频仪表 UI：演奏仪表、波形与频谱、32 声部测试、曲目播放器。P0/P1/P2 的波形、VU、32 个对数频带和 32 个 200 Hz 间隔测量频点均来自 PT8211 DAC 帧保持寄存器 `dac_pcm`（`audio_mix` 的逐帧锁存值），不再使用固定演示谱柱。波形显示最近 3 秒的实心对称包络；频谱和 VU 分析这段历史末尾的 4096 点，三者在 LCD 帧边界同时发布。
+
+## 实时音频可视化
+
+- 采样率：`50 MHz / (BCK_DIV * 512)`；默认 `BCK_DIV=1`，为 `97.65625 kHz`。
+- 分析窗：4096 点 Hann 窗，分析时长约 `41.9 ms`，FFT 频率间隔约 `23.84 Hz`。
+- 波形：固定显示最近 3 秒，P0 为 420 列、P1 为 758 列。每列取实际输出 PCM 的绝对峰值，以上下对称的青色实心包络绘制；短脉冲和负满幅不会漏掉。启动时从左向右填充，未采集区域留空；填满后按时间整体左移，新音频从右侧进入。
+- P1 频谱：32 个对数频带，约 `64 Hz` 到 `16.4 kHz`，高度范围为约 `-72 dBFS` 到 `0 dBFS`。
+- P2 取证：32 个以 `200, 400, ..., 6400 Hz` 为中心、带宽约 `150 Hz` 的实测频带；它用于展示当前输出中的 32 个频率成分，不是固定公式生成的柱图。
+- 同步机制：连续采集历史，后台计算 FFT 和波形快照；只有 `frame_sync` 到来时才切换显示缓冲。UART `w` 或 MIDI CC28 可冻结/恢复，波形窗口固定为 3 秒。
+
+对应 RTL 和回归测试见 [`rtl/visualizer/audio_visualizer.v`](rtl/visualizer/audio_visualizer.v)、[`rtl/visualizer/rolling_waveform.v`](rtl/visualizer/rolling_waveform.v)、[`rtl/visualizer/fft4096.v`](rtl/visualizer/fft4096.v) 和 [`tests/test_audio_visualizer.py`](tests/test_audio_visualizer.py)。
 
 ## 1. 重要的 LCD 排针编号
 
@@ -96,6 +107,7 @@ lcd_test/
 ├── rtl/
 │   ├── lcd_test_top.v
 │   ├── lcd_ui.v              # FPGA 生成的四页基础 UI
+│   ├── visualizer/           # 4096 点 FFT、波形包络和双缓冲显示
 │   └── ws2812_drv.v
 ├── constraints/
 │   ├── lcd_test_j13.cst       # J13 方案，保留
@@ -105,7 +117,10 @@ lcd_test/
 │   ├── lcd_test_j14_138c_verified.fs  # 旧版硬件测试位流
 │   └── lcd_ui_j14_138c_verified.fs    # 当前 UI 位流
 ├── docs/
-│   └── LCD接线表-ATK-MD0700-34P_to-J14-40P.md
+│   ├── LCD接线表-ATK-MD0700-34P_to-J14-40P.md
+│   └── audio_visualizer.md   # 算法、同步机制和验证说明
+├── tests/                    # NumPy 对照、帧同步与 DAC 串行回归
+├── tools/gen_visualizer_tables.py
 ├── build_j13.py               # J13 方案，保留
 ├── build_j13.tcl              # J13 方案，保留
 ├── lcd_test_j13.gprj          # J13 方案，保留

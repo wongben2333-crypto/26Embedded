@@ -14,9 +14,14 @@ module lcd_ui (
 
     // 实时音频示波器与电平输入
     input  wire        audio_active,   // 1 当有真实音频输出，0 当静音/无音频
-    input  wire [8:0]  scope_wave_y,   // 示波器当前列真实音频 Y 坐标
-    input  wire [8:0]  scope_prev_y,   // 示波器前一列真实音频 Y 坐标（用于线段补全）
+    input  wire [8:0]  scope_wave_y,   // Symmetric envelope upper edge
+    input  wire [8:0]  scope_prev_y,   // Symmetric envelope lower edge
+    input  wire        scope_column_valid,
     input  wire [7:0]  vu_level,       // 动态立体声峰值电平 0..255
+
+    input  wire [7:0]  spectrum_level,
+    input  wire [7:0]  benchmark_level,
+    input  wire        scope_running,
 
     // 乐器与演奏状态输入
     input  wire [1:0]  work_mode,      // 0: Free Play, 1: Song Play, 2: 32-Test
@@ -628,7 +633,7 @@ module lcd_ui (
                 7'd12: get_str_len = 6'd19;
                 7'd13: get_str_len = 6'd22;
                 7'd14: get_str_len = 6'd23;
-                7'd15: get_str_len = 6'd42;
+                7'd15: get_str_len = 6'd22;
                 7'd16: get_str_len = 6'd10;
                 7'd17: get_str_len = 6'd20;
                 7'd18: get_str_len = 6'd26;
@@ -650,7 +655,7 @@ module lcd_ui (
                 7'd34: get_str_len = 6'd2;
                 7'd35: get_str_len = 6'd2;
                 7'd36: get_str_len = 6'd2;
-                7'd37: get_str_len = 6'd23;
+                7'd37: get_str_len = 6'd16;
                 7'd38: get_str_len = 6'd28;
                 7'd39: get_str_len = 6'd41;
                 7'd40: get_str_len = 6'd19;
@@ -673,17 +678,17 @@ module lcd_ui (
                 7'd57: get_str_len = 6'd19;
                 7'd58: get_str_len = 6'd20;
                 7'd59: get_str_len = 6'd54;
-                7'd60: get_str_len = 6'd46;
+                7'd60: get_str_len = 6'd33;
                 7'd61: get_str_len = 6'd21;
-                7'd62: get_str_len = 6'd4;
-                7'd63: get_str_len = 6'd3;
-                7'd64: get_str_len = 6'd3;
-                7'd65: get_str_len = 6'd3;
+                7'd62: get_str_len = 6'd3;
+                7'd63: get_str_len = 6'd4;
+                7'd64: get_str_len = 6'd4;
+                7'd65: get_str_len = 6'd4;
                 7'd66: get_str_len = 6'd4;
                 7'd67: get_str_len = 6'd4;
                 7'd68: get_str_len = 6'd4;
                 7'd69: get_str_len = 6'd4;
-                7'd70: get_str_len = 6'd3;
+                7'd70: get_str_len = 6'd4;
                 7'd71: get_str_len = 6'd26;
                 7'd72: get_str_len = 6'd27;
                 7'd73: get_str_len = 6'd61;
@@ -801,10 +806,45 @@ module lcd_ui (
         end
     endfunction
 
+    wire [7:0] cur_sec_d10 = (song_elapsed_sec >= 8'd50) ? 8'd5 :
+                             (song_elapsed_sec >= 8'd40) ? 8'd4 :
+                             (song_elapsed_sec >= 8'd30) ? 8'd3 :
+                             (song_elapsed_sec >= 8'd20) ? 8'd2 :
+                             (song_elapsed_sec >= 8'd10) ? 8'd1 : 8'd0;
+    wire [7:0] cur_sec_rem = song_elapsed_sec - (cur_sec_d10 * 8'd10);
+    wire [7:0] tot_sec_d10 = (song_total_sec >= 8'd50) ? 8'd5 :
+                             (song_total_sec >= 8'd40) ? 8'd4 :
+                             (song_total_sec >= 8'd30) ? 8'd3 :
+                             (song_total_sec >= 8'd20) ? 8'd2 :
+                             (song_total_sec >= 8'd10) ? 8'd1 : 8'd0;
+    wire [7:0] tot_sec_rem = song_total_sec - (tot_sec_d10 * 8'd10);
+    wire [7:0] pct_val = (song_progress > 8'd100) ? 8'd100 : song_progress;
+    wire [7:0] pct_d100 = (pct_val >= 8'd100) ? 8'd1 : 8'd0;
+    wire [7:0] pct_rem100 = pct_val - (pct_d100 ? 8'd100 : 8'd0);
+    wire [7:0] pct_d10 = (pct_rem100 >= 8'd90) ? 8'd9 :
+                         (pct_rem100 >= 8'd80) ? 8'd8 :
+                         (pct_rem100 >= 8'd70) ? 8'd7 :
+                         (pct_rem100 >= 8'd60) ? 8'd6 :
+                         (pct_rem100 >= 8'd50) ? 8'd5 :
+                         (pct_rem100 >= 8'd40) ? 8'd4 :
+                         (pct_rem100 >= 8'd30) ? 8'd3 :
+                         (pct_rem100 >= 8'd20) ? 8'd2 :
+                         (pct_rem100 >= 8'd10) ? 8'd1 : 8'd0;
+    wire [7:0] pct_rem10 = pct_rem100 - (pct_d10 * 8'd10);
+
     function [7:0] get_char;
         input [6:0] str_id;
         input [5:0] idx;
+        reg [127:0] time_label;
+        reg [167:0] analysis_label;
+        reg [263:0] benchmark_title;
+        reg [175:0] waveform_title;
         begin
+            time_label = "     3.00 S     ";
+            waveform_title = "ROLLING AUDIO ENVELOPE";
+            time_label[127:96] = scope_running ? "LIVE" : "HOLD";
+            analysis_label = scope_running ? "LIVE FFT / 4096 PTS  " : "HOLD FFT / 4096 PTS  ";
+            benchmark_title = "OUTPUT FFT: 32 BANDS 200..6400 HZ";
             case (str_id)
                 7'd0: case (idx)
                     6'd0: get_char = 8'd83;
@@ -1092,51 +1132,7 @@ module lcd_ui (
                     6'd22: get_char = 8'd41;
                     default: get_char = 8'd0;
                 endcase
-                7'd15: case (idx)
-                    6'd0: get_char = 8'd82;
-                    6'd1: get_char = 8'd69;
-                    6'd2: get_char = 8'd65;
-                    6'd3: get_char = 8'd76;
-                    6'd4: get_char = 8'd45;
-                    6'd5: get_char = 8'd84;
-                    6'd6: get_char = 8'd73;
-                    6'd7: get_char = 8'd77;
-                    6'd8: get_char = 8'd69;
-                    6'd9: get_char = 8'd32;
-                    6'd10: get_char = 8'd65;
-                    6'd11: get_char = 8'd85;
-                    6'd12: get_char = 8'd68;
-                    6'd13: get_char = 8'd73;
-                    6'd14: get_char = 8'd79;
-                    6'd15: get_char = 8'd32;
-                    6'd16: get_char = 8'd79;
-                    6'd17: get_char = 8'd83;
-                    6'd18: get_char = 8'd67;
-                    6'd19: get_char = 8'd73;
-                    6'd20: get_char = 8'd76;
-                    6'd21: get_char = 8'd76;
-                    6'd22: get_char = 8'd79;
-                    6'd23: get_char = 8'd83;
-                    6'd24: get_char = 8'd67;
-                    6'd25: get_char = 8'd79;
-                    6'd26: get_char = 8'd80;
-                    6'd27: get_char = 8'd69;
-                    6'd28: get_char = 8'd32;
-                    6'd29: get_char = 8'd40;
-                    6'd30: get_char = 8'd84;
-                    6'd31: get_char = 8'd73;
-                    6'd32: get_char = 8'd77;
-                    6'd33: get_char = 8'd69;
-                    6'd34: get_char = 8'd32;
-                    6'd35: get_char = 8'd68;
-                    6'd36: get_char = 8'd79;
-                    6'd37: get_char = 8'd77;
-                    6'd38: get_char = 8'd65;
-                    6'd39: get_char = 8'd73;
-                    6'd40: get_char = 8'd78;
-                    6'd41: get_char = 8'd41;
-                    default: get_char = 8'd0;
-                endcase
+                7'd15: get_char = (idx < 22) ? waveform_title[(21-idx)*8 +: 8] : 8'd0;
                 7'd16: case (idx)
                     6'd0: get_char = 8'd51; // '3'
                     6'd1: get_char = 8'd46; // '.'
@@ -1147,9 +1143,7 @@ module lcd_ui (
                     6'd6: get_char = 8'd79; // 'O'
                     6'd7: get_char = 8'd76; // 'L'
                     6'd8: get_char = 8'd76; // 'L'
-                    6'd9: get_char = 8'd73; // 'I'
-                    6'd10: get_char = 8'd78; // 'N'
-                    6'd11: get_char = 8'd71; // 'G'
+                    6'd9: get_char = 8'd32;
                     default: get_char = 8'd0;
                 endcase
                 7'd17: case (idx)
@@ -1451,32 +1445,7 @@ module lcd_ui (
                     6'd1: get_char = 8'd35;
                     default: get_char = 8'd0;
                 endcase
-                7'd37: case (idx)
-                    6'd0: get_char = 8'd57;
-                    6'd1: get_char = 8'd55;
-                    6'd2: get_char = 8'd46;
-                    6'd3: get_char = 8'd54;
-                    6'd4: get_char = 8'd53;
-                    6'd5: get_char = 8'd54;
-                    6'd6: get_char = 8'd32;
-                    6'd7: get_char = 8'd75;
-                    6'd8: get_char = 8'd83;
-                    6'd9: get_char = 8'd80;
-                    6'd10: get_char = 8'd83;
-                    6'd11: get_char = 8'd32;
-                    6'd12: get_char = 8'd124;
-                    6'd13: get_char = 8'd32;
-                    6'd14: get_char = 8'd53;
-                    6'd15: get_char = 8'd48;
-                    6'd16: get_char = 8'd32;
-                    6'd17: get_char = 8'd77;
-                    6'd18: get_char = 8'd83;
-                    6'd19: get_char = 8'd47;
-                    6'd20: get_char = 8'd68;
-                    6'd21: get_char = 8'd73;
-                    6'd22: get_char = 8'd86;
-                    default: get_char = 8'd0;
-                endcase
+                7'd37: get_char = (idx < 16) ? time_label[(15-idx)*8 +: 8] : 8'd0;
                 7'd38: case (idx)
                     6'd0: get_char = 8'd91;
                     6'd1: get_char = 8'd32;
@@ -1560,8 +1529,8 @@ module lcd_ui (
                     6'd4: get_char = 8'd69;
                     6'd5: get_char = 8'd58;
                     6'd6: get_char = 8'd32;
-                    6'd7: get_char = 8'd53;
-                    6'd8: get_char = 8'd48;
+                    6'd7: get_char = 8'd54;
+                    6'd8: get_char = 8'd52;
                     6'd9: get_char = 8'd72;
                     6'd10: get_char = 8'd90;
                     6'd11: get_char = 8'd32;
@@ -1575,8 +1544,8 @@ module lcd_ui (
                     default: get_char = 8'd0;
                 endcase
                 7'd41: case (idx)
-                    6'd0: get_char = 8'd53;
-                    6'd1: get_char = 8'd48;
+                    6'd0: get_char = 8'd54;
+                    6'd1: get_char = 8'd52;
                     6'd2: get_char = 8'd72;
                     6'd3: get_char = 8'd90;
                     default: get_char = 8'd0;
@@ -1584,7 +1553,7 @@ module lcd_ui (
                 7'd42: case (idx)
                     6'd0: get_char = 8'd49;
                     6'd1: get_char = 8'd50;
-                    6'd2: get_char = 8'd53;
+                    6'd2: get_char = 8'd56;
                     6'd3: get_char = 8'd72;
                     6'd4: get_char = 8'd90;
                     default: get_char = 8'd0;
@@ -1592,15 +1561,15 @@ module lcd_ui (
                 7'd43: case (idx)
                     6'd0: get_char = 8'd50;
                     6'd1: get_char = 8'd53;
-                    6'd2: get_char = 8'd48;
+                    6'd2: get_char = 8'd54;
                     6'd3: get_char = 8'd72;
                     6'd4: get_char = 8'd90;
                     default: get_char = 8'd0;
                 endcase
                 7'd44: case (idx)
                     6'd0: get_char = 8'd53;
-                    6'd1: get_char = 8'd48;
-                    6'd2: get_char = 8'd48;
+                    6'd1: get_char = 8'd49;
+                    6'd2: get_char = 8'd50;
                     6'd3: get_char = 8'd72;
                     6'd4: get_char = 8'd90;
                     default: get_char = 8'd0;
@@ -1883,137 +1852,31 @@ module lcd_ui (
                     6'd53: get_char = 8'd41;
                     default: get_char = 8'd0;
                 endcase
-                7'd60: case (idx)
-                    6'd0: get_char = 8'd51;
-                    6'd1: get_char = 8'd50;
-                    6'd2: get_char = 8'd32;
-                    6'd3: get_char = 8'd68;
-                    6'd4: get_char = 8'd73;
-                    6'd5: get_char = 8'd83;
-                    6'd6: get_char = 8'd67;
-                    6'd7: get_char = 8'd82;
-                    6'd8: get_char = 8'd69;
-                    6'd9: get_char = 8'd84;
-                    6'd10: get_char = 8'd69;
-                    6'd11: get_char = 8'd32;
-                    6'd12: get_char = 8'd83;
-                    6'd13: get_char = 8'd80;
-                    6'd14: get_char = 8'd69;
-                    6'd15: get_char = 8'd67;
-                    6'd16: get_char = 8'd84;
-                    6'd17: get_char = 8'd82;
-                    6'd18: get_char = 8'd65;
-                    6'd19: get_char = 8'd76;
-                    6'd20: get_char = 8'd32;
-                    6'd21: get_char = 8'd80;
-                    6'd22: get_char = 8'd69;
-                    6'd23: get_char = 8'd65;
-                    6'd24: get_char = 8'd75;
-                    6'd25: get_char = 8'd83;
-                    6'd26: get_char = 8'd32;
-                    6'd27: get_char = 8'd45;
-                    6'd28: get_char = 8'd32;
-                    6'd29: get_char = 8'd69;
-                    6'd30: get_char = 8'd86;
-                    6'd31: get_char = 8'd73;
-                    6'd32: get_char = 8'd68;
-                    6'd33: get_char = 8'd69;
-                    6'd34: get_char = 8'd78;
-                    6'd35: get_char = 8'd67;
-                    6'd36: get_char = 8'd69;
-                    6'd37: get_char = 8'd32;
-                    6'd38: get_char = 8'd40;
-                    6'd39: get_char = 8'd82;
-                    6'd40: get_char = 8'd85;
-                    6'd41: get_char = 8'd76;
-                    6'd42: get_char = 8'd69;
-                    6'd43: get_char = 8'd32;
-                    6'd44: get_char = 8'd51;
-                    6'd45: get_char = 8'd41;
-                    default: get_char = 8'd0;
-                endcase
-                7'd61: case (idx)
-                    6'd0: get_char = 8'd65;
-                    6'd1: get_char = 8'd76;
-                    6'd2: get_char = 8'd76;
-                    6'd3: get_char = 8'd32;
-                    6'd4: get_char = 8'd51;
-                    6'd5: get_char = 8'd50;
-                    6'd6: get_char = 8'd32;
-                    6'd7: get_char = 8'd80;
-                    6'd8: get_char = 8'd69;
-                    6'd9: get_char = 8'd65;
-                    6'd10: get_char = 8'd75;
-                    6'd11: get_char = 8'd83;
-                    6'd12: get_char = 8'd32;
-                    6'd13: get_char = 8'd68;
-                    6'd14: get_char = 8'd69;
-                    6'd15: get_char = 8'd84;
-                    6'd16: get_char = 8'd69;
-                    6'd17: get_char = 8'd67;
-                    6'd18: get_char = 8'd84;
-                    6'd19: get_char = 8'd69;
-                    6'd20: get_char = 8'd68;
-                    default: get_char = 8'd0;
-                endcase
+                7'd60: get_char = (idx < 33) ? benchmark_title[(32-idx)*8 +: 8] : 8'd0;
+                7'd61: get_char = (idx < 21) ? analysis_label[(20-idx)*8 +: 8] : 8'd0;
                 7'd62: case (idx)
-                    6'd0: get_char = 8'd54;
-                    6'd1: get_char = 8'd53;
-                    6'd2: get_char = 8'd72;
-                    6'd3: get_char = 8'd90;
-                    default: get_char = 8'd0;
+                    0: get_char = "2"; 1,2: get_char = "0";
+                    default: get_char = 0;
                 endcase
-                7'd63: case (idx)
-                    6'd0: get_char = 8'd49;
-                    6'd1: get_char = 8'd51;
-                    6'd2: get_char = 8'd48;
-                    default: get_char = 8'd0;
-                endcase
-                7'd64: case (idx)
-                    6'd0: get_char = 8'd50;
-                    6'd1: get_char = 8'd54;
-                    6'd2: get_char = 8'd48;
-                    default: get_char = 8'd0;
-                endcase
-                7'd65: case (idx)
-                    6'd0: get_char = 8'd53;
-                    6'd1: get_char = 8'd50;
-                    6'd2: get_char = 8'd48;
-                    default: get_char = 8'd0;
-                endcase
-                7'd66: case (idx)
-                    6'd0: get_char = 8'd49;
-                    6'd1: get_char = 8'd75;
-                    6'd2: get_char = 8'd72;
-                    6'd3: get_char = 8'd90;
-                    default: get_char = 8'd0;
-                endcase
-                7'd67: case (idx)
-                    6'd0: get_char = 8'd50;
-                    6'd1: get_char = 8'd75;
-                    6'd2: get_char = 8'd72;
-                    6'd3: get_char = 8'd90;
-                    default: get_char = 8'd0;
-                endcase
-                7'd68: case (idx)
-                    6'd0: get_char = 8'd52;
-                    6'd1: get_char = 8'd75;
-                    6'd2: get_char = 8'd72;
-                    6'd3: get_char = 8'd90;
-                    default: get_char = 8'd0;
-                endcase
-                7'd69: case (idx)
-                    6'd0: get_char = 8'd56;
-                    6'd1: get_char = 8'd75;
-                    6'd2: get_char = 8'd72;
-                    6'd3: get_char = 8'd90;
-                    default: get_char = 8'd0;
-                endcase
-                7'd70: case (idx)
-                    6'd0: get_char = 8'd49;
-                    6'd1: get_char = 8'd50;
-                    6'd2: get_char = 8'd75;
-                    default: get_char = 8'd0;
+                7'd63,7'd64,7'd65,7'd66,7'd67,7'd68,7'd69,7'd70: case (idx)
+                    0: case (str_id)
+                        63,64: get_char = "1";
+                        65: get_char = "2";
+                        66: get_char = "3";
+                        67: get_char = "4";
+                        68,69: get_char = "5";
+                        default: get_char = "6";
+                    endcase
+                    1: get_char = ".";
+                    2: case (str_id)
+                        63,68: get_char = "0";
+                        64,69: get_char = "8";
+                        65: get_char = "6";
+                        67: get_char = "2";
+                        default: get_char = "4";
+                    endcase
+                    3: get_char = "K";
+                    default: get_char = 0;
                 endcase
                 7'd71: case (idx)
                     6'd0: get_char = 8'd78; // N
@@ -2460,11 +2323,8 @@ module lcd_ui (
 
     wire [8:0] p0_y_lo = (scope_wave_y < scope_prev_y) ? scope_wave_y : scope_prev_y;
     wire [8:0] p0_y_hi = (scope_wave_y > scope_prev_y) ? scope_wave_y : scope_prev_y;
-    wire p0_wave_hit   = (page == 2'd0) && p0_scope_box &&
+    wire p0_wave_hit   = (page == 2'd0) && p0_scope_box && scope_column_valid && (px < 10'd440) &&
                          (py >= p0_y_lo) && (py <= p0_y_hi) && (py >= 9'd140 && py <= 9'd460);
-    wire p0_wave_edge  = (page == 2'd0) && p0_scope_box &&
-                         ((py == p0_y_lo) || (py == p0_y_hi)) &&
-                         (py >= 9'd140 && py <= 9'd460);
 
     // 右上区: 立体声 VU 表与 ADSR 包络 (x: 456..778, y: 114..280)
     wire p0_vu_panel  = (page == 2'd0) && (px >= 10'd456 && px <= 10'd778 && py >= 9'd114 && py <= 9'd280);
@@ -2598,11 +2458,8 @@ module lcd_ui (
 
     wire [8:0] p1_y_lo = (scope_wave_y < scope_prev_y) ? scope_wave_y : scope_prev_y;
     wire [8:0] p1_y_hi = (scope_wave_y > scope_prev_y) ? scope_wave_y : scope_prev_y;
-    wire p1_wave_hit   = (page == 2'd1) && p1_scope_box &&
+    wire p1_wave_hit   = (page == 2'd1) && p1_scope_box && scope_column_valid && (px < 10'd778) &&
                          (py >= p1_y_lo) && (py <= p1_y_hi) && (py >= 9'd68 && py <= 9'd240);
-    wire p1_wave_edge  = (page == 2'd1) && p1_scope_box &&
-                         ((py == p1_y_lo) || (py == p1_y_hi)) &&
-                         (py >= 9'd68 && py <= 9'd240);
 
     // 下半区: 760px 全宽 32 段 FFT 频谱仪 (x: 20..778, y: 254..468)
     wire p1_spec_box = (page == 2'd1) && (px >= 10'd20 && px <= 10'd778 && py >= 9'd254 && py <= 9'd468);
@@ -2613,9 +2470,7 @@ module lcd_ui (
     wire t_p1_spec_hdr = (page == 2'd1) && text_pixel(39, px, py, 10'd32,  9'd262, 2'd1);
     wire t_p1_spec_rng = (page == 2'd1) && text_pixel(40, px, py, 10'd640, 9'd262, 2'd1);
 
-    wire [4:0] p1_bar_idx = (px >= 10'd36 && px <= 10'd764) ? ((px - 10'd36) / 10'd23) : 5'd0;
-    wire [8:0] p1_bar_h = (!audio_active || vu_level <= 8'd2) ? 9'd0 :
-        (9'd6 + (((vu_level * (32 - p1_bar_idx)) >> 6)) + ((p1_bar_idx == (live_note % 32)) ? 9'd85 : 9'd0));
+    wire [8:0] p1_bar_h = {1'b0,spectrum_level};
 
     wire p1_bar_hit = (page == 2'd1) && p1_spec_box && (p1_bar_h > 9'd0) &&
                       (px >= 10'd36 && px <= 10'd764) &&
@@ -2726,12 +2581,11 @@ module lcd_ui (
 
     // 32 根独立谱线针状柱 (基线 y = 434, 顶点不超过 315)
     wire p2_peak_base = (page == 2'd2) && (px >= 10'd36 && px <= 10'd764 && py == 9'd434);
-    wire [4:0] p2_needle_idx = (px - 10'd36) / 10'd23;
-    wire [8:0] p2_needle_h = 9'd75 + ((p2_needle_idx[2:0] * 9'd5) ^ (p2_needle_idx[4:3] * 9'd10));
-    wire p2_needle_stem = (page == 2'd2) && (px >= 10'd36 && px <= 10'd764) &&
+    wire [8:0] p2_needle_h = {1'b0,benchmark_level};
+    wire p2_needle_stem = (page == 2'd2) && (p2_needle_h != 0) && (px >= 10'd36 && px <= 10'd764) &&
                           (((px - 10'd36) % 10'd23) == 10'd11) &&
                           (py >= 9'd434 - p2_needle_h && py <= 9'd434);
-    wire p2_needle_dot  = (page == 2'd2) && (px >= 10'd36 && px <= 10'd764) &&
+    wire p2_needle_dot  = (page == 2'd2) && (p2_needle_h != 0) && (px >= 10'd36 && px <= 10'd764) &&
                           (((px - 10'd36) % 10'd23) >= 10'd9 && ((px - 10'd36) % 10'd23) <= 10'd13) &&
                           (py >= 9'd434 - p2_needle_h - 9'd3 && py <= 9'd434 - p2_needle_h + 9'd1);
 
@@ -2741,15 +2595,15 @@ module lcd_ui (
         px == 10'd415 || px == 10'd507 || px == 10'd599 || px == 10'd691 || px == 10'd760
     );
 
-    wire t_p2_f0 = text_pixel(62, px, py, 10'd36,  9'd444, 2'd1); // 65HZ
-    wire t_p2_f1 = text_pixel(63, px, py, 10'd130, 9'd444, 2'd1); // 130
-    wire t_p2_f2 = text_pixel(64, px, py, 10'd222, 9'd444, 2'd1); // 260
-    wire t_p2_f3 = text_pixel(65, px, py, 10'd314, 9'd444, 2'd1); // 520
-    wire t_p2_f4 = text_pixel(66, px, py, 10'd406, 9'd444, 2'd1); // 1KHZ
-    wire t_p2_f5 = text_pixel(67, px, py, 10'd498, 9'd444, 2'd1); // 2KHZ
-    wire t_p2_f6 = text_pixel(68, px, py, 10'd590, 9'd444, 2'd1); // 4KHZ
-    wire t_p2_f7 = text_pixel(69, px, py, 10'd682, 9'd444, 2'd1); // 8KHZ
-    wire t_p2_f8 = text_pixel(70, px, py, 10'd750, 9'd444, 2'd1); // 12K
+    wire t_p2_f0 = text_pixel(62, px, py, 10'd36,  9'd444, 2'd1); // 200 Hz
+    wire t_p2_f1 = text_pixel(63, px, py, 10'd130, 9'd444, 2'd1); // 1.0 kHz
+    wire t_p2_f2 = text_pixel(64, px, py, 10'd222, 9'd444, 2'd1); // 1.8 kHz
+    wire t_p2_f3 = text_pixel(65, px, py, 10'd314, 9'd444, 2'd1); // 2.6 kHz
+    wire t_p2_f4 = text_pixel(66, px, py, 10'd406, 9'd444, 2'd1); // 3.4 kHz
+    wire t_p2_f5 = text_pixel(67, px, py, 10'd498, 9'd444, 2'd1); // 4.2 kHz
+    wire t_p2_f6 = text_pixel(68, px, py, 10'd590, 9'd444, 2'd1); // 5.0 kHz
+    wire t_p2_f7 = text_pixel(69, px, py, 10'd682, 9'd444, 2'd1); // 5.8 kHz
+    wire t_p2_f8 = text_pixel(70, px, py, 10'd750, 9'd444, 2'd1); // 6.4 kHz
     wire t_p2_freqs = t_p2_f0 || t_p2_f1 || t_p2_f2 || t_p2_f3 || t_p2_f4 || t_p2_f5 || t_p2_f6 || t_p2_f7 || t_p2_f8;
 
     // -------------------------------------------------------------------------
@@ -2775,33 +2629,6 @@ module lcd_ui (
     wire t_p3_pr_key = (page == 2'd3) && text_pixel(75, px, py, 10'd600, 9'd138, 2'd1);
     wire t_p3_pr_hdl = (page == 2'd3) && text_pixel(76, px, py, 10'd32,  9'd196, 2'd1);
 
-    wire [7:0] cur_sec_d10 = (song_elapsed_sec >= 8'd50) ? 8'd5 :
-                             (song_elapsed_sec >= 8'd40) ? 8'd4 :
-                             (song_elapsed_sec >= 8'd30) ? 8'd3 :
-                             (song_elapsed_sec >= 8'd20) ? 8'd2 :
-                             (song_elapsed_sec >= 8'd10) ? 8'd1 : 8'd0;
-    wire [7:0] cur_sec_rem = song_elapsed_sec - (cur_sec_d10 * 8'd10);
-
-    wire [7:0] tot_sec_d10 = (song_total_sec >= 8'd50) ? 8'd5 :
-                             (song_total_sec >= 8'd40) ? 8'd4 :
-                             (song_total_sec >= 8'd30) ? 8'd3 :
-                             (song_total_sec >= 8'd20) ? 8'd2 :
-                             (song_total_sec >= 8'd10) ? 8'd1 : 8'd0;
-    wire [7:0] tot_sec_rem = song_total_sec - (tot_sec_d10 * 8'd10);
-
-    wire [7:0] pct_val = (song_progress > 8'd100) ? 8'd100 : song_progress;
-    wire [7:0] pct_d100 = (pct_val >= 8'd100) ? 8'd1 : 8'd0;
-    wire [7:0] pct_rem100 = pct_val - (pct_d100 ? 8'd100 : 8'd0);
-    wire [7:0] pct_d10 = (pct_rem100 >= 8'd90) ? 8'd9 :
-                         (pct_rem100 >= 8'd80) ? 8'd8 :
-                         (pct_rem100 >= 8'd70) ? 8'd7 :
-                         (pct_rem100 >= 8'd60) ? 8'd6 :
-                         (pct_rem100 >= 8'd50) ? 8'd5 :
-                         (pct_rem100 >= 8'd40) ? 8'd4 :
-                         (pct_rem100 >= 8'd30) ? 8'd3 :
-                         (pct_rem100 >= 8'd20) ? 8'd2 :
-                         (pct_rem100 >= 8'd10) ? 8'd1 : 8'd0;
-    wire [7:0] pct_rem10 = pct_rem100 - (pct_d10 * 8'd10);
 
     wire [17:0] fill_prod = {10'd0, song_progress} * 18'd732;
     wire [9:0] p3_fill_x = 10'd32 + (fill_prod / 18'd100);
@@ -2940,8 +2767,7 @@ module lcd_ui (
             if (p0_scope_border) color = C_BORDER;
             if (p0_scope_grid) color = C_GRID;
             if (p0_scope_zero) color = C_ZERO_LINE;
-            if (p0_wave_hit)  color = 16'h0310; // Glowing Cyber-Blue Envelope Body
-            if (p0_wave_edge) color = C_CYAN;   // Crisp Cyan Peak Contours & Center Baseline
+            if (p0_wave_hit) color = C_CYAN;
 
             // 紧凑型钢琴键盘
             if (in_white_area) color = C_KEY_WHITE;
@@ -2978,8 +2804,7 @@ module lcd_ui (
 
             if (p1_scope_grid) color = C_GRID;
             if (p1_scope_zero) color = C_ZERO_LINE;
-            if (p1_wave_hit)   color = 16'h0310;
-            if (p1_wave_edge)  color = C_CYAN;
+            if (p1_wave_hit) color = C_CYAN;
 
             if (p1_bar_hit) begin
                 if (py <= 9'd340) color = C_RED;

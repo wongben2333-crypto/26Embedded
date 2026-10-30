@@ -16,7 +16,7 @@
 //   2. Spark 7-inch 800x480 LCD System:
 //      - ATK-MD0700 (SSD1963 16-bit 8080 bus via J14)
 //      - Cold-boot self-healing watchdog (auto recovery if PLL unlocks)
-//      - Real-time Audio Scope (zero-crossing triggered 600-sample live buffer)
+//      - Synchronized 4096-sample waveform envelope and Hann-windowed FFT
 //      - Dynamic VU peak meters & real-time note/velocity tracking
 //      - 4-page instrument UI: Dashboard / Spectrum / 32-Benchmark / Song Player
 //      - Hardware screenshot engine (COM8/COM9 'c' command)
@@ -109,18 +109,36 @@ module lcd_test_top #(
     // ------------------------------------------------------------------------
     reg [1:0] work_mode = DEFAULT_MODE[1:0];
     reg [1:0] ui_page   = 2'd0;
+    wire [11:0] piano_key_active;
+    reg frame_end_pulse = 1'b0;
+
+    localparam [4:0]
+        U_IDLE = 5'd0, U_HDR = 5'd1, U_TAG = 5'd2, U_BH = 5'd3, U_BL = 5'd4,
+        U_SP = 5'd5, U_NL = 5'd6, U_CR = 5'd7, U_WAIT = 5'd8;
+    reg [4:0] us, us_ret;
+    reg u_busy;
+    reg diag_u_start;
+    reg [7:0] diag_u_byte;
+    wire print_busy = (us != U_IDLE);
 
     // ------------------------------------------------------------------------
     // PT8211 Audio DAC & Timing Tick (97.656 kHz)
     // ------------------------------------------------------------------------
     wire               sample_tick;
     wire signed [15:0] audio_mix;
+    reg signed [15:0] dac_pcm;
+    // Hold one PCM value through both serial channels while the synth computes
+    // the next sample. The visualizer captures the completed serial frame.
+    always @(posedge sys_clk) begin
+        if (!rst_n) dac_pcm <= 16'sd0;
+        else if (sample_tick) dac_pcm <= audio_mix;
+    end
 
     pt8211_tx #(.BCK_DIV(BCK_DIV)) u_dac (
         .clk        (sys_clk),
         .reset      (~rst_n),
-        .sample_l   (audio_mix),
-        .sample_r   (audio_mix),
+        .sample_l   (dac_pcm),
+        .sample_r   (dac_pcm),
         .sample_tick(sample_tick),
         .bck        (HP_BCK),
         .ws         (HP_WS),
@@ -359,7 +377,6 @@ module lcd_test_top #(
     end
     wire note_active = note_held || (note_hold_timer != 0);
 
-    wire [11:0] piano_key_active;
     function [3:0] get_semi_top;
         input [6:0] note;
         reg [6:0] n;
@@ -437,187 +454,45 @@ module lcd_test_top #(
     assign audio_mix = audio_attenuated;
 
     // ------------------------------------------------------------------------
-    // Real-Time VU Peak Meter & Audio Activity Detector
+    // Synchronized visualization of the exact post-FX, post-volume DAC PCM.
     // ------------------------------------------------------------------------
-    wire [15:0] audio_abs = audio_mix[15] ? (-audio_mix) : audio_mix;
-    reg  [15:0] vu_peak = 16'd0;
-    reg  [18:0] vu_decay = 19'd0;
-
-    always @(posedge sys_clk) begin
-        if (sample_tick) begin
-            if (audio_abs > vu_peak) vu_peak <= audio_abs;
-            else if (vu_decay == 19'd3000) begin
-                vu_decay <= 19'd0;
-                vu_peak  <= vu_peak - (vu_peak >> 5);
-            end else begin
-                vu_decay <= vu_decay + 1'b1;
-            end
-        end
-    end
-    wire [7:0] live_vu_level = vu_peak[15:8];
-    wire audio_active = is_audio_active && ((vu_peak > 16'd200) || (work_mode == 2'd2));
-
-    // ------------------------------------------------------------------------
-    // Real-Time 3.0-Second Audio Dynamic Oscilloscope Engine (Peak Min-Max Envelope)
-    // ------------------------------------------------------------------------
-    // Timebase: Exactly 3.0 Seconds across the screen
-    // P0: 420 px width (20..440) -> 698 samples/col @ 97.656 kHz = 7.147 ms/col
-    // P1: 758 px width (20..778) -> 386 samples/col @ 97.656 kHz = 3.953 ms/col
-    // Rolling Stream: New audio enters from RIGHT, old audio exits on LEFT
-    // Anti-Clipping: Full 16-bit dynamic headroom (max offset 80 px, center Y=300)
-
-    reg        scope_mode = 1'b1; // Continuous Rolling Stream
-    reg [1:0]  scope_tbase_sel = 2'd0; // 3.0s window
-
-    reg [9:0] smp_cnt_p0 = 10'd0;
-    reg signed [15:0] cur_max_p0 = 16'sd0;
-    reg signed [15:0] cur_min_p0 = 16'sd0;
-
-    reg [9:0] smp_cnt_p1 = 10'd0;
-    reg signed [15:0] cur_max_p1 = 16'sd0;
-    reg signed [15:0] cur_min_p1 = 16'sd0;
-
-    // Page 0 scaling logic (anti-clipping, full 16-bit to +/- 80 px headroom)
-    wire signed [15:0] final_max_p0 = (audio_mix > cur_max_p0) ? audio_mix : cur_max_p0;
-    wire signed [15:0] final_min_p0 = (audio_mix < cur_min_p0) ? audio_mix : cur_min_p0;
-
-    wire [14:0] pos_abs_p0 = (final_max_p0 > 16'sd0) ? final_max_p0[14:0] : 15'd0;
-    wire [17:0] prod_pos_p0 = {pos_abs_p0, 2'b00} + {2'b00, pos_abs_p0}; // pos * 5
-    wire [8:0]  off_top_p0 = prod_pos_p0[17:11]; // >> 11 (0..80 px)
-    wire [8:0]  y_top_p0 = (off_top_p0 > 9'd80) ? 9'd220 : (9'd300 - off_top_p0);
-
-    wire [15:0] neg_raw_p0 = (-final_min_p0);
-    wire [14:0] neg_abs_p0 = (final_min_p0 < 16'sd0) ? neg_raw_p0[14:0] : 15'd0;
-    wire [17:0] prod_neg_p0 = {neg_abs_p0, 2'b00} + {2'b00, neg_abs_p0}; // neg * 5
-    wire [8:0]  off_bot_p0 = prod_neg_p0[17:11]; // >> 11 (0..80 px)
-    wire [8:0]  y_bot_p0 = (off_bot_p0 > 9'd80) ? 9'd380 : (9'd300 + off_bot_p0);
-
-    // Page 1 scaling logic (anti-clipping, full 16-bit to +/- 48 px headroom, center Y=154)
-    wire signed [15:0] final_max_p1 = (audio_mix > cur_max_p1) ? audio_mix : cur_max_p1;
-    wire signed [15:0] final_min_p1 = (audio_mix < cur_min_p1) ? audio_mix : cur_min_p1;
-
-    wire [14:0] pos_abs_p1 = (final_max_p1 > 16'sd0) ? final_max_p1[14:0] : 15'd0;
-    wire [17:0] prod_pos_p1 = {pos_abs_p1, 1'b0} + {1'b0, pos_abs_p1}; // pos * 3
-    wire [8:0]  off_top_p1 = prod_pos_p1[16:11]; // >> 11 (0..48 px)
-    wire [8:0]  y_top_p1 = (off_top_p1 > 9'd48) ? 9'd106 : (9'd154 - off_top_p1);
-
-    wire [15:0] neg_raw_p1 = (-final_min_p1);
-    wire [14:0] neg_abs_p1 = (final_min_p1 < 16'sd0) ? neg_raw_p1[14:0] : 15'd0;
-    wire [17:0] prod_neg_p1 = {neg_abs_p1, 1'b0} + {1'b0, neg_abs_p1}; // neg * 3
-    wire [8:0]  off_bot_p1 = prod_neg_p1[16:11]; // >> 11 (0..48 px)
-    wire [8:0]  y_bot_p1 = (off_bot_p1 > 9'd48) ? 9'd202 : (9'd154 + off_bot_p1);
-
-    // Circular Rolling Storage RAM (y_top[17:9], y_bot[8:0])
-    reg [17:0] scope_p0_ram  [0:511];
-    reg [17:0] scope_p0_disp [0:511];
-    reg [17:0] scope_p1_ram  [0:1023];
-    reg [17:0] scope_p1_disp [0:1023];
-
-    reg [9:0] scope_p0_wr      = 10'd0;
-    reg [9:0] scope_p1_wr      = 10'd0;
-    reg [9:0] scope_p0_wr_snap = 10'd0;
-    reg [9:0] scope_p1_wr_snap = 10'd0;
-
-    reg [9:0] copy_idx = 10'd0;
-    reg       copying  = 1'b0;
-
+    reg scope_mode = 1'b1;
     reg [9:0] px;
     reg [8:0] py;
+    wire [8:0] wave0_col = (px < 10'd20) ? 9'd0 :
+                          (px >= 10'd439) ? 9'd419 : (px[8:0] - 9'd20);
+    wire [9:0] wave1_col = (px < 10'd20) ? 10'd0 :
+                          (px >= 10'd777) ? 10'd757 : (px - 10'd20);
+    wire [9:0] px_spec_offset = (px >= 10'd36) ? (px - 10'd36) : 10'd0;
+    wire [21:0] spec_prod = px_spec_offset * 12'd2850;
+    wire [4:0] spectrum_col = (px >= 10'd36 && px <= 10'd764) ? spec_prod[20:16] : 5'd0;
+    wire [15:0] wave0_peak, wave1_peak;
+    wire wave0_valid, wave1_valid;
+    wire [7:0] live_vu_level, spectrum_level, benchmark_level;
+    wire audio_active;
 
-    always @(posedge sys_clk) begin
-        if (!rst_n) begin
-            scope_p0_wr      <= 10'd0;
-            scope_p1_wr      <= 10'd0;
-            scope_p0_wr_snap <= 10'd0;
-            scope_p1_wr_snap <= 10'd0;
-            smp_cnt_p0       <= 10'd0;
-            smp_cnt_p1       <= 10'd0;
-            cur_max_p0       <= 16'sd0;
-            cur_min_p0       <= 16'sd0;
-            cur_max_p1       <= 16'sd0;
-            cur_min_p1       <= 16'sd0;
-            copying          <= 1'b0;
-            copy_idx         <= 10'd0;
-        end else begin
-            // 1. Audio Sample Peak Collector (Active in background)
-            if (sample_tick) begin
-                // Page 0 Accumulator (698 samples = 7.147 ms per column, 420 cols = 3.00 seconds)
-                if (smp_cnt_p0 >= 10'd697) begin
-                    smp_cnt_p0 <= 10'd0;
-                    scope_p0_ram[scope_p0_wr] <= {y_top_p0, y_bot_p0};
-                    if (scope_p0_wr >= 10'd419)
-                        scope_p0_wr <= 10'd0;
-                    else
-                        scope_p0_wr <= scope_p0_wr + 1'b1;
-                    cur_max_p0 <= audio_mix;
-                    cur_min_p0 <= audio_mix;
-                end else begin
-                    smp_cnt_p0 <= smp_cnt_p0 + 1'b1;
-                    if (audio_mix > cur_max_p0) cur_max_p0 <= audio_mix;
-                    if (audio_mix < cur_min_p0) cur_min_p0 <= audio_mix;
-                end
+    // dac_pcm is the value held for the complete PT8211 serial frame. Feeding
+    // the visualizer from this register makes every plotted sample identical
+    // to the sample currently being sent to the DAC.
+    audio_visualizer #(.AUDIO_BCK_DIV(BCK_DIV)) u_visualizer (
+        .clk(sys_clk), .rst_n(rst_n), .sample_tick(sample_tick), .sample(dac_pcm),
+        .frame_sync(frame_end_pulse), .run(scope_mode),
+        .wave0_col(wave0_col), .wave1_col(wave1_col), .spectrum_col(spectrum_col),
+        .wave0_peak(wave0_peak), .wave1_peak(wave1_peak),
+        .wave0_valid(wave0_valid), .wave1_valid(wave1_valid),
+        .spectrum_level(spectrum_level), .benchmark_level(benchmark_level),
+        .vu_level(live_vu_level), .audio_active(audio_active),
+        .display_valid(), .display_id()
+    );
 
-                // Page 1 Accumulator (386 samples = 3.953 ms per column, 758 cols = 3.00 seconds)
-                if (smp_cnt_p1 >= 10'd385) begin
-                    smp_cnt_p1 <= 10'd0;
-                    scope_p1_ram[scope_p1_wr] <= {y_top_p1, y_bot_p1};
-                    if (scope_p1_wr >= 10'd757)
-                        scope_p1_wr <= 10'd0;
-                    else
-                        scope_p1_wr <= scope_p1_wr + 1'b1;
-                    cur_max_p1 <= audio_mix;
-                    cur_min_p1 <= audio_mix;
-                end else begin
-                    smp_cnt_p1 <= smp_cnt_p1 + 1'b1;
-                    if (audio_mix > cur_max_p1) cur_max_p1 <= audio_mix;
-                    if (audio_mix < cur_min_p1) cur_min_p1 <= audio_mix;
-                end
-            end
-
-            // 2. High-Speed Frame Snapshot Copier during VSYNC (8.4 us)
-            if (frame_end_pulse) begin
-                copying          <= 1'b1;
-                copy_idx         <= 10'd0;
-                scope_p0_wr_snap <= scope_p0_wr;
-                scope_p1_wr_snap <= scope_p1_wr;
-            end else if (copying) begin
-                scope_p0_disp[copy_idx] <= scope_p0_ram[copy_idx];
-                scope_p1_disp[copy_idx] <= scope_p1_ram[copy_idx];
-                if (copy_idx >= 10'd757)
-                    copying <= 1'b0;
-                else
-                    copy_idx <= copy_idx + 1'b1;
-            end
-        end
-    end
-
-    // ------------------------------------------------------------------------
-    // LCD Scope Waveform Reader (Continuous Leftward Scrolling)
-    // ------------------------------------------------------------------------
-    // col = 0 (px=20, left edge): oldest data (3.0s ago)
-    // col = 419 (px=440, right edge): newest data (just entered)
-    wire [9:0] p0_col = (px >= 10'd20 && px <= 10'd440) ? (px - 10'd20) : 10'd0;
-    wire [9:0] p1_col = (px >= 10'd20 && px <= 10'd778) ? (px - 10'd20) : 10'd0;
-
-    wire [9:0] p0_rd_addr = (scope_p0_wr_snap + p0_col >= 10'd420) ?
-                            (scope_p0_wr_snap + p0_col - 10'd420) :
-                            (scope_p0_wr_snap + p0_col);
-
-    wire [9:0] p1_rd_addr = (scope_p1_wr_snap + p1_col >= 10'd758) ?
-                            (scope_p1_wr_snap + p1_col - 10'd758) :
-                            (scope_p1_wr_snap + p1_col);
-
-    wire [17:0] p0_data = scope_p0_disp[p0_rd_addr];
-    wire [17:0] p1_data = scope_p1_disp[p1_rd_addr];
-
-    wire [8:0] p0_disp_top = (p0_data[17:9] == 9'd0) ? 9'd300 : p0_data[17:9];
-    wire [8:0] p0_disp_bot = (p0_data[8:0]  == 9'd0) ? 9'd300 : p0_data[8:0];
-
-    wire [8:0] p1_disp_top = (p1_data[17:9] == 9'd0) ? 9'd154 : p1_data[17:9];
-    wire [8:0] p1_disp_bot = (p1_data[8:0]  == 9'd0) ? 9'd154 : p1_data[8:0];
-
-    wire [8:0] live_scope_wave_y = (ui_page == 2'd0) ? p0_disp_top : p1_disp_top;
-    wire [8:0] live_scope_prev_y = (ui_page == 2'd0) ? p0_disp_bot : p1_disp_bot;
+    wire [15:0] scope_peak = (ui_page == 2'd0) ? wave0_peak : wave1_peak;
+    wire [8:0] scope_center = (ui_page == 2'd0) ? 9'd300 : 9'd154;
+    wire [6:0] scope_half_height = (ui_page == 2'd0) ? 7'd80 : 7'd48;
+    wire [22:0] scope_height_product = scope_peak * scope_half_height;
+    wire [8:0] scope_height = {1'b0,scope_height_product[22:15]};
+    wire [8:0] live_scope_wave_y = scope_center - scope_height;
+    wire [8:0] live_scope_prev_y = scope_center + scope_height;
+    wire live_scope_valid = (ui_page == 2'd0) ? wave0_valid : wave1_valid;
 
     // ------------------------------------------------------------------------
     // LCD UI Module (Pure RTL Single-Cycle Multi-Page Engine)
@@ -635,7 +510,11 @@ module lcd_test_top #(
         .audio_active  (audio_active),
         .scope_wave_y  (live_scope_wave_y),
         .scope_prev_y  (live_scope_prev_y),
+        .scope_column_valid(live_scope_valid),
         .vu_level      (live_vu_level),
+        .spectrum_level(spectrum_level),
+        .benchmark_level(benchmark_level),
+        .scope_running (scope_mode),
         .work_mode     (work_mode),
         .timbre_sel    (inst_sel),
         .fx_sel        (fx_sel),
@@ -666,7 +545,6 @@ module lcd_test_top #(
     reg        snap_clear_req;
     reg        snap_rle = 1'b0;
     reg [1:0]  snap_wait_frm = 2'd0;
-    reg        frame_end_pulse = 1'b0;
 
     always @(posedge sys_clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -677,6 +555,7 @@ module lcd_test_top #(
             snap_rle  <= 1'b0;
             snap_wait_frm <= 2'd0;
             master_vol<= 7'd100;
+            scope_mode <= 1'b1;
             song_player_active <= 1'b0;
         end else begin
             if (reinit_clear_req) reinit_req <= 1'b0;
@@ -728,7 +607,6 @@ module lcd_test_top #(
                 if (m_cc_num == 7'd27) song_next_trig <= 1'b1;
                 if (m_cc_num == 7'd120 || m_cc_num == 7'd121) song_player_active <= 1'b0;
                 if (m_cc_num == 7'd28) scope_mode <= m_cc_val[0];
-                if (m_cc_num == 7'd29) scope_tbase_sel <= m_cc_val[1:0];
             end
 
             // 2. Standalone UART ASCII Commands (Only when NOT inside MIDI message and bit7 is 0)
@@ -763,8 +641,6 @@ module lcd_test_top #(
                     end
                     "R": begin reinit_req <= 1'b1; end
                     "w", "W": begin scope_mode <= ~scope_mode; end
-                    "[": begin scope_tbase_sel <= (scope_tbase_sel == 2'd0) ? 2'd3 : (scope_tbase_sel - 1'b1); end
-                    "]": begin scope_tbase_sel <= (scope_tbase_sel == 2'd3) ? 2'd0 : (scope_tbase_sel + 1'b1); end
                     "q", "Q": begin snap_req <= 1'b1; snap_rle <= 1'b0; end
                     "c", "C": begin snap_req <= 1'b1; snap_rle <= 1'b1; end
                     default: ;
@@ -1254,7 +1130,6 @@ module lcd_test_top #(
     reg  [8:0]  u_div;
     reg  [3:0]  u_bit;
     reg  [9:0]  u_sh;
-    reg         u_busy;
     wire        u_tick = (u_div == 9'd433);
 
     always @(posedge sys_clk or negedge rst_n) begin
@@ -1280,16 +1155,8 @@ module lcd_test_top #(
     assign uart_tx = u_sh[0];
 
     // Diagnostic Line Formatter: "Fxx S:... P:... L:... C:... W:... N:x\n"
-    localparam [4:0]
-        U_IDLE = 5'd0, U_HDR = 5'd1, U_TAG = 5'd2, U_BH = 5'd3, U_BL = 5'd4,
-        U_SP = 5'd5, U_NL = 5'd6, U_CR = 5'd7, U_WAIT = 5'd8;
-
-    reg [4:0] us, us_ret;
     reg [4:0] ubi, ubi_end;
     reg [2:0] utag;
-    reg       diag_u_start;
-    reg [7:0] diag_u_byte;
-    wire      print_busy = (us != U_IDLE);
 
     function [7:0] hexc;
         input [3:0] n;

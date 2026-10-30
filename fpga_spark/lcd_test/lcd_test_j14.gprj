@@ -26,7 +26,12 @@
 <File path="rtl/synth/song_rom.v" type="file.verilog" enable="1"/>
 <File path="rtl/synth/tone_bank.v" type="file.verilog" enable="1"/>
 <File path="rtl/synth/wave_rom.v" type="file.verilog" enable="1"/>
+<File path="rtl/visualizer/audio_visualizer.v" type="file.verilog" enable="1"/>
+<File path="rtl/visualizer/fft4096.v" type="file.verilog" enable="1"/>
+<File path="rtl/visualizer/rolling_waveform.v" type="file.verilog" enable="1"/>
 <File path="rtl/ws2812_drv.v" type="file.verilog" enable="1"/>
+<File path="rtl/visualizer/fft_hann.hex" type="file.hex" enable="1"/>
+<File path="rtl/visualizer/fft_twiddle.hex" type="file.hex" enable="1"/>
 <File path="constraints/lcd_test_j14.cst" type="file.cst" enable="1"/>
 </FileList>
 <OptionList>

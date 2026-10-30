@@ -4,11 +4,11 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 SRC = os.path.dirname(os.path.abspath(__file__))
 GW = r"D:\Gowin\Gowin_V1.9.12.04_x64\IDE\bin\gw_sh.exe"
-MIRROR = r"C:\lcd_j14_build"
 
 TCL = """set root [file dirname [info script]]
 cd $root
@@ -33,9 +33,21 @@ def find_files(work):
     return sorted(v_files)
 
 
+def find_hex_files(work):
+    data_files = []
+    for r, d, fs in os.walk(os.path.join(work, "rtl")):
+        for f in fs:
+            if f.endswith((".hex", ".data")):
+                rel = os.path.relpath(os.path.join(r, f), work)
+                data_files.append(rel.replace("\\", "/"))
+    return sorted(data_files)
+
+
 def generate_gprj(work):
     v_files = find_files(work)
+    data_files = find_hex_files(work)
     file_list_xml = "\n".join([f'<File path="{f}" type="file.verilog" enable="1"/>' for f in v_files])
+    file_list_xml += "\n" + "\n".join([f'<File path="{f}" type="file.hex" enable="1"/>' for f in data_files])
     file_list_xml += '\n<File path="constraints/lcd_test_j14.cst" type="file.cst" enable="1"/>'
     gprj = f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gowin-fpga-project>
@@ -55,17 +67,11 @@ def generate_gprj(work):
         f.write(TCL)
 
 
-def copy_tree_sync(src, dst):
-    if os.path.exists(dst):
-        shutil.rmtree(dst)
-    shutil.copytree(src, dst)
-
-
 def prepare(work):
     if os.path.abspath(work) != os.path.abspath(SRC):
         os.makedirs(work, exist_ok=True)
-        copy_tree_sync(os.path.join(SRC, "rtl"), os.path.join(work, "rtl"))
-        copy_tree_sync(os.path.join(SRC, "constraints"), os.path.join(work, "constraints"))
+        shutil.copytree(os.path.join(SRC, "rtl"), os.path.join(work, "rtl"))
+        shutil.copytree(os.path.join(SRC, "constraints"), os.path.join(work, "constraints"))
     generate_gprj(work)
 
 
@@ -98,15 +104,19 @@ def main():
     prepare(work)
     result = run(work)
     output = result.stdout + result.stderr
-    if "Corrupted project file" in output or result.returncode != 0:
-        work = MIRROR
+    if "Corrupted project file" in output:
+        scratch = os.path.join(SRC, "scratch")
+        os.makedirs(scratch, exist_ok=True)
+        work = tempfile.mkdtemp(prefix="lcd_j14_build_", dir=scratch)
         prepare(work)
         result = run(work)
         output = result.stdout + result.stderr
     print(output[-4000:])
     fs = os.path.join(work, "impl", "pnr", "lcd_test_j14.fs")
-    if not os.path.exists(fs):
-        sys.exit(f"[FAIL] No J14 bitstream generated; exit code {result.returncode}")
+    if result.returncode != 0 or "ERROR " in output:
+        sys.exit(f"[FAIL] J14 build failed; exit code {result.returncode}. Previous bitstream retained.")
+    if not os.path.exists(fs) or os.path.getmtime(fs) < t0:
+        sys.exit("[FAIL] No fresh J14 bitstream generated. Previous bitstream retained.")
     dst = os.path.join(SRC, "bitstream", "lcd_ui_j14_138c_verified.fs")
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     if os.path.exists(dst):

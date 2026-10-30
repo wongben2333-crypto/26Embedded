@@ -245,12 +245,29 @@ module song_player #(
     wire [17:0] scroll_num = dur_top * 6'd60;
     wire [5:0]  sub_scroll_w = ((scroll_num / cur_top) >= 6'd60) ? 6'd59 : (scroll_num / cur_top);
 
+    // Register outputs to break long combinational timing paths into the LCD UI
+    reg [7:0] song_progress_pct_r;
+    reg [8:0] song_note_idx_r;
+    reg [5:0] song_sub_scroll_r;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            song_progress_pct_r <= 8'd0;
+            song_note_idx_r     <= 9'd0;
+            song_sub_scroll_r   <= 6'd0;
+        end else begin
+            song_progress_pct_r <= pct_w;
+            song_note_idx_r     <= cur_note_idx_w;
+            song_sub_scroll_r   <= (state == S_WAIT) ? sub_scroll_w : 6'd0;
+        end
+    end
+
     assign song_elapsed_sec = cur_sec;
     assign song_elapsed_min = cur_min;
     assign song_total_sec   = total_sec_r;
-    assign song_progress_pct= pct_w;
-    assign song_note_idx    = cur_note_idx_w;
-    assign song_sub_scroll  = (state == S_WAIT) ? sub_scroll_w : 6'd0;
+    assign song_progress_pct= song_progress_pct_r;
+    assign song_note_idx    = song_note_idx_r;
+    assign song_sub_scroll  = song_sub_scroll_r;
     assign song_active_note = has_active ? active_note : 7'd0;
 
     // ------------------------------------------------------------- 按键边沿 ----

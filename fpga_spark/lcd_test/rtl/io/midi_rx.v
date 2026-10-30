@@ -99,13 +99,12 @@ module midi_rx (
     localparam [6:0] VIB_RATE_DEFAULT = 7'd50;    // 约定 50 → 5.0 Hz
 
     // ---- 解析状态机 ----
-    assign in_midi_msg = (wstate != W_STATUS);
-
     localparam [1:0] W_STATUS = 2'd0,   // 等状态字节
                      W_D1     = 2'd1,   // 等第 1 个数据字节（note / CC 号）
                      W_D2     = 2'd2;   // 等第 2 个数据字节（velocity / value）
 
     reg  [1:0] wstate;
+    assign in_midi_msg = (wstate != W_STATUS);
     reg  [7:0] status;                  // 最近一次状态字节（含通道号）
     reg  [6:0] d1;                      // 第 1 个数据字节
 

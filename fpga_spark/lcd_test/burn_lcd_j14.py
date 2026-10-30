@@ -46,7 +46,7 @@ if "GW5AST-138" not in scan_res.stdout:
 print("      检测到 GW5AST-138 芯片在线！")
 
 # 2. 烧录位流到 SRAM
-print("[2/2] 开始向 SRAM 烧录位流 (预计耗时 ~15-20 秒)...")
+print("[2/2] 开始向 SRAM 烧录位流 (预计耗时 ~30 秒)...")
 cmd = [CLI, "--device", DEV, "--frequency", "2.5MHz",
        "--fsFile", FS, "--operation_index", "2"]
 
@@ -61,5 +61,6 @@ if res.returncode != 0 or "Error" in res.stdout or elapsed < 3.0:
         print("[stderr]", res.stderr)
     sys.exit(1)
 
-print(f"\n[OK] 烧录成功！用时 {elapsed:.1f}s，退出码 {res.returncode}")
+print(f"\n[OK] SRAM 下载完成，用时 {elapsed:.1f}s，退出码 {res.returncode}")
 print(res.stdout)
+print("[待验证] 尚未验证程序运行及 LCD 显示，请检查实屏或通过串口截图验证。")

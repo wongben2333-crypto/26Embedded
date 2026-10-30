@@ -39,3 +39,5 @@ fpga_hank/_tools/
 
 **/scratch/
 *.wav
+
+**/old_working.fs
