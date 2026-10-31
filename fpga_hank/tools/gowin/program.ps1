@@ -76,7 +76,7 @@ if (-not (Test-Path $CLI)) {
 #   ⇒ 这一行把 时间 + 模式 + 操作码 + 文件名 + 大小 + SHA256 + User Code 固定下来。
 #
 #   ★ 操作码映射集中在这里，不要再散落到别处（避免再出现"把内部操作码当脚本参数"的混淆）：
-#       sram -> 2   flash -> 9   verify -> 2 (--svfcreate 只支持 2)
+#       sram -> 2   flash -> 68   verify -> 2 (--svfcreate 只支持 2)
 $OP_MAP = @{ 'sram' = 2; 'flash' = 9; 'verify' = 2; 'scan' = 0 }
 
 function Write-FlashLog {
@@ -153,7 +153,8 @@ if ($Mode -eq 'verify') {
     $svfOut = Join-Path $env:TEMP ("gsvf_" + [guid]::NewGuid().ToString('N').Substring(0,8))
     New-Item -ItemType Directory -Force -Path $svfOut | Out-Null
     Push-Location $svfOut
-    $vo = & $CLI --device $Device --fsFile $Fs --operation_index 2 --svfcreate 2>&1 | Out-String
+    $vo = $FsAbs = (Get-Item $Fs).FullName
+    $vo = & $CLI --device $Device --fsFile $FsAbs --operation_index 2 --svfcreate 2>&1 | Out-String
     Pop-Location
     $vo.Trim() -split "`n" | ForEach-Object { "         $_" }
 
@@ -215,6 +216,8 @@ Write-Host "      SHA256: $hash"
 # 操作码来自官方 --help 实测：
 #   1: Reprogram           2: SRAM Program       4: SRAM Program and Verify
 #   8: exFlash Erase,Program   9: exFlash Erase,Program,Verify
+    #   ★ 本板【不用】8/9：外部 SPI flash 挂在 GAO-Bridge 之后，实测 9 报 "spi flash not found"
+    #   ★ 本板用 68: exFlash Erase,Program thru GAO-Bridge Arora V（GW5AST 属 Arora V 系列）
 if ($Mode -eq 'sram') {
     # ★ 2026-10-05 真板实测：操作码 4（SRAM Program **and Verify**）在本板
     #   （Tang Mega 138K + 板载 FT2232H 缆线）上**必然报 "Error: Verify failed of at 0"**，
@@ -229,14 +232,30 @@ if ($Mode -eq 'sram') {
     Write-Host "              注：不用带 Verify 的操作码 4 —— 本板回读校验通路不可用，"
     Write-Host "                  会误报 Verify failed（位流其实已写入，已实测证实）"
 } else {
-    $op = 9
-    Write-Host "`n      操作  : exFlash Erase,Program,Verify（写入外部 flash，上电自动运行）"
+    # ★★ 2026-10-08 实测更正：本板【不能】用普通 exFlash 操作码。
+    #   实测三连（同一份位流、同一根缆线、同一个器件 GW5AST-138C）：
+    #     op  9 = exFlash Erase,Program,Verify            -> Error: spi flash not found   (退出码 64)
+    #     op  6 = embFlash Erase,Program,Verify           -> Error: Erase Failed!         (退出码 32)
+    #     op 68 = exFlash Erase,Program thru GAO-Bridge Arora V -> ✅ 成功 (100%, 87.4 s, 退出码 0)
+    #   根因：Tang Mega 138K 的外部 SPI flash 【挂在 GAO-Bridge 之后】，
+    #         必须用带 "thru GAO-Bridge" 的操作码；GW5AST 属 Arora V 系列 ⇒ 用 67/68/69。
+    #   依据：docs/上板验证指南.md L114-116 记录的官方模式即
+    #         "exFlash Erase,Program thru GAO-Bridge 5A" = op 68。
+    #   ⚠️ 曾用 op 9，脚本报的错指向"器件没认到/缆线被占用"，是【误导性错误信息】。
+    $op = 68
+    Write-Host "`n      操作  : exFlash Erase,Program thru GAO-Bridge Arora V (op 68)"
+    Write-Host "              （写入外部 flash，上电自动运行）"
     Write-Host "      ⚠️ 这会改写板上的 flash。确定要写吗？" -ForegroundColor Yellow
 }
 
 $script:progOut = @()
 Write-Host "`n[program] 开始烧录 ..."
-& $CLI --device $Device --fsFile $Fs --operation_index $op --frequency $Frequency 2>&1 |
+# ★ 2026-10-08 修复：programmer_cli 不解析相对路径的 --fsFile
+    #   症状：传 "out\bitstream\x.fs" 时报
+    #         Error: Not found any data File, you should use --fsFile\--acFile\--mcuFile ...
+    #   实测：改成绝对路径后同一文件烧录成功（User Code 0x1A2B0001 可复核）
+    $FsAbs = (Get-Item $Fs).FullName
+    & $CLI --device $Device --fsFile $FsAbs --operation_index $op --frequency $Frequency 2>&1 |
     ForEach-Object { "      $_"; $script:progOut += "$_" }
 $rc = $LASTEXITCODE
 

@@ -37,13 +37,18 @@
 
 module top #(
     // 0 = 演示模式（按键放歌）；1 = 电脑控制（串口钢琴）；2 = 32峰测试
-    parameter integer MODE       = 1,
+    // 3 = 硬件乐器（S5：13键+光电+ToF+EC11 直驱音符总线，见 io/hw_input_mgr.v）
+    parameter integer MODE       = 3,
     // 采样率：BCK_DIV=1 -> fs=97656.25 Hz；BCK_DIV=2 -> 48828.125 Hz
     //   ⚠️ 改这个值必须同步重新生成 tone_bank.v / piano_rom.v（频率字按新采样率折算）
     parameter integer BCK_DIV    = 1,
     // MODE=0/1 下效果器的【上电默认档】：0=旁路 1=延迟 2=合唱 3=混响
     //   ⚠️ 默认旁路 —— 万一效果器有问题，最坏情况只是"没效果"，不会毁掉演示
-    parameter integer FX_DEFAULT = 0
+    parameter integer FX_DEFAULT = 0,
+    // ★ 138K 进阶总开关：1 = 启用 32复音×6泛音(192独立振荡器) TDM 引擎；0 = 8复音×6泛音并行引擎
+    parameter integer USE_TDM32  = 1,
+    // ★ 电吉他过载+箱体模拟级联开关：1 = 串联 guitar_fx (电吉他档自动开启过载+4x12箱体)
+    parameter integer EN_GUITAR_FX = 1
 )(
     input  wire       clk,        // V22, 50 MHz 板载有源晶振
     output wire [3:0] led,        // T18 R18 R17 P16，低有效
@@ -60,7 +65,16 @@ module top #(
     // ------ 电脑控制链路新增（2026-10-05 上板确证）------
     // V14：官方引脚文件给 `rxp` 写的是 V14（Version 31004+）；已上板回环验证
     // ⚠️ 约束里 **不能给它 DRIVE=8**（本器件 P&R 报 ERROR CT1108）
-    input  wire       uart_rx_pin // V14  PC → FPGA 串口接收
+    input  wire       uart_rx_pin, // V14  PC → FPGA 串口接收
+
+    // ------ S5 硬件乐器输入（MODE=3；引脚全部实测过，见 INPUTS-WIRING.md）--
+    input  wire [12:0] key_hw,     // J13 1..10,13,14,15  按下=0（内部上拉）
+    input  wire [5:0]  photo_hw,   // J13 16..21          挡光=0（经 S9012）
+    input  wire        ec1a,       // J13-22 D17  EC11 #1 正交 A
+    input  wire        ec1b,       // J13-23 A19  EC11 #1 正交 B
+    inout  wire        scl_tof,    // J8-10  AB22 ToF#1 总线 A SCL（必须 inout）
+    inout  wire        sda_tof,    // J8-11  Y21  ToF#1 总线 A SDA
+    output wire        dbg_tx      // J9-11  P19  调试遥测 115200（CPU 脚）
 );
 
     // ---------------------------------------------------- 上电复位 ----------
@@ -141,14 +155,21 @@ module top #(
     always @(posedge clk) k1_db_d <= key_db;
     wire k1_press = key_db & ~k1_db_d;          // key1 上升沿
 
-    reg run_mode = 1'b1;                        // ★ 上电默认自由演奏（防 X）
+    // MODE3 runtime source: 0=physical inputs, 1=PC MIDI, 2=song player.
+    // MODE1 keeps the historical PC/song toggle; MODE0 is song-only.
+    reg [1:0] source_mode = (MODE == 3) ? 2'd0 : 2'd1;
     always @(posedge clk) begin
-        if (!rst_n)               run_mode <= 1'b1;
-        else if (MODE == 1) begin                // 只有 MODE=1（电脑控制位流）支持运行期切换
-            if (k2_press) run_mode <= ~run_mode; // ★ key2 = 切换开关
-        end else run_mode <= 1'b1;               // MODE=0/2 下不进曲目模式
+        if (!rst_n) begin
+            source_mode <= (MODE == 3) ? 2'd0 : 2'd1;
+        end else if (MODE == 3 && k2_press) begin
+            if (source_mode == 2'd2) source_mode <= 2'd0;
+            else                    source_mode <= source_mode + 2'd1;
+        end else if (MODE == 1 && k2_press) begin
+            source_mode <= (source_mode == 2'd1) ? 2'd2 : 2'd1;
+        end
     end
-    wire run_song = (MODE == 1) ? ~run_mode : (MODE == 0);   // ★ 1 = 曲目模式
+    wire run_song = (MODE == 0) || (((MODE == 1) || (MODE == 3)) && (source_mode == 2'd2));
+    wire source_physical = (MODE == 3) && (source_mode == 2'd0);
 
     // ★ 2026-10-06（用户要求）：曲目模式下 key1 = 【换乐器播放】（按一下切一个），
     //   不再做"暂停/播放"；暂停/播放由 key2 的进出模式承担。
@@ -156,10 +177,11 @@ module top #(
     reg [1:0] inst_song = 2'd0;
     always @(posedge clk) begin
         if (!rst_n)                          inst_song <= 2'd0;
-        else if (run_song & k1_press)        inst_song <= inst_song + 2'd1;   // 0→1→2→3→0
+        else if (run_song & k1_press)
+            inst_song <= (inst_song == 2'd2) ? 2'd0 : (inst_song + 2'd1);      // 钢琴→吉他→小提琴→钢琴
     end
     wire [1:0] inst_sel_eff = run_song ? inst_song : inst_sel;
-    wire mode_chg = (MODE == 1) & k2_press;                  // 切换事件（一拍脉冲）
+    wire mode_chg = ((MODE == 1) || (MODE == 3)) & k2_press;
 
     // ---- 第 3 道清音：切换后静音窗 ~5 ms（避免阶跃"咔哒"）----
     //  ⚠️ v1 用静音窗（无乘法器/DSP）；线性淡入需要乘法器，留待后续
@@ -183,7 +205,7 @@ module top #(
     reg [1:0] timbre_user = 2'd0;
     always @(posedge clk)
         if (!rst_n)        timbre_user <= 2'd0;
-        else if (k2_press) timbre_user <= timbre_user + 2'd1;
+        else if (k2_press && (MODE != 3)) timbre_user <= timbre_user + 2'd1;
     // 测试模式锁纯正弦表（否则每路多个谐波谱峰，判据会误判）
     wire [1:0] timbre_sel = (MODE == 2) ? 2'd0 : timbre_user;
 
@@ -261,42 +283,107 @@ module top #(
     );
 
     // ================= 乐器/效果器 CC 译码（2026-10-06 新增）=================
-    //  CC20 -> 乐器选择：0=钢琴 1=吉他 2=古筝
+    //  CC20 -> 乐器选择：0=钢琴 1=吉他 3=小提琴（协议值 3 映射到内部音色槽 2）
     //  CC21 -> 挂电量（吉他效果器强度）0..127
     //  ⚠️ midi_rx 只做传输层（原样透传 0..127），语义在这里定 —— 见 AGENTS.md §4.1
     wire [6:0] m_cc_num, m_cc_val;
     wire       m_cc_any_valid;
     reg  [1:0] inst_sel    = 2'd0;      // ★ 上电默认钢琴（防 X）
     reg  [6:0] drive_amt   = 7'd0;
+    reg  [6:0] bow_force_amt = 7'd64;
+    reg  [6:0] bow_pos_amt   = 7'd64;
+    reg  [1:0] fx_sel_cc   = FX_DEFAULT[1:0];
+    reg  [6:0] fx_param_cc = 7'd64;
+    reg  [1:0] cab_sel_cc  = 2'd1;      // 默认 4x12 密闭箱体
     always @(posedge clk) begin
         if (!rst_n) begin
-            inst_sel  <= 2'd0;
-            drive_amt <= 7'd0;
-        end else if (m_cc_any_valid) begin
-            case (m_cc_num)
-                7'd20: inst_sel  <= m_cc_val[1:0];
-                7'd21: drive_amt <= m_cc_val;
-                default: ;               // CC22~24 以后在这里补
-            endcase
+            inst_sel    <= 2'd0;
+            drive_amt   <= 7'd0;
+            bow_force_amt <= 7'd64;
+            bow_pos_amt   <= 7'd64;
+            fx_sel_cc   <= FX_DEFAULT[1:0];
+            fx_param_cc <= 7'd64;
+            cab_sel_cc  <= 2'd1;
+        end else begin
+            if ((MODE != 2) && kp_press)
+                fx_sel_cc <= fx_sel_cc + 2'd1; // 板载/外接按键循环切换 旁路/延迟/合唱/混响
+            if (m_cc_any_valid) begin
+                case (m_cc_num)
+                    7'd20: inst_sel    <= m_cc_val[1:0];
+                    7'd21: drive_amt   <= m_cc_val;
+                    7'd22: if ((inst_sel == 2'd2) || (inst_sel == 2'd3)) bow_force_amt <= m_cc_val;
+                           else fx_sel_cc <= m_cc_val[1:0];
+                    7'd23: if ((inst_sel == 2'd2) || (inst_sel == 2'd3)) bow_pos_amt <= m_cc_val;
+                           else fx_param_cc <= m_cc_val;
+                    7'd24: cab_sel_cc  <= m_cc_val[1:0];
+                    7'd91: fx_sel_cc   <= (m_cc_val >= 7'd64) ? 2'd3 : 2'd0; // MIDI 标准混响 CC91
+                    7'd93: fx_sel_cc   <= (m_cc_val >= 7'd64) ? 2'd2 : 2'd0; // MIDI 标准合唱 CC93
+                    default: ;
+                endcase
+            end
         end
     end
+    // ================= S5：硬件乐器输入管理（MODE=3 新增）=================
+    //  13 键 + 光电#1 + ToF#1 + EC11#1 → 串行化音符事件（≥16 clk 间距，
+    //  引擎装载 FSM 实测需 14 clk）+ EC11 音量。四类输入全部实测过
+    //  （hw_bringup S1/SDRAMPROBE/TOFREAD/INPUTS 固件）。所有 MODE 下都
+    //  例化（与 song_player/midi_rx 同例化风格）；MODE≠3 时事件被 mux 掉，
+    //  综合只保留遥测链。详细语义见 io/hw_input_mgr.v 头注释。
+    wire        h_on_valid, h_off_valid, h_glide_on;
+    wire [6:0]  h_on_note,  h_on_vel,  h_off_note;
+    wire [6:0]  h_glide_time, h_volume;
+    wire [12:0] h_key_state;
+    wire [5:0]  h_photo_state;
+    wire [15:0] h_tof_dist;
+    wire [7:0]  h_ovf;
+
+    hw_input_mgr #(
+        .CLK_HZ(50_000_000),
+        .QUIET ((MODE == 3) ? 0 : 1)     // MODE=3 full; other modes: pins stay
+                                         // but I2C+telemetry frozen (clean audio)
+    ) u_hwin (
+        .clk        (clk),
+        .rst_n      (rst_n),
+        .key_raw    (key_hw),
+        .photo_raw  (photo_hw),
+        .ec1a_raw   (ec1a),
+        .ec1b_raw   (ec1b),
+        .scl_a      (scl_tof),
+        .sda_a      (sda_tof),
+        .dbg_tx     (dbg_tx),
+        .ev_on_valid(h_on_valid),
+        .ev_on_note (h_on_note),
+        .ev_on_vel  (h_on_vel),
+        .ev_off_valid(h_off_valid),
+        .ev_off_note (h_off_note),
+        .ev_glide_on (h_glide_on),
+        .ev_glide_time(h_glide_time),
+        .volume     (h_volume),
+        .key_state  (h_key_state),
+        .photo_state(h_photo_state),
+        .tof_dist   (h_tof_dist),
+        .ovf_cnt    (h_ovf)
+    );
+
     // ---- 按 MODE 选择来源 ----
     // MODE=0：song_player；MODE=1：midi_rx；MODE=2：测试模式不使用音符总线
+    // MODE=3：hw_input_mgr（硬件乐器）
     //  ★ 2026-10-06：由【运行期】run_song 选择（MODE=0 恒曲目 / MODE=1 运行期 / MODE=2 不用）
     //  第 2 道清音：切换瞬间给 piano_engine 一个 reset_all 一拍脉冲（释放所有声部）
-    wire bus_reset_all_w = (MODE == 2) ? 1'b0 : (run_song ? 1'b0 : (m_reset_all | mode_chg));
-    assign bus_on_valid   = (MODE == 2) ? 1'b0        : (run_song ? s_on_valid  : m_on_valid);
-    assign bus_on_note    = (MODE == 2) ? 7'd0        : (run_song ? s_on_note   : m_on_note);
-    assign bus_on_vel     = (MODE == 2) ? 7'd0        : (run_song ? s_on_vel    : m_on_vel);
-    assign bus_off_valid  = (MODE == 2) ? 1'b0        : (run_song ? s_off_valid : m_off_valid);
-    assign bus_off_note   = (MODE == 2) ? 7'd0        : (run_song ? s_off_note  : m_off_note);
-    assign bus_cc_valid   = (MODE == 2) ? 1'b0        : (run_song ? 1'b0        : m_cc_valid);
-    assign bus_glide_on   = (MODE == 2) ? 1'b0        : (run_song ? 1'b0        : m_glide_on);
-    assign bus_glide_time = (MODE == 2) ? 7'd0        : (run_song ? 7'd0        : m_glide_time);
-    assign bus_vib_on     = (MODE == 2) ? 1'b0        : (run_song ? 1'b0        : m_vib_on);
-    assign bus_vib_depth  = (MODE == 2) ? 7'd0        : (run_song ? 7'd0        : m_vib_depth);
-    assign bus_vib_rate   = (MODE == 2) ? 7'd50       : (run_song ? 7'd50       : m_vib_rate);
-    assign bus_sustain    = (MODE == 2) ? 1'b0        : (run_song ? 1'b0        : m_sustain);
+    //  ★ S5：MODE=3 下 run_song 恒 0（编译期折叠），m_reset_all/mode_chg 都不进总线
+    wire bus_reset_all_w = (MODE == 2) ? 1'b0 : (m_reset_all | mode_chg);
+    assign bus_on_valid   = (MODE == 2) ? 1'b0 : (run_song ? s_on_valid  : (source_physical ? h_on_valid   : m_on_valid));
+    assign bus_on_note    = (MODE == 2) ? 7'd0 : (run_song ? s_on_note   : (source_physical ? h_on_note    : m_on_note));
+    assign bus_on_vel     = (MODE == 2) ? 7'd0 : (run_song ? s_on_vel    : (source_physical ? h_on_vel     : m_on_vel));
+    assign bus_off_valid  = (MODE == 2) ? 1'b0 : (run_song ? s_off_valid : (source_physical ? h_off_valid  : m_off_valid));
+    assign bus_off_note   = (MODE == 2) ? 7'd0 : (run_song ? s_off_note  : (source_physical ? h_off_note   : m_off_note));
+    assign bus_cc_valid   = (MODE == 2) ? 1'b0 : (run_song ? 1'b0        : (source_physical ? 1'b0         : m_cc_valid));
+    assign bus_glide_on   = (MODE == 2) ? 1'b0 : (run_song ? 1'b0        : (source_physical ? h_glide_on   : m_glide_on));
+    assign bus_glide_time = (MODE == 2) ? 7'd0 : (run_song ? 7'd0        : (source_physical ? h_glide_time : m_glide_time));
+    assign bus_vib_on     = (MODE == 2) ? 1'b0 : (run_song ? 1'b0        : (source_physical ? 1'b0         : m_vib_on));
+    assign bus_vib_depth  = (MODE == 2) ? 7'd0 : (run_song ? 7'd0        : (source_physical ? 7'd0         : m_vib_depth));
+    assign bus_vib_rate   = (MODE == 2) ? 7'd50 : (run_song ? 7'd50       : (source_physical ? 7'd50        : m_vib_rate));
+    assign bus_sustain    = (MODE == 2) ? 1'b0 : (run_song ? 1'b0        : (source_physical ? 1'b0         : m_sustain));
     assign bus_reset_all  = bus_reset_all_w;
 
     // ★ 2026-10-06：把"曲目模式强制值"寄存一拍 —— 修上一版 −0.074 ns（mux 直连关键路径）
@@ -311,36 +398,68 @@ module top #(
             bow_speed_eff_r <= run_song ? 7'd0 : drive_amt;
         end
     end
-    // ---------------------------------------------------- 钢琴引擎 ---------
+    // ---------------------------------------------------- 多音色合成引擎 ----
     wire signed [15:0] mix_piano;
     wire [7:0]         piano_active;
+    wire [31:0]        piano_active32;
 
-    piano_engine #(
-        .N_VOICES  (8),           // ★ 2026-10-06 曾试 20 ⇒ 时序失败(13203 违例/−6.774ns, BSRAM 219/340) 已回退；32 声部走 TDM 方案
-        .CLK_HZ    (50_000_000),
-        .OUT_SHIFT (1)
-    ) u_piano (
-        .clk        (clk),
-        .rst_n      (rst_n),
-        .sample_tick(sample_tick),
-        .on_valid   (bus_on_valid),
-        .on_note    (bus_on_note),
-        .on_vel     (bus_on_vel),
-        .off_valid  (bus_off_valid),
-        .off_note   (bus_off_note),
-        .glide_on   (bus_glide_on),
-        .glide_time (bus_glide_time),
-        .vib_on     (bus_vib_on),
-        .vib_depth  (bus_vib_depth),
-        .vib_rate   (bus_vib_rate),
-        .sustain    (bus_sustain),
-        // ★ 2026-10-06：曲目模式下【强制钢琴 + 弓速 0】
-        //   （否则若用户上次选在二胡且 CC21>0，drive 会让每个音持续不衰减 ⇒ 整首歌变成一堵噪音 ✗）
-        .inst_sel   (inst_sel_eff_r),          // ★ 曲目模式下由 key1 切换（已寄存，修时序）
-        .bow_speed  (bow_speed_eff_r),         // ★ 曲目模式下强制 0（走内部中速兜底）
-        .mix_out    (mix_piano),
-        .active     (piano_active)
-    );
+    generate
+    if (USE_TDM32 != 0) begin : g_tdm32_engine
+        // ★ 138K 满血版：32复音 × 6泛音 = 192个同时活跃可闻独立振荡器 (TDM SDPB 架构)
+        piano_engine_tdm32 #(
+            .N_VOICES  (32),
+            .CLK_HZ    (50_000_000),
+            .OUT_SHIFT (1)
+        ) u_piano_tdm32 (
+            .clk        (clk),
+            .rst_n      (rst_n),
+            .sample_tick(sample_tick),
+            .on_valid   (bus_on_valid),
+            .on_note    (bus_on_note),
+            .on_vel     (bus_on_vel),
+            .off_valid  (bus_off_valid),
+            .off_note   (bus_off_note),
+            .glide_on   (bus_glide_on),
+            .glide_time (bus_glide_time),
+            .vib_on     (bus_vib_on),
+            .vib_depth  (bus_vib_depth),
+            .vib_rate   (bus_vib_rate),
+            .sustain    (bus_sustain),
+            .inst_sel   (inst_sel_eff_r),
+            .bow_speed  (bow_speed_eff_r),
+            .mix_out    (mix_piano),
+            .active     (piano_active32)
+        );
+        assign piano_active = piano_active32[7:0] | piano_active32[15:8] |
+                              piano_active32[23:16] | piano_active32[31:24];
+    end else begin : g_par8_engine
+        piano_engine #(
+            .N_VOICES  (8),
+            .CLK_HZ    (50_000_000),
+            .OUT_SHIFT (1)
+        ) u_piano (
+            .clk        (clk),
+            .rst_n      (rst_n),
+            .sample_tick(sample_tick),
+            .on_valid   (bus_on_valid),
+            .on_note    (bus_on_note),
+            .on_vel     (bus_on_vel),
+            .off_valid  (bus_off_valid),
+            .off_note   (bus_off_note),
+            .glide_on   (bus_glide_on),
+            .glide_time (bus_glide_time),
+            .vib_on     (bus_vib_on),
+            .vib_depth  (bus_vib_depth),
+            .vib_rate   (bus_vib_rate),
+            .sustain    (bus_sustain),
+            .inst_sel   (inst_sel_eff_r),
+            .bow_speed  (bow_speed_eff_r),
+            .mix_out    (mix_piano),
+            .active     (piano_active)
+        );
+        assign piano_active32 = {24'd0, piano_active};
+    end
+    endgenerate
 
     // ---------------------------------------------------- 32 路音源（MODE=2）
     wire [31:0]     gate;
@@ -388,36 +507,238 @@ module top #(
     //      ⇒ 瞬时频谱只有 2 根峰，不适合"N 路 → N 个谱峰"的判据。
     assign gate = (MODE == 2) ? 32'hFFFF_FFFF : 32'd0;
 
+    // ---------------------------------------------------- 乐器琴体 EQ -------
+    // 先按音色做轻量琴体/拾音器频带整形，再进入可选吉他效果器和全局空间效果。
+    // 该模块只做移位加法，逐样本纯 HDL，不影响 32 声部振荡器计数。
+    wire signed [15:0] mix_body;
+    instrument_body_fx u_body_fx (
+        .clk       (clk),
+        .rst_n     (rst_n),
+        .sample_tick(sample_tick),
+        .inst_sel  (inst_sel_eff_r),
+        .bow_force (bow_force_amt),
+        .bow_pos   (bow_pos_amt),
+        .x         (mix_piano),
+        .y         (mix_body)
+    );
+
     // ---------------------------------------------------- 硬件效果器 -------
     // ★ 位置：混音之后、pt8211_tx 之前（集成清单 §16）
     // ★ 只在 MODE=0/1 生效；MODE=2 下被 mux 掉、综合时会整体优化掉
     //   ⇒ 保证 32 谱峰取证路径与"未加效果器时"**逐样本一致**
-    reg  [1:0] fx_sel_user = FX_DEFAULT[1:0];
-    always @(posedge clk)
-        if (!rst_n)              fx_sel_user <= FX_DEFAULT[1:0];
-        // ★ 2026-10-06：key2 在 MODE=1 下已经是【模式切换】⇒ 不再改效果器选择
-        //   （原行为会让 fx_sel 越界到 3 > N_FX-1 ⇒ audio_fx 输出垃圾噪声 ✗）
-    wire [1:0] fx_sel = (MODE == 0) ? FX_DEFAULT[1:0] : fx_sel_user;
+    // ★ 电吉他专属效果器级联（4相过载/失真 + 6相 4x12/1x12 参数化 IIR 箱体模拟）
+    //   当 inst_sel_eff_r == 2'd1 (电吉他) 时自动开启过载+箱体；钢琴/小提琴档逐 bit 旁路直通
+    wire signed [15:0] mix_post_guitar;
+    generate
+    if (EN_GUITAR_FX != 0) begin : g_guitar_fx
+        // 默认按木吉他参考音色走干声，避免上电就被过载/箱体模拟染成电子吉他。
+        // CC21 调到 96 以上时仍可启用电吉他效果。
+        wire [1:0] g_fx_sel  = (inst_sel_eff_r == 2'd1 && bow_speed_eff_r >= 7'd96) ? 2'd1 : 2'd0;
+        wire [1:0] g_cab_sel = (inst_sel_eff_r == 2'd1 && bow_speed_eff_r >= 7'd96) ? cab_sel_cc : 2'd0;
+        wire [6:0] g_drive   = (bow_speed_eff_r != 7'd0) ? bow_speed_eff_r : 7'd48;
+        guitar_fx u_guitar_fx (
+            .clk        (clk),
+            .rst_n      (rst_n),
+            .sample_tick(sample_tick),
+            .fx_sel     (g_fx_sel),
+            .cab_sel    (g_cab_sel),
+            .drive      (g_drive),
+            .tone       (7'd96),
+            .level      (7'd64),
+            .fx_in      (mix_body),
+            .fx_out     (mix_post_guitar)
+        );
+    end else begin : g_no_guitar_fx
+        assign mix_post_guitar = mix_body;
+    end
+    endgenerate
 
+    wire [1:0] fx_sel = (MODE == 0) ? FX_DEFAULT[1:0] : fx_sel_cc;
     wire signed [15:0] fx_out;
 
     audio_fx #(
-        .N_FX   (3)                    // ⚠️ 该模块【只有 N_FX】这一个参数
-    ) u_fx (                           //    （作者注：内部不需要 CLK_HZ 做译码，
-                                       //      仅保留契约参数 N_FX 为将来扩展预留）
+        .N_FX   (3)
+    ) u_fx (
         .clk        (clk),
         .rst_n      (rst_n),
         .sample_tick(sample_tick),
         .fx_sel     (fx_sel),
-        .param      (7'd64),           // 0..127：深度/反馈量，取中值
-        .fx_in      (mix_piano),
+        .param      (fx_param_cc),
+        .fx_in      (mix_post_guitar),
         .fx_out     (fx_out)
     );
 
     // ---------------------------------------------------- 音频输出 mux ----
     // MODE=2：纯 tone_bank（32 路恒发声，供频谱取证）
     // MODE=0/1：钢琴引擎 → 效果器
-    wire signed [15:0] audio_mix_raw = (MODE == 2) ? mix_bank : fx_out;
+    // MODE=3：钢琴引擎 → 效果器 → EC11 音量增益（S5 新增，唯一新增乘法器）
+    //   ★ 2026-10-23 S5 修复：线性 (vol/127) 曲线在 100 附近每格只有 ±0.3 dB，
+    //     实测"旋转没反应"。改为 dB 感知 LUT：vol 0..127 → 0..32767，
+    //     全程 -42dB..0dB，每格（4 步）≈1.32 dB，vol=0 静音、127 直通。
+    //   gain = (fx_out × vol_word) >> 15；|fx_out|≤32768、vol_word≤32767
+    //   ⇒ |结果|≤32767，无需饱和。MODE≠3 时乘法器被常量折叠优化掉。
+    //   操作数先寄存（帮 Gowin 映射进 DSP 并切断组合路径），输出再寄存一级。
+    function [15:0] vol_lut;
+        input [6:0] v;
+        begin
+            case (v)
+            7'd0: vol_lut = 16'd0;
+            7'd1: vol_lut = 16'd270;
+            7'd2: vol_lut = 16'd281;
+            7'd3: vol_lut = 16'd292;
+            7'd4: vol_lut = 16'd303;
+            7'd5: vol_lut = 16'd315;
+            7'd6: vol_lut = 16'd327;
+            7'd7: vol_lut = 16'd340;
+            7'd8: vol_lut = 16'd353;
+            7'd9: vol_lut = 16'd367;
+            7'd10: vol_lut = 16'd381;
+            7'd11: vol_lut = 16'd396;
+            7'd12: vol_lut = 16'd411;
+            7'd13: vol_lut = 16'd427;
+            7'd14: vol_lut = 16'd444;
+            7'd15: vol_lut = 16'd461;
+            7'd16: vol_lut = 16'd479;
+            7'd17: vol_lut = 16'd497;
+            7'd18: vol_lut = 16'd517;
+            7'd19: vol_lut = 16'd537;
+            7'd20: vol_lut = 16'd557;
+            7'd21: vol_lut = 16'd579;
+            7'd22: vol_lut = 16'd601;
+            7'd23: vol_lut = 16'd625;
+            7'd24: vol_lut = 16'd649;
+            7'd25: vol_lut = 16'd674;
+            7'd26: vol_lut = 16'd700;
+            7'd27: vol_lut = 16'd728;
+            7'd28: vol_lut = 16'd756;
+            7'd29: vol_lut = 16'd785;
+            7'd30: vol_lut = 16'd816;
+            7'd31: vol_lut = 16'd847;
+            7'd32: vol_lut = 16'd880;
+            7'd33: vol_lut = 16'd914;
+            7'd34: vol_lut = 16'd950;
+            7'd35: vol_lut = 16'd987;
+            7'd36: vol_lut = 16'd1025;
+            7'd37: vol_lut = 16'd1065;
+            7'd38: vol_lut = 16'd1106;
+            7'd39: vol_lut = 16'd1149;
+            7'd40: vol_lut = 16'd1194;
+            7'd41: vol_lut = 16'd1240;
+            7'd42: vol_lut = 16'd1288;
+            7'd43: vol_lut = 16'd1338;
+            7'd44: vol_lut = 16'd1390;
+            7'd45: vol_lut = 16'd1444;
+            7'd46: vol_lut = 16'd1500;
+            7'd47: vol_lut = 16'd1558;
+            7'd48: vol_lut = 16'd1619;
+            7'd49: vol_lut = 16'd1681;
+            7'd50: vol_lut = 16'd1747;
+            7'd51: vol_lut = 16'd1814;
+            7'd52: vol_lut = 16'd1885;
+            7'd53: vol_lut = 16'd1958;
+            7'd54: vol_lut = 16'd2034;
+            7'd55: vol_lut = 16'd2113;
+            7'd56: vol_lut = 16'd2195;
+            7'd57: vol_lut = 16'd2280;
+            7'd58: vol_lut = 16'd2369;
+            7'd59: vol_lut = 16'd2461;
+            7'd60: vol_lut = 16'd2556;
+            7'd61: vol_lut = 16'd2655;
+            7'd62: vol_lut = 16'd2758;
+            7'd63: vol_lut = 16'd2865;
+            7'd64: vol_lut = 16'd2976;
+            7'd65: vol_lut = 16'd3092;
+            7'd66: vol_lut = 16'd3212;
+            7'd67: vol_lut = 16'd3337;
+            7'd68: vol_lut = 16'd3466;
+            7'd69: vol_lut = 16'd3601;
+            7'd70: vol_lut = 16'd3740;
+            7'd71: vol_lut = 16'd3886;
+            7'd72: vol_lut = 16'd4036;
+            7'd73: vol_lut = 16'd4193;
+            7'd74: vol_lut = 16'd4356;
+            7'd75: vol_lut = 16'd4525;
+            7'd76: vol_lut = 16'd4700;
+            7'd77: vol_lut = 16'd4883;
+            7'd78: vol_lut = 16'd5072;
+            7'd79: vol_lut = 16'd5269;
+            7'd80: vol_lut = 16'd5474;
+            7'd81: vol_lut = 16'd5686;
+            7'd82: vol_lut = 16'd5907;
+            7'd83: vol_lut = 16'd6136;
+            7'd84: vol_lut = 16'd6374;
+            7'd85: vol_lut = 16'd6621;
+            7'd86: vol_lut = 16'd6878;
+            7'd87: vol_lut = 16'd7145;
+            7'd88: vol_lut = 16'd7423;
+            7'd89: vol_lut = 16'd7711;
+            7'd90: vol_lut = 16'd8010;
+            7'd91: vol_lut = 16'd8321;
+            7'd92: vol_lut = 16'd8644;
+            7'd93: vol_lut = 16'd8979;
+            7'd94: vol_lut = 16'd9328;
+            7'd95: vol_lut = 16'd9690;
+            7'd96: vol_lut = 16'd10066;
+            7'd97: vol_lut = 16'd10456;
+            7'd98: vol_lut = 16'd10862;
+            7'd99: vol_lut = 16'd11284;
+            7'd100: vol_lut = 16'd11721;
+            7'd101: vol_lut = 16'd12176;
+            7'd102: vol_lut = 16'd12649;
+            7'd103: vol_lut = 16'd13140;
+            7'd104: vol_lut = 16'd13650;
+            7'd105: vol_lut = 16'd14179;
+            7'd106: vol_lut = 16'd14730;
+            7'd107: vol_lut = 16'd15301;
+            7'd108: vol_lut = 16'd15895;
+            7'd109: vol_lut = 16'd16512;
+            7'd110: vol_lut = 16'd17153;
+            7'd111: vol_lut = 16'd17818;
+            7'd112: vol_lut = 16'd18510;
+            7'd113: vol_lut = 16'd19228;
+            7'd114: vol_lut = 16'd19975;
+            7'd115: vol_lut = 16'd20750;
+            7'd116: vol_lut = 16'd21555;
+            7'd117: vol_lut = 16'd22391;
+            7'd118: vol_lut = 16'd23260;
+            7'd119: vol_lut = 16'd24163;
+            7'd120: vol_lut = 16'd25101;
+            7'd121: vol_lut = 16'd26075;
+            7'd122: vol_lut = 16'd27087;
+            7'd123: vol_lut = 16'd28138;
+            7'd124: vol_lut = 16'd29230;
+            7'd125: vol_lut = 16'd30364;
+            7'd126: vol_lut = 16'd31543;
+            7'd127: vol_lut = 16'd32767;
+            default: vol_lut = 16'd0;
+            endcase
+        end
+    endfunction
+
+    reg [6:0] vol_r = 7'd100;                  // 上电音量 100（≈-8.9 dB）
+    always @(posedge clk)
+        if (!rst_n) vol_r <= 7'd100;
+        else        vol_r <= h_volume;
+    wire [15:0] vol_word = vol_lut(vol_r);
+    reg signed [15:0] gain_a;
+    reg signed [15:0] gain_b;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            gain_a <= 16'sd0;
+            gain_b <= 16'sd0;
+        end else begin
+            gain_a <= $signed(fx_out);
+            gain_b <= $signed(vol_word);
+        end
+    end
+    wire signed [31:0] gain_prod = gain_a * gain_b;
+    reg signed [15:0] gain_out;
+    always @(posedge clk)
+        if (!rst_n) gain_out <= 16'sd0;
+        else        gain_out <= gain_prod[30:15];
+
+    wire signed [15:0] audio_mix_raw = (MODE == 2) ? mix_bank :
+                                       (MODE == 3) ? gain_out  : fx_out;
     assign audio_mix = audio_muted ? 16'sd0 : audio_mix_raw;   // ★ 第 3 道清音
 
     // ---------------------------------------------------- 功放使能 ---------

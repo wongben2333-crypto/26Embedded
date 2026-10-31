@@ -143,7 +143,8 @@
 module piano_engine #(
     parameter integer N_VOICES  = 8,          // 复音数（1..16）
     parameter integer CLK_HZ    = 50_000_000, // 说明用；频率字按 fs=97656.25 Hz 生成
-    parameter integer OUT_SHIFT = 1           // 输出预缩放右移（0 更响、和弦更易触限幅）
+    parameter integer OUT_SHIFT     = 1,          // 输出预缩放右移（0 更响、和弦更易触限幅）
+    parameter integer USE_TDM_VOICE = 1           // 1=声部内6泛音+2LFO时分复用单ROM+单DSP（省56 BSRAM+40 DSP），0=原并行
 )(
     input  wire        clk,
     input  wire        rst_n,
@@ -213,8 +214,14 @@ module piano_engine #(
     //     ② ROM 仍是 3 行（0/1/2），**不必加行**；旧测试用 2、GUI 用 3 都能工作 ⇒ 兼容
     //     ③ 这样【没有任何合法 inst_sel 会落到"意外分支"】（0/1/2/3 全覆盖）
     //   ⚠️ 下标而不是端口语义：`inst_ok` 只用于三个查表实例，改这一处即可。
-    wire [1:0]  inst_ok = (inst_sel == 2'd1) ? 2'd1 :
-                          ((inst_sel == 2'd2) || (inst_sel == 2'd3)) ? 2'd2 : 2'd0;
+    wire [1:0]  inst_ok_c = (inst_sel == 2'd1) ? 2'd1 :
+                            ((inst_sel == 2'd2) || (inst_sel == 2'd3)) ? 2'd2 : 2'd0;
+    // [OPT-2A] Register inst_ok inside piano_engine to break top-level inst_sel_eff_r -> u_ld_lut critical path (+0.061 ns)
+    reg  [1:0]  inst_ok;
+    always @(posedge clk) begin
+        if (!rst_n) inst_ok <= 2'd0;
+        else        inst_ok <= inst_ok_c;
+    end
 
     piano_inst_lut u_inst_lut (
         .inst         (inst_ok),
@@ -675,9 +682,12 @@ module piano_engine #(
                          (ld_n == 3'd4) ? (ld_f0e << 2)              :
                          (ld_n == 3'd5) ? ((ld_f0e << 2) + ld_f0e)   :
                                           ((ld_f0e << 2) + (ld_f0e << 1));
-    wire [32:0] ld_inc = ld_nf0
-                       + (ld_f0e >> pl_st1)      // st=31 时该项可忽略
-                       + (ld_f0e >> pl_st2);
+    // [OPT-2B] Split `u_ld_lut -> barrel_shifter -> ld_inc_bus` across L_CALC and L_MUL (0 extra FSM cycles!)
+    reg  [32:0] ld_nf0_r;
+    reg  [4:0]  pl_st1_r, pl_st2_r;
+    wire [32:0] ld_inc_p1 = ld_nf0_r
+                          + (ld_f0e >> pl_st1_r)
+                          + (ld_f0e >> pl_st2_r);
 
     // 装载总线 → 平坦向量（Verilog-2001 不支持数组端口，故展平）
     wire [N_PART*17-1:0] ld_env_flat;
@@ -705,6 +715,9 @@ module piano_engine #(
             ld_vel     <= 7'd0;
             ld_gq      <= 17'd0;
             ld_kq      <= 16'd0;
+            ld_nf0_r   <= 33'd0;
+            pl_st1_r   <= 5'd31;
+            pl_st2_r   <= 5'd31;
             for (ai = 0; ai < N_PART; ai = ai + 1) begin
                 ld_env_bus[ai] <= 17'd0;
                 ld_inc_bus[ai] <= 32'd0;
@@ -724,12 +737,15 @@ module piano_engine #(
                     end
                 end
                 L_CALC: begin
-                    ld_gq <= ld_g;
-                    ld_kq <= kvel_q12;                 // ★ K × vel / 128
-                    ld_inc_bus[ld_idx] <= ld_inc[31:0];
-                    ld_st <= L_MUL;
+                    ld_gq    <= ld_g;
+                    ld_kq    <= kvel_q12;              // ★ K × vel / 128
+                    ld_nf0_r <= ld_nf0;                // [OPT-2B] Stage 1: latch nf0 & shift amounts
+                    pl_st1_r <= pl_st1;
+                    pl_st2_r <= pl_st2;
+                    ld_st    <= L_MUL;
                 end
                 L_MUL: begin
+                    ld_inc_bus[ld_idx] <= ld_inc_p1[31:0]; // [OPT-2B] Stage 2: evaluate shift-add in L_MUL
                     ld_env_bus[ld_idx] <= (ld_envsum > 19'd65536) ? 17'd65536
                                                                  : ld_envsum[16:0];
                     if (ld_idx == N_PART[2:0] - 3'd1) begin
@@ -791,13 +807,14 @@ module piano_engine #(
         wire [31:0]        f0_w;
 
         piano_voice #(
-            .N_PART       (N_PART),
-            .PHASE_W      (PHASE_W),
-            .ENV_W        (ENV_W),
-            .DIV_W        (DIV_W),
-            .HAM_SH       (HAM_SH),
-            .HAM_GAIN_Q16 (HAM_GAIN_Q16),
-            .ID           (gv)
+            .N_PART        (N_PART),
+            .PHASE_W       (PHASE_W),
+            .ENV_W         (ENV_W),
+            .DIV_W         (DIV_W),
+            .HAM_SH        (HAM_SH),
+            .HAM_GAIN_Q16  (HAM_GAIN_Q16),
+            .ID            (gv),
+            .USE_TDM_VOICE (USE_TDM_VOICE)
         ) u_voice (
             .clk          (clk),
             .rst_n        (rst_n),
@@ -923,8 +940,23 @@ module piano_engine #(
     // 增益重平衡（门控非钢琴：钢琴数值逐位不变）：-6 dB
     //   实测依据（outsweep TB，8 音和弦）：吉他/二胡 32.37%/39.90% 采样点进软膝、峰值触硬削 32768；
     //   −6 dB 后 7.90%/11.70%，硬削消失 ✓
-    wire signed [27:0] norm_old = vsum_q >>> OUT_SHIFT;
-    wire signed [27:0] norm_new = vsum_q >>> (OUT_SHIFT + 1);
+    // [OPT-5] Dynamic Polyphonic Headroom when N_VOICES > 8 (keeps N_VOICES<=8 100% bit-identical)
+    integer ac_i;
+    reg [5:0] act_cnt_c, act_cnt_q;
+    always @(*) begin
+        act_cnt_c = 6'd0;
+        for (ac_i = 0; ac_i < N_VOICES; ac_i = ac_i + 1)
+            act_cnt_c = act_cnt_c + {5'd0, v_active[ac_i]};
+    end
+    always @(posedge clk) begin
+        if (!rst_n) act_cnt_q <= 6'd0;
+        else        act_cnt_q <= act_cnt_c;
+    end
+    wire [1:0] poly_extra_sh = (N_VOICES <= 8)       ? 2'd0 :
+                               (act_cnt_q <= 6'd8)   ? 2'd0 :
+                               (act_cnt_q <= 6'd16)  ? 2'd1 : 2'd2;
+    wire signed [27:0] norm_old = vsum_q >>> (OUT_SHIFT + poly_extra_sh);
+    wire signed [27:0] norm_new = vsum_q >>> (OUT_SHIFT + 1 + poly_extra_sh);
     wire signed [27:0] norm = (inst_ok != 2'd0) ? norm_new : norm_old;
 
     // ★★ 琴体共振曲线（二胡专用；门控 inst_sel==2 ⇒ 钢琴/吉他【完全旁路】⇒ 逐值不变）
@@ -975,7 +1007,7 @@ module piano_engine #(
         if (!rst_n) vld <= 12'd0;
         else        vld <= {vld[10:0], sample_tick};
     end
-    wire lim_vld = vld[4];
+    wire lim_vld = (USE_TDM_VOICE != 0) ? vld[10] : vld[4];
 
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -1010,13 +1042,14 @@ endmodule
 //        参考实现的 env_hammer 在 note-off 分支不更新，早松键会残留"咔"声。
 // =============================================================================
 module piano_voice #(
-    parameter integer N_PART  = 6,
-    parameter integer PHASE_W = 32,
-    parameter integer ENV_W   = 32,
-    parameter integer DIV_W   = 10,
-    parameter integer HAM_SH  = 10,
-    parameter [16:0]  HAM_GAIN_Q16 = 17'd19661,
-    parameter integer ID      = 0
+    parameter integer N_PART        = 6,
+    parameter integer PHASE_W       = 32,
+    parameter integer ENV_W         = 32,
+    parameter integer DIV_W         = 10,
+    parameter integer HAM_SH        = 10,
+    parameter [16:0]  HAM_GAIN_Q16  = 17'd19661,
+    parameter integer ID            = 0,
+    parameter integer USE_TDM_VOICE = 1
 )(
     input  wire                 clk,
     input  wire                 rst_n,
@@ -1106,7 +1139,12 @@ module piano_voice #(
     // ★★ 弓弦驱动（`drive`，2026-10-06）
     //   drv_src = CC21 弓速；**为 0 时用【固定中速兜底 64】** —— 这是"诚实的固定值"，
     //   ⚠️ **不是"力度代理"**（不要读成"力度会影响弓速"）；真实力度代理留待后续。
-    wire [6:0]  drv_src = (bow_speed != 7'd0) ? bow_speed : 7'd64;
+    // [OPT-3] Register drv_src inside piano_voice to break bow_speed_eff_r -> 48x 32-bit comparator fanout (+0.109 ns)
+    reg  [6:0]  drv_src;
+    always @(posedge clk) begin
+        if (!rst_n) drv_src <= 7'd64;
+        else        drv_src <= (bow_speed != 7'd0) ? bow_speed : 7'd64;
+    end
     wire [31:0] drv_q   = {25'd0, drv_src} << 8;   // k·256（Q32 标度，见包络块注释）
     // ★ 声部内把 drv_on 打一拍（2026-10-06，修 `.tr` 定位出的扇出问题）
     //   原来 `.drv_on(inst_ok == 2'd2)` 是【顶层组合逻辑】直接扇出到 8 声部 × 6 泛音的 env/D
@@ -1136,30 +1174,14 @@ module piano_voice #(
 
     genvar gn;
     generate
-    for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_part
+    for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_part_cfg
         localparam [2:0] PN = gn[2:0];
-        wire signed [15:0] sd;
         wire [4:0] sr, sdamp, st1, st2;
         wire [16:0] amp_u;
         wire [15:0] k_u;
-
-        piano_sin_rom u_sin (
-            .clk   (clk),
-            .phase (ph[gn][PHASE_W-1 -: 8]),   // 一个整周期 256 步
-            .data  (sd)
-        );
-
-        // ⚠️ 每个泛音一份查表实例，输出必须接到【各自的数组元素】。
-        //   第一版 6 个实例的输出接在同一根 wire 上（cf_st1_u 等）⇒ 同一网络多驱动，
-        //   值会变成线与/x；当时那些线没用上所以没暴露，但一旦拿来算非谐性拉伸
-        //   （滑音/颤音要按泛音重算相位增量）就会直接出错。
         piano_partial_lut u_cfg (
             .n       (PN),
-            .inst    (2'd0),          // ★★ 必须【常量 0】：这样 s_ring/s_damp/st1/st2
-                                      //    才能被综合器折叠成常数移位。
-                                      //    若这里接 inst_sel（动态），每采样路径上会立刻
-                                      //    长出桶形移位器 —— MODE=1 裕量只有 +0.009 ns。
-                                      //    乐器差异已由装载期决定（pl_amp/pl_k/pl_st1/pl_st2）。
+            .inst    (2'd0),
             .amp_q16 (amp_u),
             .k_q12   (k_u),
             .s_ring  (sr),
@@ -1167,24 +1189,107 @@ module piano_voice #(
             .st1     (st1),
             .st2     (st2)
         );
-
-        assign sin_dat[gn] = sd;
-        assign cf_sr[gn]   = sr;
-        assign cf_sd[gn]   = sdamp;
-        assign cf_st1[gn]  = st1;
-        assign cf_st2[gn]  = st2;
-        assign cf_amp[gn]  = amp_u;
-        assign cf_k[gn]    = k_u;
+        assign cf_sr[gn]  = sr;
+        assign cf_sd[gn]  = sdamp;
+        assign cf_st1[gn] = st1;
+        assign cf_st2[gn] = st2;
+        assign cf_amp[gn] = amp_u;
+        assign cf_k[gn]   = k_u;
     end
     endgenerate
 
-    // -------- 齐奏失谐 LFO：起始相位 90° ⇒ 正弦表读出的就是 cos --------
     wire signed [15:0] lfo_cos;
-    piano_sin_rom u_lfo (
-        .clk   (clk),
-        .phase (lfo_ph[PHASE_W-1 -: 8]),
-        .data  (lfo_cos)
-    );
+    wire signed [15:0] vib_sin;
+
+    // [OPT-4] Time-Multiplexed Single `piano_sin_rom` per voice when USE_TDM_VOICE=1
+    //         Saves 7 BSRAMs per voice (56 BSRAMs in 8-voice MODE1!)
+    generate
+    if (USE_TDM_VOICE == 0) begin : g_par_rom
+        for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_part
+            piano_sin_rom u_sin (
+                .clk   (clk),
+                .phase (ph[gn][PHASE_W-1 -: 8]),
+                .data  (sin_dat[gn])
+            );
+        end
+        piano_sin_rom u_lfo (
+            .clk   (clk),
+            .phase (lfo_ph[PHASE_W-1 -: 8]),
+            .data  (lfo_cos)
+        );
+        piano_sin_rom u_vib_lfo (
+            .clk   (clk),
+            .phase (vib_ph[PHASE_W-1 -: 8]),
+            .data  (vib_sin)
+        );
+    end else begin : g_tdm_rom
+        reg [2:0]  rom_sel;
+        reg        rom_run;
+        reg [7:0]  rom_ph_mux;
+        wire signed [15:0] rom_dout;
+        reg signed [15:0] sin_lat [0:N_PART-1];
+        reg signed [15:0] lfo_lat, vib_lat;
+        reg [2:0]  rom_sel_d1;
+        reg        rom_run_d1;
+
+        piano_sin_rom u_shared_sin (
+            .clk   (clk),
+            .phase (rom_ph_mux),
+            .data  (rom_dout)
+        );
+
+        always @(*) begin
+            case (rom_sel)
+                3'd0: rom_ph_mux = ph[0][PHASE_W-1 -: 8];
+                3'd1: rom_ph_mux = ph[1][PHASE_W-1 -: 8];
+                3'd2: rom_ph_mux = ph[2][PHASE_W-1 -: 8];
+                3'd3: rom_ph_mux = ph[3][PHASE_W-1 -: 8];
+                3'd4: rom_ph_mux = ph[4][PHASE_W-1 -: 8];
+                3'd5: rom_ph_mux = ph[5][PHASE_W-1 -: 8];
+                3'd6: rom_ph_mux = lfo_ph[PHASE_W-1 -: 8];
+                default: rom_ph_mux = vib_ph[PHASE_W-1 -: 8];
+            endcase
+        end
+
+        integer rk;
+        always @(posedge clk) begin
+            if (!rst_n) begin
+                rom_sel    <= 3'd0;
+                rom_run    <= 1'b0;
+                rom_sel_d1 <= 3'd0;
+                rom_run_d1 <= 1'b0;
+                lfo_lat    <= 16'sd0;
+                vib_lat    <= 16'sd0;
+                for (rk = 0; rk < N_PART; rk = rk + 1) sin_lat[rk] <= 16'sd0;
+            end else begin
+                if (sample_tick) begin
+                    rom_sel <= 3'd0;
+                    rom_run <= 1'b1;
+                end else if (rom_run) begin
+                    if (rom_sel == 3'd7) begin
+                        rom_run <= 1'b0;
+                        rom_sel <= 3'd0;
+                    end else begin
+                        rom_sel <= rom_sel + 3'd1;
+                    end
+                end
+                rom_sel_d1 <= rom_sel;
+                rom_run_d1 <= rom_run;
+                if (rom_run_d1) begin
+                    if (rom_sel_d1 < 3'd6) sin_lat[rom_sel_d1] <= rom_dout;
+                    else if (rom_sel_d1 == 3'd6) lfo_lat <= rom_dout;
+                    else                         vib_lat <= rom_dout;
+                end
+            end
+        end
+
+        for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_sin_out
+            assign sin_dat[gn] = sin_lat[gn];
+        end
+        assign lfo_cos = lfo_lat;
+        assign vib_sin = vib_lat;
+    end
+    endgenerate
 
     // 三弦等幅相加 ⇒ 幅度 ∝ (2+cos)/3 ∈ [1/3, 1]；取 /4 换取一次纯移位，
     // 整体电平差由生成脚本里的幅度系数统一补偿。单根 LFO 支路成本：1 个累加器
@@ -1209,12 +1314,7 @@ module piano_voice #(
     //          f0_cur += (f_new − f_old)/N 每采样点一次
     //  ★★ 回归保证：vib_act=0 且 gliding=0 时，下面 inc_use 选的是【原来的 inc[]】，
     //     相位通路逐位与加表情前一致（不是"应该一样"，是结构性同一条通路）。
-    wire signed [15:0] vib_sin;
-    piano_sin_rom u_vib_lfo (
-        .clk   (clk),
-        .phase (vib_ph[PHASE_W-1 -: 8]),
-        .data  (vib_sin)
-    );
+    // vib_sin is generated by g_par_rom / g_tdm_rom above
 
     // 频偏分数（Q16）：dev = sin × depth_k / 32768
     wire signed [26:0] vib_dev_full = vib_sin * $signed({1'b0, vib_depth_k}); // 16×12 → 27
@@ -1299,14 +1399,19 @@ module piano_voice #(
     assign f0_out = f0_cur;
 
     // ------------------------------------------------------ 组合：状态量 ----
-    reg act_c;
+    reg act_c, act_r;
     integer j;
     always @(*) begin
         act_c = gate_r;
         for (j = 0; j < N_PART; j = j + 1)
             act_c = act_c | (|env[j][ENV_W-1 -: 8]);
     end
-    assign active   = act_c;
+    // [OPT-1] Register active output (`act_r`) to sever the 19.78ns `env -> act_c -> allocator -> ph/CE` critical path!
+    always @(posedge clk) begin
+        if (!rst_n) act_r <= 1'b0;
+        else        act_r <= act_c;
+    end
+    assign active   = act_r;
     assign gate_out = gate_r;
     assign note_out = note_r;
 

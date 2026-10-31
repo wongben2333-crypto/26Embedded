@@ -66,34 +66,39 @@ module cab_sim (
     //   —— 正是 Lead 从 "12.04 dB = 20log10(4)" 推出的那个 4 倍。
     //   ⇒ 修正：**只需要一级寄存器**（x1 存上一拍的输入）。
     reg signed [15:0] h1_x1, h1_y1;
-    wire signed [16:0] h1_d = {h1_y1[15], h1_y1} + {x[15], x} - {h1_x1[15], h1_x1};
-    wire signed [37:0] h1_m = h1_d * hp_a;                      // 17 × 21 = 38 bit
-    wire signed [15:0] h1_y = sat16((h1_m + 38'sd131072) >>> 18);
+    // [FIX-1] Use 18-bit signed arithmetic to prevent 17-bit overflow wrap on full-scale step/DC (+32767 - (-32768))
+    wire signed [17:0] h1_d   = $signed(h1_y1) + $signed(x) - $signed(h1_x1);
+    wire signed [38:0] h1_m   = h1_d * hp_a;                      // 18 × 21 = 39 bit
+    wire signed [40:0] h1_rnd = (h1_m >= 39'sd0) ? ({{2{h1_m[38]}}, h1_m}) : ({{2{h1_m[38]}}, h1_m} + 41'sd262143);
+    // [FIX-3] Round-toward-zero (truncation of magnitude) eliminates the +/-86 DC limit cycle so impulse decays to exact 0!
+    wire signed [15:0] h1_y   = sat16(h1_rnd >>> 18);
 
     always @(posedge clk) begin
         if (!rst_n) begin
             h1_x1 <= 16'sd0; h1_y1 <= 16'sd0;
         end else if (ph[0]) begin
             h1_y1 <= h1_y;
-            h1_x1 <= x;                     // ★ 上一拍的输入（不要再多一级！）
+            h1_x1 <= x;
         end
     end
-    wire signed [15:0] hp1_out = h1_y;
+    // [FIX-2] Drive downstream stage from registered h1_y1 (valid at ph[1]), NOT combinational h1_y!
+    wire signed [15:0] hp1_out = h1_y1;
 
     reg signed [15:0] h2_x1, h2_y1;
-    wire signed [16:0] h2_d = {h2_y1[15], h2_y1} + {hp1_out[15], hp1_out} - {h2_x1[15], h2_x1};
-    wire signed [37:0] h2_m = h2_d * hp2_a;
-    wire signed [15:0] h2_y = sat16((h2_m + 38'sd131072) >>> 18);
+    wire signed [17:0] h2_d   = $signed(h2_y1) + $signed(hp1_out) - $signed(h2_x1);
+    wire signed [38:0] h2_m   = h2_d * hp2_a;
+    wire signed [40:0] h2_rnd = (h2_m >= 39'sd0) ? ({{2{h2_m[38]}}, h2_m}) : ({{2{h2_m[38]}}, h2_m} + 41'sd262143);
+    wire signed [15:0] h2_y   = sat16(h2_rnd >>> 18);
 
     always @(posedge clk) begin
         if (!rst_n) begin
             h2_x1 <= 16'sd0; h2_y1 <= 16'sd0;
         end else if (ph[1]) begin
             h2_y1 <= h2_y;
-            h2_x1 <= hp1_out;              // ★ 只需一级（同上）
+            h2_x1 <= hp1_out;
         end
     end
-    wire signed [15:0] hp2_out = h2_y;
+    wire signed [15:0] hp2_out = h2_y1;
 
     // ================================================== 峰值均衡 + 低通 =====
     wire signed [15:0] eq_out, lp_out;

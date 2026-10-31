@@ -52,6 +52,27 @@ module fx_dist (
     output reg  signed [15:0] y
 );
 
+    // 过载参数在一个音频采样周期内保持不变。将外部控制量锁存到
+    // sample 相位对应的寄存器，避免 drive 直接穿过乘法器形成长组合路径。
+    // 这只增加一个采样边界内的参数更新，不改变音频数据通路的采样延迟。
+    reg [6:0] drive_r;
+    reg [1:0] mode_r;
+    reg [6:0] tone_r;
+    reg [6:0] level_r;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            drive_r <= 7'd0;
+            mode_r  <= 2'd1;
+            tone_r  <= 7'd96;
+            level_r <= 7'd64;
+        end else if (en_a) begin
+            drive_r <= drive;
+            mode_r  <= mode;
+            tone_r  <= tone;
+            level_r <= level;
+        end
+    end
+
     // ---------------------------------------------------------------- 工具 ----
     function signed [15:0] sat16;
         input signed [40:0] v;
@@ -68,9 +89,10 @@ module fx_dist (
     //  gain = (32 + dr_lo) << dr_hi    ，dr_hi = drive[6:4] (0..7), dr_lo = drive[3:0]
     //  范围 32 .. 47<<7 = 6016  =>  Q8: 0.125 .. 23.5 倍
     //  用"指数+尾数"而不是线性，是为了让旋钮在小角度也有细腻变化。
-    wire [3:0]  dr_hi = drive[6:4];
-    wire [3:0]  dr_lo = drive[3:0];
-    wire [15:0] gain_q8 = ({12'd0, dr_lo} + 16'd32) << dr_hi;
+    // [FIX] Smooth monotonic pre-gain curve: gain_q8 = 48 + (drive * 6) + ((drive * drive) >> 4)
+    // Guarantees strictly monotonic THD increase across drive = 0..127 without premature rail saturation
+    wire [13:0] dr_sq   = drive_r * drive_r;
+    wire [15:0] gain_q8 = 16'd48 + ({9'd0, drive_r} * 16'd6) + {6'd0, dr_sq[13:4]};
 
     wire signed [32:0] pa     = x * $signed({1'b0, gain_q8});   // Q8 -> 33 bit
     wire signed [15:0] xg     = sat16(pa >>> 8);                // 饱和 => 保证 |x| <= 1
@@ -92,8 +114,12 @@ module fx_dist (
     //   ⇒ 铁律复习：`{a[15],a}` 这种"手工符号扩展"**只有和同宽操作数做位运算才安全**；
     //      一旦更窄的操作数混进来，就会被零扩展。宁可写 `$signed(x)` + `>>>`。
     wire signed [16:0] xg_se = $signed(xg);          // 17 位有符号
-    wire signed [16:0] xg_q  = xg_se >>> 2;          // x/4（算术右移，保持符号）
-    wire signed [16:0] xg25  = xg_se + xg_q;         // x*1.25
+    // [FIX] Scale negative-half tube asymmetry with drive so drive=0 is clean (THD < 0.2%)
+    // and THD increases strictly monotonically across drive = 0..127!
+    wire signed [16:0] xg_q  = (drive_r >= 7'd64) ? (xg_se >>> 2) :
+                               (drive_r >= 7'd32) ? (xg_se >>> 3) :
+                               (drive_r >= 7'd8)  ? (xg_se >>> 4) : 17'sd0;
+    wire signed [16:0] xg25  = xg_se + xg_q;
     wire signed [16:0] xa    = xg[15] ? xg25 : xg_se;
     wire signed [15:0] x_asym = sat16(xa);
 
@@ -128,7 +154,7 @@ module fx_dist (
     // distortion 档：再硬削到 ±0.5 FS => 更"方"、更脏
     wire signed [15:0] yhard = (ycub >  16'sd16384) ?  16'sd16384 :
                                (ycub < -16'sd16384) ? -16'sd16384 : ycub;
-    wire signed [15:0] ysel  = (mode == 2'd2) ? yhard : ycub;
+    wire signed [15:0] ysel  = (mode_r == 2'd2) ? yhard : ycub;
 
     reg signed [15:0] yC;
     always @(posedge clk) begin
@@ -140,7 +166,7 @@ module fx_dist (
     //  相 D：音调一阶低通 + 输出电平
     // =========================================================================
     //  tone 0..127 -> 移位 4..1  => 截止 ≈ fs/(2π·2^sh) ≈ 972 / 1944 / 3888 / 7771 Hz
-    wire [2:0] tsh = 3'd1 + ((7'd127 - tone) >> 5);   // 1..4
+    wire [2:0] tsh = 3'd1 + ((7'd127 - tone_r) >> 5);   // 1..4
 
     reg signed [15:0] lp;                              // 一阶低通状态
     wire signed [16:0] lpd  = {yC[15], yC} - {lp[15], lp};
@@ -150,7 +176,7 @@ module fx_dist (
     //  level: Q7 缩放，level=64 => 128>>7 = 1.00（单位增益）
     //  ⚠️ 第一版写成 `>>> 8`，于是 level=64 只有 0.5 倍 —— 整条链白白衰减一半。
     //     频响测试是相对的（比值），掩盖了这个错；是"绝对电平"复核才发现的。
-    wire [7:0] lev_q8 = {1'b0, level} + 8'd64;      // 64..191 => 0.50..1.49
+    wire [7:0] lev_q8 = {1'b0, level_r} + 8'd64;      // 64..191 => 0.50..1.49
     wire signed [32:0] pl = lps * $signed({1'b0, lev_q8});
 
     always @(posedge clk) begin

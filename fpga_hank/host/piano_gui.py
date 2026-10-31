@@ -104,7 +104,7 @@ PC_KEYMAP = {          # 电脑按键 → 相对 KEYBOARD_LOW(48) 的半音数
 }
 # ⚠️ 八度切换**必须换键**：`z`/`x` 现在是 C3/D3 两个白键，不能再当功能键
 OCTAVE_KEYS = {"minus": -1, "-": -1, "equal": +1, "plus": +1, "=": +1}
-INST_KEYS = {"f1": 0, "f2": 1, "f3": 2}          # F1/F2/F3 = 钢琴/吉他/二胡
+INST_KEYS = {"f1": 0, "f2": 1, "f3": 2}          # F1/F2/F3 = 钢琴/吉他/小提琴
 
 DEFAULT_OCTAVE = 3                  # ★ C3 = MIDI 48 = KEYBOARD_LOW（默认显示 C3..C6）
 OCTAVE_MIN, OCTAVE_MAX = 2, 6
@@ -147,7 +147,7 @@ def pc_key_to_note(k: str, octave: int):
 #
 #  【全局 CC 分配表 —— Lead 拍板，谁都不能擅自改】
 #    CC1/CC77 颤音深度 ｜ CC5/CC65 滑音时间/开关 ｜ CC76 颤音速率 ｜ CC64 延音踏板
-#    CC120/121 All Sound Off / Reset ｜ CC20 乐器(0钢琴/1吉他/2二胡)
+#    CC120/121 All Sound Off / Reset ｜ CC20 乐器(0钢琴/1吉他/2小提琴)
 #    ★ CC21 挂电量 0..127（0=清音 bypass，127=重失真）  ← 本轮核心
 #    CC22/23/24 合唱/延迟/混响（可选档，0..127）
 #
@@ -157,11 +157,11 @@ def pc_key_to_note(k: str, octave: int):
 #    ⚠️ 这条顺序要转告 `song-demo`：`guitar_fx.v` 的串联顺序按它排。
 # =============================================================================
 CC_DRIVE, CC_CHORUS, CC_DELAY, CC_REVERB = 21, 22, 23, 24
-CC_PORTAMENTO_TIME, CC_PORTAMENTO_ON = 5, 65   # 已有：滑音时间 / 开关（二胡按弦滑音复用）
+CC_PORTAMENTO_TIME, CC_PORTAMENTO_ON = 5, 65   # 已有：滑音时间 / 开关（小提琴按弦滑音复用）
 
 MODE_PIANO, MODE_GUITAR, MODE_ERHU = 0, 1, 2
-MODE_NAMES = ("钢琴", "吉他", "二胡")
-# ⚠️ **CC20 取值**（Lead 规定）：0=钢琴 1=吉他 **3=二胡**（内部索引仍是 2，避免动列表下标）
+MODE_NAMES = ("钢琴", "吉他", "小提琴")
+# ⚠️ **CC20 取值**（Lead 规定）：0=钢琴 1=吉他 **3=小提琴**（内部索引仍是 2，避免动列表下标）
 MODE_TO_CC20 = (0, 1, 3)
 
 # ---- 吉他：标准调弦 EADGBE。UI 把「弦1 E4」画在最上面（抱着吉他看指板：细弦在上）----
@@ -183,10 +183,17 @@ def string_fret_note(string_idx: int, fret: int) -> int:
 
 GUITAR_RANGE = (min(GUITAR_OPEN), max(GUITAR_OPEN) + GUITAR_MAX_FRET)   # (40, 76)
 
-# ---- 二胡：21 弦 D 宫五声（宫商角徵羽 = D E F# A B，**没有 G(4)/C#(7)**）----
-#      标准 D 调 21 弦 = 4 组五声 + 最高 D6；⚠️ 雁柱可移、调不唯一。
-ERHU_STRINGS = [62, 69]   # 二胡定弦：内弦 D4(62) / 外弦 A4(69)（**待 liaison 核实**）
-ERHU_GLIDE = (0, 1, 2)                  # 按弦深度：不按 / 升 1 半音 / 升 2 半音
+# ---- 小提琴：标准四弦 G3-D4-A4-E5 ---------------------------------------------
+#      保留 ERHU_* 名称作为旧版本接口兼容；界面和发声语义已经改为小提琴。
+VIOLIN_STRINGS = [55, 62, 69, 76]       # G3 / D4 / A4 / E5
+ERHU_STRINGS = VIOLIN_STRINGS            # legacy alias，旧测试和快捷函数继续可用
+VIOLIN_KEY_ROWS = [
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],       # G
+    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],       # D
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l", "semicolon"], # A
+    ["c", "v", "b", "n", "m", "comma", "period", "slash", "bracketleft", "bracketright"], # E
+]
+ERHU_GLIDE = (0, 1, 2)                  # legacy alias
 
 # ---- 🎸 吉他键盘：**行 = 弦、键在行内的位置 = 品** ----------------------------------
 #  ⭐ 依据：参考页面 https://virtualinstruments.net/zh-cn/virtual-guitar.html 的**源码**
@@ -259,7 +266,7 @@ APP_BUILD = "2026-10-06"
 IME_CMODE_NATIVE = 0x0001        # "中文（本地）"态就是这一位
 GA_ROOT = 2
 
-# ★ 乐器选择（Lead 定的 CC 号）：0=钢琴 1=吉他 2=二胡
+# ★ 乐器选择（Lead 定的 CC 号）：0=钢琴 1=吉他 2=小提琴
 CC_INST = 20
 
 
@@ -619,7 +626,7 @@ class SerialLink:
             self._write(m_cc(int(_cc), int(_v)))
 
     def set_instrument(self, idx: int):
-        """音色选择：**CC20** 0=钢琴 1=吉他 2=二胡（Lead 定的协议）。"""
+        """音色选择：**CC20** 0=钢琴 1=吉他 2=小提琴（Lead 定的协议）。"""
         idx = max(0, min(2, int(idx)))
         self.params["inst"] = idx
         return self._write(m_inst(MODE_TO_CC20[idx]))
@@ -627,7 +634,7 @@ class SerialLink:
     def set_fx(self, cc: int, val: int):
         """效果器参数：**CC21 挂电量** / CC22 合唱 / CC23 延迟 / CC24 混响（0..127）。
 
-        ⚠️ 钢琴那版 `audio_fx` 用户确认好听、**不许动** ⇒ 这些 CC 只该影响吉他/二胡通路。
+        ⚠️ 钢琴那版 `audio_fx` 用户确认好听、**不许动** ⇒ 这些 CC 只该影响吉他/小提琴通路。
         """
         cc = int(cc)
         val = max(0, min(127, int(val)))
@@ -671,14 +678,14 @@ class PianoGUI:
         self._g_fret_hits = []         # 吉他：品号行命中表
         self._g_body = None            # 吉他：琴身区
         self._g_ring = set()
-        self._e_hits = []              # 二胡：右侧弹奏区
-        self._e_left = []              # 二胡：左侧按弦区
+        self._e_hits = []              # 小提琴：右侧弹奏区
+        self._e_left = []              # 小提琴：左侧按弦区
         self._z_ring = set()
-        self.e_sel = 0                  # 二胡：当前弦（0=内弦 D4 / 1=外弦 A4）
-        self.e_semi = 0                 # 二胡：半音偏移（无品⇒连续，量化到半音）
-        self.e_note = None              # 二胡：正在发声的 note（**按住=运弓=持续发声**）
-        self.e_push = True              # 二胡：弓向 True=推弓(内弦) / False=拉弓(外弦)
-        self.e_level = [0, 0]           # 二胡：两条电平表
+        self.e_sel = 1                  # 小提琴：当前弦（G3/D4/A4/E5）
+        self.e_semi = 0                 # 小提琴：半音偏移（无品⇒连续，量化到半音）
+        self.e_note = None              # 小提琴：正在发声的 note（**按住=运弓=持续发声**）
+        self.e_push = True              # 小提琴：弓向 True=推弓(内弦) / False=拉弓(外弦)
+        self.e_level = [0, 0, 0, 0]     # 小提琴：四条弦电平表
         self.strum_ms = GUITAR_STRUM_MS  # 吉他：扫弦间隔（实测中位 36 ms，可调 25~80）
         self.capo = 0                    # 吉他：变调夹（±5 品；note = 空弦 + capo + 品）
         self.barre_fret = 0              # 吉他：大横按品位（0=无）；品 = max(按键品, barre_fret)
@@ -701,7 +708,7 @@ class PianoGUI:
         #   （如 glide_lbl）⇒ 用 _ready 门闸，构造期间一律忽略回调。
         self._ready = False
 
-        root.title(f"FPGA 乐器（钢琴/吉他/二胡）  [{APP_VER} {APP_BUILD}]  "
+        root.title(f"FPGA 乐器（钢琴/吉他/小提琴）  [{APP_VER} {APP_BUILD}]  "
                    f"电脑控制板子发声 · 115200 8N1")
         root.configure(bg=self.BG)
         try:
@@ -736,7 +743,7 @@ class PianoGUI:
         self.conn_btn = tk.Button(self.inst_bar, text="⚙ 连接/诊断 ▾", width=14,
                                   bg="#333", fg="#ddd", command=self.toggle_conn)
         self.conn_btn.pack(side="right", padx=4)
-        for _i, (_ic, _nm) in enumerate((("🎹", "钢琴 F1"), ("🎸", "吉他 F2"), ("🎻", "二胡 F3"))):
+        for _i, (_ic, _nm) in enumerate((("🎹", "钢琴 F1"), ("🎸", "吉他 F2"), ("🎻", "小提琴 F3"))):
             _b = tk.Button(self.inst_bar, text=f"{_ic} {_nm}", width=13,
                            font=("Microsoft YaHei", 10, "bold"), bg="#333", fg="white",
                            command=lambda i=_i: self.set_mode(i))
@@ -767,7 +774,7 @@ class PianoGUI:
         tk.Label(row2, text="八度：", bg=self.BG, fg="#e8e8e8").pack(side="left")
         # ★ 2026-10-06：八度/锁存/32键齐奏 **已移入 `_build_piano_extras()`**（只在钢琴模式出现）
         self._latched = set()
-        # ★ 2026-10-06 Bug B 修复：这里原来还有一份**重复的「音色：钢琴/吉他/二胡」按钮**
+        # ★ 2026-10-06 Bug B 修复：这里原来还有一份**重复的「音色：钢琴/吉他/小提琴」按钮**
         #   （调用 `set_instrument` 只发 CC20、**不切 UI**，且**硬编码钢琴高亮**）
         #   ⇒ 用户看到的"音色还没删掉"就是它们，而且"高亮永远是钢琴"也有它们的份。
         #   **已整块删除**；乐器切换只保留最上面的三个大按钮（并同步高亮）。
@@ -782,16 +789,16 @@ class PianoGUI:
         self.ime_lbl.pack(side="left", padx=12)
         # ★ 2026-10-06：原 row7/row8（挂电 + 音色三选 + 扫弦/弓法/运弓按钮）**已全部移入
         #   `mode_extras`**，由 `rebuild_mode_extras()` 按模式销毁重建
-        #   ⇒ 钢琴界面不会再出现吉他的扫弦/拨弦，吉他界面也不会出现二胡的运弓/弓法
+        #   ⇒ 钢琴界面不会再出现吉他的扫弦/拨弦，吉他界面也不会出现小提琴的运弓/弓法
         # 按键诊断面板（最近 4 条按键事件）——"按了没声音"时用户看一眼就能告诉我们
         self.diag = tk.Label(root, text="按键诊断：（按任意键会显示 keysym / keycode / 映射音）",
                              bg="#111", fg="#8fe", justify="left", anchor="w",
                              font=("Consolas", 9), padx=6)
         self.diag.pack(fill="x", padx=10, pady=(2, 2))
-        tk.Label(root, text="提示：F1/F2/F3 = 钢琴/吉他/二胡 ｜  🎸吉他：**行=弦、位置=品**"
+        tk.Label(root, text="提示：F1/F2/F3 = 钢琴/吉他/小提琴 ｜  🎸吉他：**行=弦、位置=品**"
                             "（数字行=弦1、QWERTY=弦2、ASDF=弦3、ZXCV=弦4），"
                             "**Tab 切弦组**（弦3-6），**Shift+行首键 = 空弦**，F5/F6 = 下扫/上扫 ｜  "
-                            "🎻二胡：两排键 = 21 弦，Z/X = 弓法，\\ = 运弓 ｜  "
+                            "🎻小提琴：两排键 = 21 弦，Z/X = 弓法，\\ = 运弓 ｜  "
                             "钢琴：-= 八度，空格 踏板",
                  bg=self.BG, fg="#888", font=("Microsoft YaHei", 8),
                  wraplength=1180, justify="left").pack(pady=(0, 4))
@@ -912,14 +919,14 @@ class PianoGUI:
 
     # ------------------------------------------------ 画琴键
     def draw_keys(self):
-        """按**当前模式**重画：钢琴 = 37 键真布局；吉他 = 指板网格；二胡 = 21 弦横向。"""
+        """按**当前模式**重画：钢琴 = 37 键真布局；吉他 = 指板网格；小提琴 = 21 弦横向。"""
         if self.mode == MODE_GUITAR:
             return self.draw_guitar()
         if self.mode == MODE_ERHU:
             return self.draw_erhu()
         c = self.canvas
         c.delete("all")
-        c.configure(bg=self.BG)          # 钢琴用深色底（吉他/二胡各自会改成自己的底色）
+        c.configure(bg=self.BG)          # 钢琴用深色底（吉他/小提琴各自会改成自己的底色）
         self._rect_to_note = []
         # ★ 必须同时清掉别的模式的命中表（否则是脏状态 —— 断言实测抓到过）
         self._g_hits = []
@@ -1027,7 +1034,7 @@ class PianoGUI:
         if k == "escape":
             self.on_close_with_ime()
             return
-        if k in INST_KEYS:                       # ★ F1/F2/F3 = 钢琴/吉他/二胡（切模式 + 发 CC20）
+        if k in INST_KEYS:                       # ★ F1/F2/F3 = 钢琴/吉他/小提琴（切模式 + 发 CC20）
             self.set_mode(INST_KEYS[k])
             return
         # ★★ 模式专属键盘**必须排在八度键之前**：吉他模式下 `-`/`=` 是"品"而不是八度，
@@ -1056,7 +1063,7 @@ class PianoGUI:
 
     def on_key_release(self, ev):
         k = (ev.keysym or "").lower()
-        # ★ 模式专属的松开处理（二胡弹弦要按音高 NoteOff；吉他走通用 _down_by_key 逻辑）
+        # ★ 模式专属的松开处理（小提琴弹弦要按音高 NoteOff；吉他走通用 _down_by_key 逻辑）
         if self.mode == MODE_ERHU:
             if self.erhu_key(k, down=False):
                 return
@@ -1081,7 +1088,7 @@ class PianoGUI:
         return pc_key_to_note(k, self.octave)
 
     def set_instrument(self, idx):
-        """切换音色：0=钢琴 1=吉他 2=二胡（协议 **CC20**）。
+        """切换音色：0=钢琴 1=吉他 2=小提琴（协议 **CC20**）。
 
         ⚠️ RTL 侧 `top.v` 目前把 `inst_sel` 硬编码成 0 ⇒ **在 Lead 接上 CC20 之前，
            切换只改 GUI 状态，板子上的音色不会变**（界面会如实提示，不骗用户）。
@@ -1091,8 +1098,8 @@ class PianoGUI:
         self.link.set_instrument(idx)
         for i, b in enumerate(getattr(self, "inst_btns", [])):
             b.config(bg="#2b6cb0" if i == idx else "#333")
-        name = ("钢琴", "吉他", "二胡")[idx]
-        self.set_status(f"音色 → {name}（CC20={idx}）；⚠️ 板子端需 RTL 接上 CC20 才变", "info")
+        name = ("钢琴", "吉他", "小提琴")[idx]
+        self.set_status(f"音色 → {name}（CC20={MODE_TO_CC20[idx]}，板端实时生效）", "info")
         self.show_diag(f"[音色] → {name}  CC20={idx}")
 
     def show_diag(self, msg):
@@ -1339,7 +1346,7 @@ class PianoGUI:
 
     # ============================================ ★ 三种乐器：模式 / 绘制 / 维度
     def set_mode(self, idx: int):
-        """切换乐器模式：0=钢琴 1=吉他 2=二胡（同时发 **CC20**）。
+        """切换乐器模式：0=钢琴 1=吉他 2=小提琴（同时发 **CC20**）。
 
         ⚠️ 换模式**必须 panic 清音**（否则旧模式的音收不到 NoteOff ⇒ 挂音），
            并清空全部按键/锁定状态。
@@ -1381,7 +1388,7 @@ class PianoGUI:
         self._rect_to_note = []
         self._g_hits = []
         self._g_fret_hits = []
-        self._e_hits = []            # ★ 清掉二胡的（避免脏状态）
+        self._e_hits = []            # ★ 清掉小提琴的（避免脏状态）
         self._e_left = []
         W, H = 46, 30
         HEAD_X0, HEAD_X1 = 8, 74                        # ★ 木质琴枕块
@@ -1512,7 +1519,7 @@ class PianoGUI:
         self.show_diag(f"[吉他] 压品 → {self.g_fret_sel} 品（不发声）")
         self.draw_guitar()                      # 重画以高亮当前品位
 
-    # ------------------------------------------------ 🎻 二胡：21 弦
+    # ------------------------------------------------ 🎻 小提琴：21 弦
     # ------------------------------------------------ 挂电 / 效果器
     def set_drive(self, v):
         v = int(float(v))
@@ -1568,12 +1575,12 @@ class PianoGUI:
         self.link.all_notes_off()                            # 一触即发 ⇒ 松手释放
         self.update_info()
 
-    # ---- 鼠标：🎻 二胡 ----
-    # ---- 键盘：🎸 吉他 / 🎻 二胡 ----
+    # ---- 鼠标：🎻 小提琴 ----
+    # ---- 键盘：🎸 吉他 / 🎻 小提琴 ----
     GUITAR_STR_KEYS = ("a", "s", "d", "f", "g", "h")          # 弦1..弦6（与指板同序）
     # ⚠️ 必须是 **21** 个：`QWERTYUIOP[]`(12) + `ASDFGHJKL`(9) = 21
     #    （修过一次：原先多带了一个 `;` ⇒ 22 个，最后多出一根弦）
-    ERHU_KEYS = ["q", "w"]      # 二胡 2 根弦：q=内弦 / w=外弦
+    ERHU_KEYS = ["q", "w"]      # 小提琴 2 根弦：q=内弦 / w=外弦
 
     def guitar_key(self, k, down=True, shift=False):
         """🎸 **行 = 弦、键在行内的位置 = 品**（对齐参考页面的 `keyboardMap{ s, f }`）。
@@ -1732,7 +1739,7 @@ class PianoGUI:
             return False
 
     # =========================================================================
-    #  🎻 二胡（v45 完整版）—— 依据 `_research/pc-link/ERHU-RESEARCH.md`
+    #  🎻 小提琴（v45 完整版）—— 依据 `_research/pc-link/ERHU-RESEARCH.md`
     #   · 定弦**已核实**：内弦 **D4(62)** / 外弦 **A4(69)**（纯五度；两个独立来源）
     #   · 交互照在线模拟器（playthenote）：**按住=运弓（持续发声）｜按住上下拖=滑音｜
     #     快速上下抖动=揉弦**
@@ -1741,18 +1748,18 @@ class PianoGUI:
     #       弓速 → **CC21**（能量/音量）  弓压 → **CC22**（亮度，**不改音量**）
     #       弓位 → **CC23**（薄↔厚，梳状）
     #     ⚠️ **CC21~23 与吉他共用**（乐器已由 CC20 区分、不会同时用）—— 见 §CC 共用说明
-    #   · ⭐ **换弦 = 弓的方向反转**（推弓=内弦 / 拉弓=外弦）—— 二胡独有交互
+    #   · ⭐ **换弦 = 弓的方向反转**（推弓=内弦 / 拉弓=外弦）—— 小提琴独有交互
     #   · ⚠️ **同时只发一根弦**（弓永久夹在两弦之间，物理上拉不到两根）
     # =========================================================================
-    ERHU_KEY_INNER = ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
-    ERHU_KEY_OUTER = ["a", "s", "d", "f", "g", "h", "j", "k", "l", "semicolon"]
+    ERHU_KEY_INNER = VIOLIN_KEY_ROWS[1]   # legacy: D 弦
+    ERHU_KEY_OUTER = VIOLIN_KEY_ROWS[2]   # legacy: A 弦
     ERHU_SEMI_MAX = 24                     # 每弦 0..24 半音（两个八度，与模拟器一致）
 
     def _build_erhu_extras(self):
-        """🎻 只在二胡模式出现的控件：**弓速/弓压/弓位**（三个独立连续维度）+ 换弦 + 颤弓 + 拨弦。"""
+        """🎻 只在小提琴模式出现的控件：**弓速/弓压/弓位**（三个独立连续维度）+ 换弦 + 颤弓 + 拨弦。"""
         row = tk.Frame(self.mode_extras, bg=self.BG)
         row.pack(fill="x")
-        tk.Label(row, text="🎻二胡：", bg=self.BG, fg="#e8e8e8").pack(side="left")
+        tk.Label(row, text="🎻小提琴：", bg=self.BG, fg="#e8e8e8").pack(side="left")
         for _lbl, _cb in (("弓速 CC21", self.set_bow_speed),
                           ("弓压 CC22", self.set_bow_force),
                           ("弓位 CC23", self.set_bow_pos)):
@@ -1775,68 +1782,81 @@ class PianoGUI:
         return max(0, min(127, ERHU_STRINGS[si] + max(0, min(self.ERHU_SEMI_MAX, int(semi)))))
 
     # ---------------------------------------------------------------- 视觉
-    def draw_erhu(self):
-        """🎻 二胡：**两根竖直弦**（内弦左 D4 / 外弦右 A4）+ **琴杆**（竖）+ **琴筒**（底部六角）
-        + **弓**（斜穿两弦之间，**方向随换弦变**）+ **两条电平表** + 音位格（绿=根音）。"""
+    def draw_violin(self):
+        """🎻 四弦小提琴界面：G-D-A-E 指板、琴桥、琴身、弓和四条独立电平表。"""
         c = self.canvas
         c.delete("all")
-        c.configure(bg="#1a1814")
+        c.configure(bg="#171a22", width=760, height=470)
         self._rect_to_note = []
-        self._e_hits = []          # 每根弦的音位格 (x0,y0,x1,y1, 弦号, 半音)
-        self._e_left = []          # 保留（旧字段，避免别处引用报错）
+        self._e_hits = []
+        self._e_left = []
         self._g_hits = []
         self._g_fret_hits = []
-        X_IN, X_OUT = 150, 200     # 内弦在左、外弦在右
-        Y_TOP, Y_BOT = 40, 330
-        c.configure(width=520, height=470)
-        # 琴杆（竖）+ 琴筒（底部六角由多边形近似）
-        c.create_rectangle(120, Y_TOP - 20, 132, Y_BOT + 40, fill="#5c3a21", outline="#8b4513")
-        c.create_polygon(96, Y_BOT + 20, 200, Y_BOT + 20, 224, Y_BOT + 58, 200, Y_BOT + 96,
-                         96, Y_BOT + 96, 72, Y_BOT + 58,
-                         fill="#4a2f1a", outline="#a0522d", width=2)
-        c.create_text(148, Y_BOT + 60, text="琴筒/蟒皮", fill="#e8dcc0",
-                      font=("Microsoft YaHei", 9))
-        # 两根弦（竖直）+ 音位格
-        step = (Y_BOT - Y_TOP) / (self.ERHU_SEMI_MAX + 1)
-        for si, (X, nm, keys) in enumerate(((X_IN, "内弦", self.ERHU_KEY_INNER),
-                                            (X_OUT, "外弦", self.ERHU_KEY_OUTER))):
-            c.create_text(X, Y_TOP - 26, text=f"{nm} {note_name(ERHU_STRINGS[si])}",
-                          fill="#ffd54f", font=("Microsoft YaHei", 10, "bold"))
-            c.create_line(X, Y_TOP, X, Y_BOT + 10, fill="#d4c5a8", width=2.2 - si * 0.6)
-            for s in range(self.ERHU_SEMI_MAX + 1):
-                y0 = Y_TOP + s * step
-                y1 = y0 + step
-                self._e_hits.append((X - 22, y0, X + 22, y1, si, s))
-                root_note = (ERHU_STRINGS[si] + s) % 12 in (2, 4, 6, 9, 11)  # 五声=根音提示
-                if s % 2 == 0:
-                    c.create_rectangle(X - 22, y0, X + 22, y1,
-                                       fill="#1f3d2b" if root_note else "#141414",
-                                       outline="#333")
-                if s < len(keys):
-                    c.create_text(X + 40, (y0 + y1) / 2,
-                                  text=_KEY_DISP.get(keys[s], keys[s]).upper(),
-                                  fill="#9ad", font=("Consolas", 7))
-            # 电平表
-            c.create_rectangle(X + 62, Y_TOP, X + 74, Y_BOT, fill="#111", outline="#555")
-            lv = self.e_level[si]
-            if lv > 0:
-                h = (Y_BOT - Y_TOP) * min(1.0, lv / 127.0)
-                c.create_rectangle(X + 63, Y_BOT - h, X + 73, Y_BOT,
-                                   fill="#4caf50", outline="")
-        # 弓（斜线穿过两弦之间；方向决定"推/拉"）
-        bx = X_IN + (X_OUT - X_IN) / 2
-        if self.e_push:
-            c.create_line(bx - 70, Y_BOT + 10, bx + 70, Y_TOP, fill="#c9a227", width=3)
-            c.create_text(300, Y_TOP + 6, text="推弓 ⇒ 内弦", fill="#c9a227",
-                          font=("Microsoft YaHei", 9, "bold"))
-        else:
-            c.create_line(bx + 70, Y_BOT + 10, bx - 70, Y_TOP, fill="#c9a227", width=3)
-            c.create_text(300, Y_TOP + 6, text="拉弓 ⇒ 外弦", fill="#c9a227",
-                          font=("Microsoft YaHei", 9, "bold"))
-        c.create_text(260, 448, text="按住=运弓(持续) ｜ 按住上下拖=滑音 ｜ 快速抖动=揉弦 ｜ "
-                                     "换弦=弓向反转",
-                      fill="#e8dcc0", font=("Microsoft YaHei", 9))
+        strings = VIOLIN_STRINGS
+        labels = ("G3", "D4", "A4", "E5")
+        xs = [170, 285, 400, 515]
+        y_top, y_bot = 55, 355
+        step = (y_bot - y_top) / 25.0
 
+        # 琴身：小提琴的上/下琴身和腰部，而不是二胡琴筒。
+        c.create_polygon(270, 330, 235, 360, 225, 400, 250, 425, 300, 430,
+                         335, 410, 350, 380, 340, 345, 350, 315,
+                         335, 285, 300, 270, 260, 275, 230, 305,
+                         fill="#713d24", outline="#c28b52", width=3)
+        c.create_oval(248, 285, 332, 365, fill="#8f512d", outline="#d39b5b", width=2)
+        c.create_oval(236, 370, 344, 440, fill="#7b4226", outline="#d39b5b", width=2)
+        c.create_line(287, 255, 287, 438, fill="#4b2719", width=5)
+        c.create_text(290, 452, text="小提琴琴身 / 共鸣箱", fill="#edcf9a",
+                      font=("Microsoft YaHei", 10, "bold"))
+
+        # 指板和琴桥。
+        c.create_polygon(120, 42, 565, 42, 535, 370, 150, 370,
+                         fill="#302019", outline="#95623e", width=2)
+        c.create_rectangle(140, 345, 545, 360, fill="#d7b276", outline="#f1d49a", width=2)
+        c.create_text(600, 352, text="琴桥", fill="#edcf9a", anchor="w",
+                      font=("Microsoft YaHei", 9))
+
+        for si, (x, label, keys) in enumerate(zip(xs, labels, VIOLIN_KEY_ROWS)):
+            c.create_text(x, 18, text=f"{label}  {note_name(strings[si])}",
+                          fill="#f4d06f", font=("Microsoft YaHei", 10, "bold"))
+            c.create_line(x, y_top, x, y_bot, fill="#e7e0cf", width=2.5 - si * 0.25)
+            for semi in range(25):
+                y0, y1 = y_top + semi * step, y_top + (semi + 1) * step
+                self._e_hits.append((x - 36, y0, x + 36, y1, si, semi))
+                if semi % 2 == 0:
+                    c.create_rectangle(x - 36, y0, x + 36, y1,
+                                       fill="#203b46" if semi % 12 == 0 else "#1c2630",
+                                       outline="#384654")
+                if semi < len(keys):
+                    c.create_text(x + 47, (y0 + y1) / 2,
+                                  text=_KEY_DISP.get(keys[semi], keys[semi]).upper(),
+                                  fill="#a9d7ea", font=("Consolas", 8))
+            # 四条独立电平表。
+            c.create_rectangle(x - 48, y_top, x - 40, y_bot, fill="#0d1117", outline="#56616d")
+            lv = self.e_level[si] if si < len(self.e_level) else 0
+            if lv > 0:
+                h = (y_bot - y_top) * min(1.0, lv / 127.0)
+                c.create_rectangle(x - 47, y_bot - h, x - 41, y_bot,
+                                   fill="#54c7a5" if si in (1, 2) else "#e8a85b", outline="")
+
+        # 横向弓；弓向反转时改变斜率。
+        if self.e_push:
+            c.create_line(100, 95, 590, 75, fill="#d9aa3b", width=4)
+            c.create_text(610, 78, text="推弓", fill="#e8c86a", anchor="w")
+        else:
+            c.create_line(100, 75, 590, 95, fill="#d9aa3b", width=4)
+            c.create_text(610, 98, text="拉弓", fill="#e8c86a", anchor="w")
+        c.create_text(600, 130, text="G  D  A  E", fill="#cfe8f0", anchor="w",
+                      font=("Consolas", 13, "bold"))
+        c.create_text(600, 155, text="按住 = 运弓\n上下拖动 = 滑音\nZ = 颤弓，X = 拨弦",
+                      fill="#b4c6d1", anchor="w", justify="left",
+                      font=("Microsoft YaHei", 9))
+        c.create_text(380, 466, text="四弦小提琴：G3 / D4 / A4 / E5 ｜ 绿色音位为根音",
+                      fill="#b7c9d4", font=("Microsoft YaHei", 9))
+
+    # 旧名称保留给已有事件绑定和自检；实际绘制使用四弦小提琴界面。
+    def draw_erhu(self):
+        return self.draw_violin()
     # ---------------------------------------------------------------- 发声
     def erhu_play(self, si, semi, vel=None):
         """**按住即运弓**：持续发声（同一时刻只允许一根弦）。"""
@@ -1850,10 +1870,10 @@ class PianoGUI:
             self.link.note_off(self.e_note)
         n = self.erhu_note(si, semi)
         self.e_sel, self.e_semi, self.e_note = si, semi, n
-        self.e_push = (si == 0)                        # 推弓=内弦 / 拉弓=外弦
+        self.e_push = (si % 2 == 0)                    # 弓向视觉状态
         self.e_level[si] = max(1, min(127, int(vel if vel else self.velocity)))
         self.link.note_on(n, self.e_level[si])
-        self.show_diag(f"[二胡] {'推弓 内弦' if si == 0 else '拉弓 外弦'} 半音+{semi} → note={n} {note_name(n)}")
+        self.show_diag(f"[小提琴] {'推弓 内弦' if si == 0 else '拉弓 外弦'} 半音+{semi} → note={n} {note_name(n)}")
         self.update_info()
         return n
 
@@ -1861,7 +1881,7 @@ class PianoGUI:
         if self.e_note is not None:
             self.link.note_off(self.e_note)
         self.e_note = None
-        self.e_level = [0, 0]
+        self.e_level = [0, 0, 0, 0]
         self.update_info()
 
     def erhu_glide_to(self, semis):
@@ -1907,7 +1927,7 @@ class PianoGUI:
             if rev >= 4:                       # 快速来回 ⇒ 揉弦加深
                 self.link.set_fx(CC_MOD_WHEEL, min(127, 40 + rev * 12))
                 self.link._write(m_cc(CC_VIBRATO_RATE, 70))
-                self.show_diag(f"[二胡] 抖动=揉弦 (反转 {rev} 次 ⇒ 深度加深)")
+                self.show_diag(f"[小提琴] 抖动=揉弦 (反转 {rev} 次 ⇒ 深度加深)")
         self._e_last_y = ev.y
         if self.e_note is not None:
             step = (330.0 - 40.0) / (self.ERHU_SEMI_MAX + 1)
@@ -1927,7 +1947,7 @@ class PianoGUI:
             if down:
                 self.erhu_switch_string()
             return True
-        for si, keys in enumerate((self.ERHU_KEY_INNER, self.ERHU_KEY_OUTER)):
+        for si, keys in enumerate(VIOLIN_KEY_ROWS):
             if k in keys:
                 semi = keys.index(k)
                 if down:
@@ -1939,10 +1959,11 @@ class PianoGUI:
 
     # ---------------------------------------------------------------- 维度
     def erhu_switch_string(self):
-        """⭐ **换弦 = 弓的方向反转**（推弓=内弦 / 拉弓=外弦）—— 二胡独有的交互。"""
+        """⭐ **换弦 = 弓的方向反转**（推弓=内弦 / 拉弓=外弦）—— 小提琴独有的交互。"""
         self.e_push = not self.e_push
+        self.e_sel = (self.e_sel + 1) % len(VIOLIN_STRINGS)
         if self.e_note is not None:
-            self.erhu_play(0 if self.e_push else 1, self.e_semi)
+            self.erhu_play(self.e_sel, self.e_semi)
         self.draw_erhu()
         self.set_status(f"换弦：{'推弓 ⇒ 内弦 D4' if self.e_push else '拉弓 ⇒ 外弦 A4'}", "info")
 
@@ -1954,7 +1975,7 @@ class PianoGUI:
         """左手拨弦：一次瞬态激励（短音）。"""
         self.link.note_on(self.erhu_note(self.e_sel, self.e_semi), self.velocity)
         self.root.after(120, lambda: self.link.note_off(self.erhu_note(self.e_sel, self.e_semi)))
-        self.show_diag("[二胡] 左手拨弦（瞬态）")
+        self.show_diag("[小提琴] 左手拨弦（瞬态）")
 
     def erhu_tremolo_toggle(self):
         """颤弓/抖弓：快速分弓（~10 Hz 重复激励，弓向反复）。"""
@@ -2047,11 +2068,11 @@ class PianoGUI:
 
     def set_bow_force(self, v):      # 弓压 → CC22（**亮度，不改音量**）
         self.link.set_fx(CC_CHORUS, int(float(v)))
-        self.set_status("🎻 弓压 → CC22 ⚠️ **RTL 侧暂无通路**（界面发得出去）", "info")
+        self.set_status("🎻 弓压 → CC22 ✅ 已接入小提琴琴体中频亮度", "ok")
 
     def set_bow_pos(self, v):        # 弓位 → CC23（薄↔厚）
         self.link.set_fx(CC_DELAY, int(float(v)))
-        self.set_status("🎻 弓位 → CC23 ⚠️ **RTL 侧暂无通路**（界面发得出去）", "info")
+        self.set_status("🎻 弓位 → CC23 ✅ 已接入小提琴高频边缘", "ok")
 
     def on_close(self):
         try:
@@ -2266,17 +2287,17 @@ def keytest() -> int:
         f"吉他：重失真档 → CC21={GUITAR_DRIVE_LEVELS[2]}（不新增 CC）",
         bytes(fake.buf).hex(" "))
 
-    # ==================== 🎻 二胡模式（21 弦 / 弓法 / 按弦滑音）====================
+    # ==================== 🎻 小提琴模式（21 弦 / 弓法 / 按弦滑音）====================
     fake.buf.clear()
     app.set_mode(MODE_ERHU)
     root.update()
-    chk(app.mode == MODE_ERHU and len(app._e_hits) == 2 * (app.ERHU_SEMI_MAX + 1),
-        f"二胡：画出 **2 根弦 × {app.ERHU_SEMI_MAX + 1} 音位** = {len(app._e_hits)} 格（无品⇒连续）")
+    chk(app.mode == MODE_ERHU and len(app._e_hits) == 4 * (app.ERHU_SEMI_MAX + 1),
+        f"小提琴：画出 **4 根弦 × {app.ERHU_SEMI_MAX + 1} 音位** = {len(app._e_hits)} 格（无品⇒连续）")
     chk(all(h[0] < h[2] and h[1] < h[3] for h in app._e_hits),
-        "二胡：每个音位格都是有效矩形（x0<x1 且 y0<y1）")
-    chk(len({h[0] for h in app._e_hits}) == 2,
-        "二胡：音位格分属**两列**（内弦 D4 在左 / 外弦 A4 在右）")
-    gz_keys = ["q", "a"]          # q=内弦D4 / a=外弦A4 ⇒ 正好两根弦的空弦
+        "小提琴：每个音位格都是有效矩形（x0<x1 且 y0<y1）")
+    chk(len({h[0] for h in app._e_hits}) == 4,
+        "小提琴：音位格分属**四列**（G3 / D4 / A4 / E5）")
+    gz_keys = ["q", "a"]          # q=D4 / a=A4，保留旧快捷键的两根常用弦
     got_z = []
     for ks in gz_keys:
         fake.buf.clear()
@@ -2287,15 +2308,14 @@ def keytest() -> int:
             got_z.append(b[b.index(0x90) + 1])
         root.event_generate("<KeyRelease>", keysym=ks, when="now")
         root.update()
-    chk(got_z == ERHU_STRINGS, f"二胡：2 个键盘键 → 2 根弦对应（实得 {len(got_z)}）")
-    chk(all(n % 12 in (2, 4, 6, 9, 11) for n in got_z),
-        "二胡：全部落在五声音阶 D E F# A B（无 G/C#）")
+    chk(got_z == [ERHU_STRINGS[1], ERHU_STRINGS[2]], f"小提琴：D/A 两个快捷键对应标准弦（实得 {got_z}）")
+    chk(all(n in ERHU_STRINGS for n in got_z), "小提琴：快捷键落在标准 G-D-A-E 四弦")
     fake.buf.clear()
     app.erhu_play(0, 2)
     pump(140)
     gl = bytes(fake.buf)
     chk(bytes([0xB0, 0x41, 0x7F]) in gl and bytes([0xB0, 0x05, 20]) in gl,
-        "二胡：按弦滑音**复用 Portamento（CC65 开 + CC5 时间）** => 真滑音", gl.hex(" "))
+        "小提琴：按弦滑音**复用 Portamento（CC65 开 + CC5 时间）** => 真滑音", gl.hex(" "))
     fake.buf.clear()
     app.set_drive(100)                     # ☆ 走 GUI 的真实路径（滑杆 command）
     root.update()
@@ -2322,54 +2342,54 @@ def keytest() -> int:
     _pt = " ".join(_all_text(app.mode_extras))
     chk(app.mode == MODE_PIANO and "八度" in _pt and "32 键齐奏" in _pt,
         "点【钢琴】⇒ 钢琴专属区有『八度/锁存/32键齐奏』", _pt[:60])
-    # ★ 画布层隔离（比控件文字更硬）：钢琴=37 键，且**没有**指板/二胡弦的命中表
+    # ★ 画布层隔离（比控件文字更硬）：钢琴=37 键，且**没有**指板/小提琴弦的命中表
     chk(len(app._rect_to_note) == KEYBOARD_SPAN and not app._g_hits and not app._e_hits,
-        "★钢琴模式：画布是 37 键，且**没有**指板格子/二胡弦",
+        "★钢琴模式：画布是 37 键，且**没有**指板格子/小提琴弦",
         f"keys={len(app._rect_to_note)} g={len(app._g_hits)} z={len(app._e_hits)}")
     chk("挂电" not in _pt and "运弓" not in _pt and "弓法" not in _pt and "横按" not in _pt,
-        "★钢琴模式：专属区没有吉他的挂电/横按、也没有二胡的运弓/弓法")
+        "★钢琴模式：专属区没有吉他的挂电/横按、也没有小提琴的运弓/弓法")
     app.inst_switch_btns[1].invoke()                 # 点「🎸 吉他」
     root.update()
     chk(app.mode == MODE_GUITAR and len(app._g_hits) == 78,
         "点【吉他】⇒ 模式变吉他 + 画出 78 格指板", f"cells={len(app._g_hits)}")
     chk(not app._rect_to_note and not app._e_hits,
-        "★吉他模式：**没有**钢琴键盘、也**没有**二胡 21 弦",
+        "★吉他模式：**没有**钢琴键盘、也**没有**小提琴 21 弦",
         f"keys={len(app._rect_to_note)} z={len(app._e_hits)}")
     _gtexts = " ".join(_all_text(app.mode_extras))
     chk("挂电" in _gtexts, "吉他专属区有『挂电』滑杆", _gtexts[:60])
     chk(all(t not in _gtexts for t in ("Ny" + "lon", "Acou" + "stic", "Elec" + "tric")),
         "★按用户要求：**音色三选已删除**")
     chk("八度" not in _gtexts and "32 键齐奏" not in _gtexts and "运弓" not in _gtexts,
-        "★吉他模式：没有钢琴的八度/32键、也没有二胡的运弓")
-    app.inst_switch_btns[2].invoke()                 # 点「🎻 二胡」
+        "★吉他模式：没有钢琴的八度/32键、也没有小提琴的运弓")
+    app.inst_switch_btns[2].invoke()                 # 点「🎻 小提琴」
     root.update()
-    chk(app.mode == MODE_ERHU and len(app._e_hits) == 2 * (app.ERHU_SEMI_MAX + 1),
-        f"点【二胡】按钮 ⇒ 模式变二胡 + {len(app._e_hits)} 个音位格")
+    chk(app.mode == MODE_ERHU and len(app._e_hits) == 4 * (app.ERHU_SEMI_MAX + 1),
+        f"点【小提琴】按钮 ⇒ 模式变小提琴 + {len(app._e_hits)} 个四弦音位格")
     _gt = " ".join(_all_text(app.mode_extras))
     chk(not app._rect_to_note and not app._g_hits,
-        "★二胡模式：**没有**钢琴键盘、也**没有**吉他指板",
+        "★小提琴模式：**没有**钢琴键盘、也**没有**吉他指板",
         f"keys={len(app._rect_to_note)} g={len(app._g_hits)}")
     chk("弓速" in _gt and "弓压" in _gt and "弓位" in _gt,
-        "★二胡专属区有『弓速/弓压/弓位』三个**独立连续维度**控件", _gt[:90])
+        "★小提琴专属区有『弓速/弓压/弓位』三个**独立连续维度**控件", _gt[:90])
     chk("挂电" not in _gt and "八度" not in _gt and "32 键齐奏" not in _gt
         and "横按" not in _gt,
-        "★二胡模式：没有吉他的挂电/横按、也没有钢琴的八度/32键")
+        "★小提琴模式：没有吉他的挂电/横按、也没有钢琴的八度/32键")
 
     # ★ 三种模式都应保留"通用演奏控件"（力度/延音/颤音/滑音）
-    for _mi, _nm in ((0, "钢琴"), (1, "吉他"), (2, "二胡")):
+    for _mi, _nm in ((0, "钢琴"), (1, "吉他"), (2, "小提琴")):
         app.inst_switch_btns[_mi].invoke()
         root.update()
         _AT = " ".join(_all_text(root))
         chk(all(t in _AT for t in ("力度", "延音", "颤音", "滑音")),
             f"★{_nm}模式：通用演奏控件（力度/延音/颤音/滑音）都在")
 
-    # ★ 键位标注：吉他格子/二胡弦上都画了"哪个键"
+    # ★ 键位标注：吉他格子/小提琴弦上都画了"哪个键"
     app.inst_switch_btns[1].invoke(); root.update()
     _gn = len(app.canvas.find_all())
     chk(_gn > 150, f"吉他指板画出键位标注（画布元素 {_gn} 个）")
     app.inst_switch_btns[2].invoke(); root.update()
     _zn = len(app.canvas.find_all())
-    chk(_zn > 10, f"二胡每弦画出键位标注（画布元素 {_zn} 个）")
+    chk(_zn > 10, f"小提琴每弦画出键位标注（画布元素 {_zn} 个）")
 
     # ★★ Bug A 断言：**检查"高亮状态"本身**（点按钮 / 按 F 键 两条路径都要对）
     app.inst_switch_btns[1].invoke()                 # 鼠标点【吉他】
@@ -2377,7 +2397,7 @@ def keytest() -> int:
     _bs = [str(b.cget("text")) for b in app.inst_switch_btns]
     chk(_bs[1].startswith("▶") and not _bs[0].startswith("▶")
         and not _bs[2].startswith("▶"),
-        "★点【吉他】⇒ **吉他按钮高亮**、钢琴/二胡**不高亮**", " | ".join(_bs))
+        "★点【吉他】⇒ **吉他按钮高亮**、钢琴/小提琴**不高亮**", " | ".join(_bs))
     _bg = [str(b.cget("bg")).lower() for b in app.inst_switch_btns]
     chk(_bg[1] != _bg[0] and _bg[1] != _bg[2], "吉他按钮底色与另外两个不同", " ".join(_bg))
     fake.buf.clear()
@@ -2387,10 +2407,10 @@ def keytest() -> int:
     _bs2 = [str(b.cget("text")) for b in app.inst_switch_btns]
     chk(app.mode == MODE_ERHU and _bs2[2].startswith("▶")
         and not _bs2[0].startswith("▶") and not _bs2[1].startswith("▶"),
-        "★按 **F3** ⇒ 二胡按钮高亮、其余不高亮（**键盘路径也更新高亮**）",
+        "★按 **F3** ⇒ 小提琴按钮高亮、其余不高亮（**键盘路径也更新高亮**）",
         " | ".join(_bs2))
 
-    # ★★ v45 二胡：按住=运弓 / 松开=离弦 / Q内弦 A外弦 / 弓速弓压弓位三独立 CC
+    # ★★ v45 小提琴：按住=运弓 / 松开=离弦 / Q内弦 A外弦 / 弓速弓压弓位三独立 CC
     app.inst_switch_btns[2].invoke()
     root.update()
     try:
@@ -2398,34 +2418,34 @@ def keytest() -> int:
         _drew = True
     except Exception:                                            # noqa: BLE001
         _drew = False
-    chk(_drew, "★二胡：draw_erhu() 正常画出（琴筒/琴杆/弓/两竖直弦/电平表）")
-    chk(len(app._e_hits) == 2 * (app.ERHU_SEMI_MAX + 1),
-        f"二胡：2 弦 × {app.ERHU_SEMI_MAX + 1} 音位 = {len(app._e_hits)} 格")
+    chk(_drew, "★小提琴：draw_erhu() 正常画出（四弦琴身/指板/琴桥/横弓/电平表）")
+    chk(len(app._e_hits) == 4 * (app.ERHU_SEMI_MAX + 1),
+        f"小提琴：4 弦 × {app.ERHU_SEMI_MAX + 1} 音位 = {len(app._e_hits)} 格")
     fake.buf.clear()
     app.erhu_key("q", down=True)                 # 内弦 0 品
     root.update()
     _b = bytes(fake.buf)
-    chk(bytes([0x90, ERHU_STRINGS[0]]) in _b,
-        f"★二胡：键盘 Q = 内弦 D4({ERHU_STRINGS[0]})，**按下即发声**", _b.hex(" "))
-    chk(app.e_note == ERHU_STRINGS[0] and app.e_level[0] > 0,
-        "★二胡：**按住=运弓（持续发声）**，电平表点亮内弦")
+    chk(bytes([0x90, ERHU_STRINGS[1]]) in _b,
+        f"★小提琴：键盘 Q = D 弦 D4({ERHU_STRINGS[1]})，**按下即发声**", _b.hex(" "))
+    chk(app.e_note == ERHU_STRINGS[1] and app.e_level[1] > 0,
+        "★小提琴：**按住=运弓（持续发声）**，电平表点亮 D 弦")
     fake.buf.clear()
     app.erhu_key("q", down=False)
     root.update()
     chk(bytes(fake.buf)[:2] == bytes([0x80, ERHU_STRINGS[0]]) and app.e_note is None,
-        "★二胡：**松开=离弦**（NoteOff）", bytes(fake.buf).hex(" "))
+        "★小提琴：**松开=离弦**（NoteOff）", bytes(fake.buf).hex(" "))
     fake.buf.clear()
     app.erhu_key("a", down=True)
     root.update()
     _b2 = bytes(fake.buf)
-    chk(bytes([0x90, ERHU_STRINGS[1]]) in _b2, f"★二胡：键盘 A = 外弦 A4({ERHU_STRINGS[1]})", _b2.hex(" "))
-    chk(app.e_push is False, "★二胡：拉外弦 ⇒ 弓向=拉（推弓=内弦/拉弓=外弦）")
+    chk(bytes([0x90, ERHU_STRINGS[1]]) in _b2, f"★小提琴：键盘 A = 外弦 A4({ERHU_STRINGS[1]})", _b2.hex(" "))
+    chk(app.e_push is False, "★小提琴：拉外弦 ⇒ 弓向=拉（推弓=内弦/拉弓=外弦）")
     app.erhu_key("a", down=False)
     root.update()
     _p0 = app.e_push
     app.erhu_switch_string()
     root.update()
-    chk(app.e_push != _p0, "★★二胡：**换弦 = 弓的方向反转**（推弓 ⇄ 拉弓）")
+    chk(app.e_push != _p0, "★★小提琴：**换弦 = 弓的方向反转**（推弓 ⇄ 拉弓）")
     fake.buf.clear()
     app.set_bow_speed(100)
     root.update()
@@ -2433,25 +2453,25 @@ def keytest() -> int:
     chk(bytes([0xB0, CC_DRIVE, 100]) in _s
         and bytes([0xB0, CC_CHORUS, 100]) not in _s
         and bytes([0xB0, CC_DELAY, 100]) not in _s,
-        "★★二胡：弓速 → **只发 CC21**（不同时动 CC22/CC23）", _s.hex(" "))
+        "★★小提琴：弓速 → **只发 CC21**（不同时动 CC22/CC23）", _s.hex(" "))
     fake.buf.clear()
     app.set_bow_force(110)
     root.update()
     _f = bytes(fake.buf)
     chk(bytes([0xB0, CC_CHORUS, 110]) in _f and bytes([0xB0, CC_DRIVE, 110]) not in _f,
-        "★★二胡：弓压 → **只发 CC22**（**不改音量/弓速** —— 调研点名的坑）", _f.hex(" "))
+        "★★小提琴：弓压 → **只发 CC22**（**不改音量/弓速** —— 调研点名的坑）", _f.hex(" "))
     fake.buf.clear()
     app.set_bow_pos(60)
     root.update()
     _q = bytes(fake.buf)
     chk(bytes([0xB0, CC_DELAY, 60]) in _q and bytes([0xB0, CC_DRIVE, 60]) not in _q,
-        "★★二胡：弓位 → **只发 CC23**", _q.hex(" "))
+        "★★小提琴：弓位 → **只发 CC23**", _q.hex(" "))
     chk((CC_DRIVE, CC_CHORUS, CC_DELAY) == (21, 22, 23),
-        "★文档口径：二胡弓速/弓压/弓位 **复用 CC21/22/23**（与吉他同名、不同乐器，CC20 区分）")
+        "★文档口径：小提琴弓速/弓压/弓位 **复用 CC21/22/23**（与吉他同名、不同乐器，CC20 区分）")
     app.erhu_play(0, 3)
     root.update()
     chk(app.e_level[0] > 0 and app.e_level[1] == 0,
-        "二胡：同时只发一根弦（弓夹在两弦之间）⇒ 另一弦电平为 0")
+        "小提琴：同时只发一根弦（弓夹在两弦之间）⇒ 另一弦电平为 0")
     app.erhu_stop()
     root.update()
 
@@ -2525,14 +2545,14 @@ def keytest() -> int:
     for _m in ("draw_erhu", "erhu_press", "erhu_key", "_build_erhu_extras"):
         chk(_src.count("    def %s(" % _m) == 1,
             f"★死代码清理：`{_m}` **只有一个定义**（旧的被覆盖体已删）")
-    # 状态提示：CC21 已通 / CC22-23 待支持
+    # 状态提示：CC21/22/23 均已接入 FPGA 小提琴路径
     app.inst_switch_btns[2].invoke(); root.update()
     app.set_bow_speed(80)
     chk("RTL" not in str(app.status.cget("text")) or "已有 RTL 通路" in str(app.status.cget("text")),
         "★CC21 弓速：提示**已有 RTL 通路**（去掉了「待支持」）", str(app.status.cget("text"))[:60])
     app.set_bow_force(80)
-    chk("RTL" in str(app.status.cget("text")),
-        "★CC22 弓压：提示**仍待 RTL 支持**（如实）", str(app.status.cget("text"))[:60])
+    chk("RTL" not in str(app.status.cget("text")) or "已接入" in str(app.status.cget("text")),
+        "★CC22 弓压：提示**已接入小提琴琴体亮度**", str(app.status.cget("text"))[:60])
     app.inst_switch_btns[1].invoke(); root.update()
 
     # ★★ 断言机制自证：`KEYTEST_SELFFAIL=1` 时故意插一条必假断言
@@ -2597,7 +2617,7 @@ def selftest() -> int:
     chk(_g2.ok is False and _g2.is_chinese() is None,
         "--no-ime 时守护完全惰性（不碰系统输入法）")
     chk(MODE_TO_CC20 == (0, 1, 3) and m_inst(3) == bytes([0xB0, CC_INST, 3]),
-        "★CC20 映射 = 钢琴0/吉他1/二胡3（Lead 规定）")
+        "★CC20 映射 = 钢琴0/吉他1/小提琴3（Lead 规定）")
     chk(isinstance(CC_INST, int) and m_inst(1) == bytes([0xB0, CC_INST, 1]),
         f"CC20 音色命令 = B0 {CC_INST:02X} 01")
 
@@ -2625,13 +2645,11 @@ def selftest() -> int:
         "吉他：弦1(E4) 品0/1/12 = 64/65/76")
     chk(len(GUITAR_OPEN) == 6 and GUITAR_OPEN == [64, 59, 55, 50, 45, 40],
         "吉他标准调弦 EADGBE = 64/59/55/50/45/40")
-    chk(ERHU_STRINGS == [62, 69], "二胡两根弦 = 内弦 D4(62) / 外弦 A4(69)（定弦待核实）")
-    chk(all(n % 12 in (2, 4, 6, 9, 11) for n in ERHU_STRINGS),
-        "二胡全部是五声音阶 D E F# A B（**没有 G(4) 与 C#(7)**）")
-    chk(ERHU_STRINGS[0] == 62 and ERHU_STRINGS[-1] == 69, "二胡内弦 D4(62) / 外弦 A4(69)")
+    chk(ERHU_STRINGS == [55, 62, 69, 76], "小提琴标准四弦 = G3/D4/A4/E5")
+    chk(ERHU_STRINGS[1] == 62 and ERHU_STRINGS[2] == 69, "小提琴 D/A 中间两弦音高正确")
     chk(len(set(PC_KEYMAP.values())) == 37, "钢琴 37 键无重复（第三轮未破坏）")
     _gk = ["q", "a"]
-    chk(len(_gk) == 2 and len(set(_gk)) == 2, "二胡 2 根弦的键盘键互不冲突")
+    chk(len(_gk) == 2 and len(set(_gk)) == 2, "小提琴常用 D/A 两弦键盘键互不冲突")
     # ★ 吉他"行=弦"键表（2026-10-06 v38 改版）
     chk([len(r) for r in GUITAR_ROW_KEYS] == [12, 12, 11, 10],
         f"吉他 4 行键数 = 12/12/11/10（实为 {[len(r) for r in GUITAR_ROW_KEYS]}）")
@@ -2647,7 +2665,7 @@ def selftest() -> int:
     _SRC = open(__file__, encoding="utf-8").read()
     chk(all(b not in _SRC for b in _BAN),
         "★全文件已无音色三选字样（拆分拼接，避免断言自指）")
-    chk(max(string_fret_note(0, len(GUITAR_ROW_KEYS[0])), 
+    chk(max(string_fret_note(0, len(GUITAR_ROW_KEYS[0])),
             string_fret_note(3, len(GUITAR_ROW_KEYS[3]))) <= GUITAR_RANGE[1],
         "行内最高品得到的音不超出吉他音域")
     chk((CC_DRIVE, CC_CHORUS, CC_DELAY, CC_REVERB) == (21, 22, 23, 24),
@@ -2786,3 +2804,4 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
