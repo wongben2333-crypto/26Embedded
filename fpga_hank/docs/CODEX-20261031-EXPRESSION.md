@@ -27,4 +27,4 @@
 
 ## 上板状态
 
-2026-10-31 11:18 烧录时 JTAG 暂未识别，programmer_cli 退出码 50；重新插好 JTAG 后，用 `tools/gowin/program.ps1 -Mode sram` 下载交付位流。位流文件保存在本地交付包，不提交到 Git。
+2026-10-31 11:18 曾因 JTAG 暂未识别退出码 50；重新插线后于 11:35 成功 SRAM Program 100%，目标 `GW5AST-138C(0x0001081B)`，User Code `0x1A2B0003`，programmer_cli 退出码 0。位流文件保存在本地交付包，不提交到 Git。
