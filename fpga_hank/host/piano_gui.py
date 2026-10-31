@@ -1700,7 +1700,7 @@ class PianoGUI:
         tk.Button(row, text="↑上扫 (F6)", width=10, bg="#333", fg="white",
                   command=lambda: self.guitar_strum(False)).pack(side="left", padx=2)
         tk.Label(self.mode_extras,
-                 text="硬件映射：6 路光电/ToF = 六根弦 S1-S6 ｜ 橡胶 K1-K13 = 品位 0-12（按住弦 + 品位）｜ E1=力度  E2=扫弦速度  E3=箱体明亮度",
+                 text="硬件映射：6 路光电 = 六根弦拨弦 S1-S6 ｜ 橡胶 K1-K13 = 品位 0-12（按住弦 + 品位）｜ EC11 E1=力度  E2=扫弦速度  E3=箱体明亮度",
                  bg="#17222b", fg="#9fd8ee", anchor="w",
                  font=("Microsoft YaHei", 9)).pack(fill="x", pady=(3, 0))
         # 可选效果器（CC22 合唱 / CC23 延迟 / CC24 混响）—— 只在吉他模式出现
@@ -1777,7 +1777,7 @@ class PianoGUI:
                      fg="#7fd1ff", highlightthickness=0, troughcolor="#333",
                      command=_cb).pack(side="left")
         tk.Label(self.mode_extras,
-                 text="硬件映射：红外 1 = 音调（上下/距离）｜红外 2 = 力度（遮挡量）｜E1=力度  E2=颤音深度  E3=弓位/亮度",
+                 text="硬件映射：ToF = 音调/把位（距离）｜红外暂作后续弓压手势扩展｜EC11 E1=力度  E2=颤音深度  E3=弓位/亮度",
                  bg="#17222b", fg="#9fd8ee", anchor="w",
                  font=("Microsoft YaHei", 9)).pack(fill="x", pady=(3, 0))
         tk.Button(row, text="换弦(弓向)", width=11, bg="#245", fg="white",
