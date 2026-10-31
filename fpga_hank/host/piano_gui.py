@@ -798,7 +798,7 @@ class PianoGUI:
         tk.Label(root, text="提示：F1/F2/F3 = 钢琴/吉他/小提琴 ｜  🎸吉他：**行=弦、位置=品**"
                             "（数字行=弦1、QWERTY=弦2、ASDF=弦3、ZXCV=弦4），"
                             "**Tab 切弦组**（弦3-6），**Shift+行首键 = 空弦**，F5/F6 = 下扫/上扫 ｜  "
-                            "🎻小提琴：两排键 = 21 弦，Z/X = 弓法，\\ = 运弓 ｜  "
+                            "🎻小提琴：四弦 G-D-A-E，Z/X = 颤弓/拨弦，\\ = 换弦 ｜  "
                             "钢琴：-= 八度，空格 踏板",
                  bg=self.BG, fg="#888", font=("Microsoft YaHei", 8),
                  wraplength=1180, justify="left").pack(pady=(0, 4))
@@ -1678,6 +1678,10 @@ class PianoGUI:
                        font=("Microsoft YaHei", 9)).pack(side="left", padx=8)
         tk.Button(row, text="32 键齐奏", width=11, bg="#265", fg="white",
                   command=self.play_chord32).pack(side="left", padx=2)
+        tk.Label(self.mode_extras,
+                 text="硬件映射：橡胶 K1-K13 = C4-C5 钢琴键 ｜ 编码器 E1=力度  E2=音色  E3=空间效果",
+                 bg="#17222b", fg="#9fd8ee", anchor="w",
+                 font=("Microsoft YaHei", 9)).pack(fill="x", pady=(3, 0))
         # （高亮更新已移到 `rebuild_mode_extras()` 末尾 —— Bug A 的根因就是它留在这里）
 
     def _build_guitar_extras(self):
@@ -1695,6 +1699,10 @@ class PianoGUI:
                   command=lambda: self.guitar_strum(True)).pack(side="left", padx=2)
         tk.Button(row, text="↑上扫 (F6)", width=10, bg="#333", fg="white",
                   command=lambda: self.guitar_strum(False)).pack(side="left", padx=2)
+        tk.Label(self.mode_extras,
+                 text="硬件映射：6 路光电/ToF = 六根弦 S1-S6 ｜ 橡胶 K1-K13 = 品位 0-12（按住弦 + 品位）｜ E1=力度  E2=扫弦速度  E3=箱体明亮度",
+                 bg="#17222b", fg="#9fd8ee", anchor="w",
+                 font=("Microsoft YaHei", 9)).pack(fill="x", pady=(3, 0))
         # 可选效果器（CC22 合唱 / CC23 延迟 / CC24 混响）—— 只在吉他模式出现
         row2 = tk.Frame(self.mode_extras, bg=self.BG)
         row2.pack(fill="x", pady=(1, 0))
@@ -1768,6 +1776,10 @@ class PianoGUI:
             tk.Scale(row, from_=0, to=127, orient="horizontal", length=88, bg=self.BG,
                      fg="#7fd1ff", highlightthickness=0, troughcolor="#333",
                      command=_cb).pack(side="left")
+        tk.Label(self.mode_extras,
+                 text="硬件映射：红外 1 = 音调（上下/距离）｜红外 2 = 力度（遮挡量）｜E1=力度  E2=颤音深度  E3=弓位/亮度",
+                 bg="#17222b", fg="#9fd8ee", anchor="w",
+                 font=("Microsoft YaHei", 9)).pack(fill="x", pady=(3, 0))
         tk.Button(row, text="换弦(弓向)", width=11, bg="#245", fg="white",
                   command=self.erhu_switch_string).pack(side="left", padx=6)
         tk.Button(row, text="颤弓 (Z)", width=9, bg="#333", fg="white",
