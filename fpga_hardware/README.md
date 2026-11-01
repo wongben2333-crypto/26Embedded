@@ -1,8 +1,10 @@
-# fpga_hardware —— 硬件乐器（Tang Mega 60K）· S5 分支
+# fpga_hardware —— 硬件乐器（Tang Mega 60K）
 
-> **这是什么**：把 13 个硅胶键 + 1 路对射光电 + 1 只 VB22B ToF + 1 只 EC11 编码器，
-> 直接驱动 hank 引擎的 **8 声部合成**（MODE=3），整机不需要电脑。
-> **状态**：2026-10-24 真板验收通过（详见 `docs/S5-INTEGRATION-PLAN.md` 附录 A1–A6）。
+> **这是什么**：面向 13 键、6 路对射光电、2 只 VB22B ToF 和 4 只 EC11 的
+> Tang Mega 60K 输入转接板与两件式整壳。FPGA 运行 MODE=3 的 hank
+> **8 声部合成**，音频使用底板 PT8211，整机不依赖电脑。
+> **当前状态**：2026-10-24 面包板/真板控制链路验收通过；PCB 与整壳已完成
+> 数字回装，实体首件尚未制造。当前权威硬件文档从 `docs/README.md` 进入。
 >
 > **与 `fpga_hank/` 的关系**：本目录是 `fpga_hank/rtl` 的**整份副本 + 改动**（团队约定：
 > 上游只读、改动整份复制）。上游后续变更需要手工合并。**只有两处不同**：
@@ -44,7 +46,7 @@ V 音量(0..127)      N 最近事件(90/80 note vel)   O FIFO阻塞计数(应为
 | 功能 | 针/球 | 说明 |
 |---|---|---|
 | key[0..12] | J13 1–10,13,14,15（E14 E13 C15 C14 B13 C13 A14 A13 B16 B15 A16 A15 A20） | 按下=0，内部上拉 |
-| photo[0..5] | J13 16–21（B20 A21 B21 B18 B17 C17） | 挡光=0，经 S9012 射极跟随器（12V 侧） |
+| photo[0..5] | J13 16–21（B20 A21 B21 B18 B17 C17） | 挡光=0；面包板原型用 S9012，PCB v1 用 PC817 |
 | EC11 #1 A/B | J13-22 / J13-23（D17 / A19） | 正交，RTL 内 1 kHz 邻接解码 |
 | **ToF #1 SCL** | **J13-24（A18）** | **4.7k 上拉 + 330Ω 串联** |
 | **ToF #1 SDA** | **J13-25（D15）** | 同上 |
@@ -52,7 +54,7 @@ V 音量(0..127)      N 最近事件(90/80 note vel)   O FIFO阻塞计数(应为
 
 > ⚠️ **I2C 不要再用 J8（AB22/Y21）**：那组球与音频 I2S 同属 BANK7，10 kHz 会把 DAC
 > 搅成尖锐噪声。挪到 J13-24/25 后 10 kHz 全速也完全干净（已实测）。
-> 详见 `docs/INPUTS-WIRING.md` §4。
+> 详见 `docs/BREADBOARD-BRINGUP.md` §6.1。
 
 ## 3. 演奏语义（MODE=3）
 
@@ -84,13 +86,25 @@ V 音量(0..127)      N 最近事件(90/80 note vel)   O FIFO阻塞计数(应为
 
 ## 5. 文档
 
+完整入口见 **`docs/README.md`**。当前硬件事实分成五份主线文档：
+
 | 文件 | 内容 |
 |---|---|
-| `docs/S5-INTEGRATION-PLAN.md` | 方案（§0–§9）+ 实施结果与验收矩阵（附录 A1–A6） |
-| `docs/S5-HANDOFF-AND-HW-DESIGN.md` | 交接、扩展清单、**自研 PCB**、**3D 外壳**建议 |
-| `docs/INPUTS-WIRING.md` | 逐针接线、ToF 字节序、电气动正 |
-| `docs/INSTRUMENT-MAPPING.md` | 音符/表情映射设计 + §9 实施偏差表 |
-| `docs/TOF-VB22B-PROTOCOL.md` | VB22B 实测协议（含突发读字节序） |
+| **`docs/HARDWARE-DESIGN-SPEC.md`** | 整机架构、具体部件、电源域、演奏语义、已验收/未闭环边界 |
+| **`docs/BREADBOARD-BRINGUP.md`** | 面包板接线、S9012 过渡方案、遥测、实测结论和故障表 |
+| **`docs/PCB-DESIGN.md`** | 成品 PCB 板框、J13 网表、13 键坐标、PC817、双 ToF 总线、制造包风险 |
+| **`docs/ENCLOSURE-DESIGN.md`** | 两件式外壳、键床、防倾斜导柱、ToF 上下分件、40P/线缆窗、打印检查 |
+| **`docs/MANUFACTURING-AND-ACCEPTANCE.md`** | PCB/PCBA/外壳下单、采购、首件装配和验收门槛 |
+| `docs/NETLIST.md` | 详细 FPGA 球号与逐针连接；配套 `netlist.csv`、`netlist.dot` |
+| `docs/PCB-SCHEMATIC-SPEC.md` | 嘉立创 EDA 原理图分页和逐通道接法 |
+| `docs/PCB-POWER-ESD.md` | 可选保护/ESD 增强方案，不代表当前已装器件 |
+| `docs/INSTRUMENT-MAPPING.md` | 音符、光电“弦”、ToF、EC11 与 8 声部仲裁语义 |
+| `docs/TOF-VB22B-PROTOCOL.md` | VB22B 地址、寄存器、突发读字节序和实测坑 |
+| `enclosure/MODELING-NOTES.md` | CAD 参数、原 STL 检查、DfAM 和输出文件 |
+| `enclosure/MODIFICATION-2026-10-28.md` | 本轮硬件确认后的外壳修改、复检结果和打印说明 |
+
+早期提示词、S5 交接、旧外壳说明和 Gerber R1–R5 审查已归档到
+`docs/archive/`，原内容未删除；它们只作为历史证据使用。
 
 ## 6. 注意事项
 

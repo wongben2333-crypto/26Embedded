@@ -1,0 +1,51 @@
+﻿{
+  "file": "STL/top_shell.stl",
+  "scale": {
+    "bbox_diagonal_mm": 177.6507,
+    "units_suspect": false,
+    "note": "bbox consistent with millimetre units"
+  },
+  "orientations": {
+    "angle_limit_used_deg": 45.0,
+    "pct_denominator": "total surface area",
+    "candidates": [
+      {
+        "orientation": "current_plus_z",
+        "support_area_mm2": 8920.09,
+        "support_area_pct": 35.0,
+        "build_height_mm": 8.88
+      },
+      {
+        "orientation": "flip_180_x",
+        "support_area_mm2": 8882.53,
+        "support_area_pct": 34.8,
+        "build_height_mm": 8.88
+      },
+      {
+        "orientation": "rot_plus_90_x",
+        "support_area_mm2": 1631.74,
+        "support_area_pct": 6.4,
+        "build_height_mm": 109.0
+      },
+      {
+        "orientation": "rot_minus_90_x",
+        "support_area_mm2": 1557.52,
+        "support_area_pct": 6.1,
+        "build_height_mm": 109.0
+      },
+      {
+        "orientation": "rot_plus_90_y",
+        "support_area_mm2": 959.77,
+        "support_area_pct": 3.8,
+        "build_height_mm": 140.0
+      },
+      {
+        "orientation": "rot_minus_90_y",
+        "support_area_mm2": 959.77,
+        "support_area_pct": 3.8,
+        "build_height_mm": 140.0
+      }
+    ]
+  },
+  "partial": false
+}

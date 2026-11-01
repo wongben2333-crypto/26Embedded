@@ -1,0 +1,11 @@
+/tmp/
+.venv/
+__pycache__/
+
+# 224 MB vendor PCB assembly (STEP/assembly_with_pcb.step). It still carries the
+# pre-flip, upward-facing header models and exceeds GitHub's 100 MB file limit.
+# Regenerate locally from 3D_PCB1_2026-10-27.step + the flipped-header envelopes.
+/STEP/assembly_with_pcb.step
+
+# Interrupted writer leftovers (e.g. keybed.3mf.<pid>.tmp)
+*.tmp
