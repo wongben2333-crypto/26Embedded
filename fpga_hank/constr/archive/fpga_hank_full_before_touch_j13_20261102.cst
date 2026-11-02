@@ -1,0 +1,245 @@
+// =============================================================================
+//  fpga_hank.cst —?Tang Mega 138K 物理约束
+//  器件：GW5AST-LV138PG484AC1/I0（GW5AST-138C），封装 PBG484A
+//
+//  ?引脚值已双重核对?
+//     (1) vdalex/tangmega-138k-fpga-projects ?f_music.cst（权威参考工程）
+//     (2) flow-verifier 独立?Sipeed 板级资料交叉比对
+//     (3) 9 个引脚全部经真实 P&R 编译通过（见 _verify-flow/logs?
+//  ?注意：仅"P&R 接受"不等?能出? —?必须上板实测?
+//     ?.cst ?Gowin 不报错，会自动摆?IO（静默错脚），务必确认本文件被加入工程?
+// =============================================================================
+
+// ---- 时钟：V22 ?50 MHz 有源晶振（同时是 EMCCLK 引脚?-------------------
+// 注意：V22 ?EMCCLK，P&R 会报 PR1014（时钟走通用布线，偏斜偏大）?
+// 对音频这种低频设计可接受；若将来要做高速设计需改用专用时钟脚?
+IO_LOC  "clk" V22;
+IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// ---- 板载 LED（低有效?---------------------------------------------------
+// V13 无灯珠；U21 ?CPU/SSPI 专用脚，布局器会拒绝
+IO_LOC  "led[0]" T18;
+IO_PORT "led[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC  "led[1]" R18;
+IO_PORT "led[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC  "led[2]" R17;
+IO_PORT "led[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC  "led[3]" P16;
+IO_PORT "led[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// ---- 板载 PT8211 I2S DAC?.5mm 耳机?+ 2 ?3W 扬声器）------------------
+IO_LOC  "HP_BCK" Y17;
+IO_PORT "HP_BCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC  "HP_WS" AB17;
+IO_PORT "HP_WS" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC  "HP_DIN" AA16;
+IO_PORT "HP_DIN" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+// PA_EN 低有效：必须驱动 0 才出?
+IO_LOC  "PA_EN" AB16;
+IO_PORT "PA_EN" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// =============================================================================
+//  板载用户按键（赛题基础要求①：? 个独立可控维度）
+// -----------------------------------------------------------------------------
+//  引脚出处：官?Sipeed 引脚文件 tang_mega_138K_pins.cst ?"====== Keys ======" 段：
+//      IO_LOC "Key_in[0]" AB13;
+//      IO_LOC "Key_in[1]" Y12;
+//  两者均?LVCMOS33 / PULL_MODE=UP / BANK_VCCIO=3.3，板上已内部上拉?
+//  **按下 = 0（低有效?*。官?Wiki 说共 3 ?User-KEY，但官方引脚文件只给?
+//  这两个球号；第三个键物理存在（DOCK 原理图有 EX_KEY.0/1/2 网络名）但无球号映射?
+//  故本工程只用两个 —?已足够满?? ??
+//
+//  ⚠️ 不要?F4：F4 ?1.5V bank（LVCMOS15 / BANK_VCCIO=1.5），
+//     混进本工程全 LVCMOS33 的约束里会多一处失败可能?
+//
+//  用途：
+//    ⚠️ 按键语义【随编译?MODE 而变】，下面是三个模式的完整对照
+//       ?026-10-08 按真板实?+ rtl/top.v 逐行核对后重写；旧注释只写了 MODE=2 的行为，
+//        曾被误当?MODE=1 的行为，导致判断错误?
+//
+//    key  (AB13)  MODE=0：播?/ 停止（边沿触发）
+//                 MODE=1：★ 仅【曲目模式】下有效 —?换乐?0????（钢?吉他/二胡?
+//                 MODE=2：无作用（gate 恒全 1?2 路恒发声?
+//    key2 (Y12)   MODE=0：播放中切歌
+//                 MODE=1：★ 切换演奏形?—?自由演奏（上电默认）?曲目模式（自动放歌）
+//                 MODE=2：切音色? 种波形表循环?
+//    key_pitch (Y22, PMOD 外接)  MODE=2：每按一下升 1 个半音；MODE=0/1：不生效
+// =============================================================================
+IO_LOC  "key" AB13;
+IO_PORT "key" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "key2" Y12;
+IO_PORT "key2" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+// =============================================================================
+//  自研变调键（交互维度 3）—?PMOD 排针 P19
+// -----------------------------------------------------------------------------
+//  赛题基础要求③要求「支持单音实时变调」。官方按键只有两个（Keys 段只?
+//  AB13/Y12），因此第三个控制维度用 PMOD 排针外接一个按键，这正是赛题要求的
+//  "自研交互形?（不买现成键盘，自己接一个按钮）?
+//
+//  ?接法?026-10-08 按实际约束更正）：把常开按键接在 **Y22** ?GND 之间?
+//     IO 内部开上拉，按?= 0（与板载按键极性一致，便于统一处理）?
+//  ⚠️ 未接按键?Y22 被内部上拉为??pitch_semi 恒为 0（原调）?
+//     不影响其它功能，也不影响测试模式?32 谱峰取证?
+//
+//  ⚠️【历史误记，勿再沿用】本段曾?接法：P19 ?GND 之间接一个按??
+//     那与?88 行的实际约束 IO_LOC "key_pitch" Y22 不符 —?照旧注释接线会接错脚?
+//     现已按【实际约束】改?Y22?
+//
+//  PMOD 可选引脚（Sipeed 官方 pmod_led 例程引脚表）?
+//      P19 R19 T21 U21 Y21 Y22 AB21 AB22 AA20 AA21 AA19 AB20 R17 R18 T18 P16
+//  ⚠️ 其中实测【不可用】的：P19 / T21 / U21 / Y21 / R19 / AB21（PR2017 CPU/SSPI 专用脚）?
+//  ⚠️ 已被占用的（本工程）：key=AB13、key2=Y12、key_pitch=Y22、led[0..3]=T18 R18 R17 P16?
+//  ?从这 16 个候选里净剩可自由使用的：AB22 AA20 AA21 AA19 AB20 R19? 个）?
+//  ⚠️ 另注：T20 N15 R14 R16 P15 P14 AA14 Y13 是【摄像头 DVP】独有脚?
+//     不装摄像头时可用（注?DVP_CAM ?PMOD/SDRAM1 在原理图里是【复用】的）?
+// =============================================================================
+IO_LOC  "key_pitch" D14;  // Moved to W17, AA19 is now tp_sda
+IO_PORT "key_pitch" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// =============================================================================
+//  串口接收?026-10-05 新增）—?电脑控制链路，MODE=1 ?
+// -----------------------------------------------------------------------------
+//  引脚出处：官方引脚文?tang_mega_138K_pins.cst ?"====== UART ======" 段：
+//      IO_LOC  "txp"           U15;    // FPGA 发出（→PC）【固定，无版本差异?
+//      //For Version 31004 or later
+//      IO_LOC  "rxp"           V14;    // FPGA 接收（←PC? 新版板子
+//      //For Version 31002
+//      //IO_LOC  "rxp"         Y14;    // FPGA 接收         旧版板子
+//  三处官方来源相互印证（引脚文?+ ddr_memory_test_uart ?ddr3_1v4_hs.cst
+//  + riscv_hdmi.cst 均写 uart_tx=U15 / uart_rx=V14）?
+//
+//  ?2026-10-05 上板确证（两个独立实现交叉验证）?
+//      FPGA UART = **COM9**（FT2232H 通道 B）；**V14 正确**；双向全?
+//      （发 90 45 64 ??90 45 64 完全一致）。Y14 无需再试?
+//      COM8 = 通道 A（JTAG），只有伪回显噪声（FA 注入），**不是 FPGA UART**?
+//
+//  🔴 **`rxp` 不能?DRIVE**（本工程 P&R 实测）：
+//      官方引脚文件?rxp 写了 DRIVE=8，但本器?版本直接?
+//        ERROR (CT1108): Illegal port attribute value specified 'DRIVE = 8' on 'rxp'
+//      ?去掉 DRIVE 后立刻通过。这?它是输入?一致?
+//      （`txp` 可以?DRIVE=8；本工程 MODE=1/2 不需要发送，故未引出 txp。）
+//
+//  ⚠️ 注意：本工程只用 `rxp`（接收）。FPGA ?*没有 TX 通路**
+//      ?不存?发送忙吞掉接收字节"的问题（集成清单 §12 的裁决依据）?
+// =============================================================================
+IO_LOC  "uart_rx_pin" V14;
+IO_PORT "uart_rx_pin" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3; 
+// 138K physical interaction extension
+IO_LOC "key_hw[0]" E14;
+IO_LOC "key_hw[1]" E13;
+IO_LOC "key_hw[2]" C15;
+IO_LOC "key_hw[3]" C14;
+IO_LOC "key_hw[4]" B13;
+IO_LOC "key_hw[5]" C13;
+IO_LOC "key_hw[6]" A14;
+IO_LOC "key_hw[7]" A13;
+IO_LOC "key_hw[8]" B16;
+IO_LOC "key_hw[9]" B15;
+IO_LOC "key_hw[10]" A16;
+IO_LOC "key_hw[11]" A15;
+IO_LOC "key_hw[12]" A20;
+IO_LOC "photo_hw[0]" B20;
+IO_LOC "photo_hw[1]" A21;
+IO_LOC "photo_hw[2]" B21;
+IO_LOC "photo_hw[3]" B18;
+IO_LOC "photo_hw[4]" B17;
+IO_LOC "photo_hw[5]" C17;
+IO_LOC "ec1a" D17;
+IO_LOC "ec1b" A19;
+IO_LOC "scl_tof" A18;
+IO_LOC "sda_tof" D15;
+IO_LOC "dbg_tx" U15;
+IO_PORT "key_hw[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[6]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[7]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[8]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[9]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[10]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[11]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "key_hw[12]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "photo_hw[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "photo_hw[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "photo_hw[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "photo_hw[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "photo_hw[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "photo_hw[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "ec1a" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "ec1b" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "scl_tof" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "sda_tof" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "dbg_tx" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+
+// =============================================================================
+//  J14 7-inch 800x480 ATK-MD0700 (SSD1963 16-bit 8080) LCD & WS2812 Constraints
+// =============================================================================
+// Board RGB WS2812 & DPI dummy backlight
+IO_LOC "ws_dout" J16;
+IO_PORT "ws_dout" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4;
+IO_LOC "lcd_dpi_bl" P20;
+IO_PORT "lcd_dpi_bl" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8;
+
+// LCD control: LCD pin -> J14 pin -> FPGA ball
+IO_LOC "lcd_cs"  AB21; // LCD_CS  -> J14-24
+IO_PORT "lcd_cs"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC "lcd_rs"  R14;  // LCD_RS  -> J14-39
+IO_PORT "lcd_rs"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "lcd_wr"  AB20; // LCD_WR  -> J14-27
+IO_PORT "lcd_wr"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC "lcd_rd"  AB18; // LCD_RD  -> J14-30
+IO_PORT "lcd_rd"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC "lcd_rst" Y18;  // LCD_RST -> J14-32
+IO_PORT "lcd_rst" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+
+// LCD data: LCD pin -> J14 pin -> FPGA ball
+IO_LOC "lcd_db[0]"  V20;  // D0  -> J14-19
+IO_LOC "lcd_db[1]"  U20;  // D1  -> J14-20
+IO_LOC "lcd_db[2]"  Y22;  // D2  -> J14-21
+IO_LOC "lcd_db[3]"  AA20; // D3  -> J14-26
+IO_LOC "lcd_db[4]"  N15;  // D4  -> J14-34 (SDRAM1_BA0)
+IO_LOC "lcd_db[5]"  U17;  // D5  -> J14-36 (SDRAM1_A10)
+IO_LOC "lcd_db[6]"  P14;  // D6  -> J14-40 (SDRAM1_A3)
+IO_LOC "lcd_db[7]"  P15;  // D7  -> J14-38 (SDRAM1_A1)
+IO_LOC "lcd_db[8]"  N13;  // D8  -> J14-18
+IO_LOC "lcd_db[9]"  N14;  // D9  -> J14-17
+IO_LOC "lcd_db[10]" AA21; // D10 -> J14-25
+IO_LOC "lcd_db[11]" P17;  // D11 -> J14-15
+IO_LOC "lcd_db[12]" W21;  // D12 -> J14-14
+IO_LOC "lcd_db[13]" W22;  // D13 -> J14-13
+IO_LOC "lcd_db[14]" V17;  // D14 -> J14-10
+IO_LOC "lcd_db[15]" AB22; // D15 -> J14-23
+
+IO_PORT "lcd_db[0]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[1]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[2]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[3]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[4]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[5]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[6]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[7]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[8]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[9]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[10]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[11]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[12]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[13]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[14]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "lcd_db[15]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+
+// =============================================================================
+//  7寸电容触摸屏接口 (FT5206 / FT5426 I2C on J14)
+// =============================================================================
+IO_LOC "tp_scl"   AA18; // TP_SCL -> J14-29 (Screen Pin 34 CLK)
+IO_LOC "tp_sda"   AA19; // TP_SDA -> J14-28 (Screen Pin 30 MO)
+IO_LOC "tp_int"   Y19;  // TP_INT -> J14-31 (Screen Pin 31 PEN)
+IO_LOC "tp_rst_n" W17;  // TP_RST -> J14-9 (Screen Pin 33 CS, next to J14-11 5V)
+
+IO_PORT "tp_scl"   IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "tp_sda"   IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_PORT "tp_int"   IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_PORT "tp_rst_n" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4;
+

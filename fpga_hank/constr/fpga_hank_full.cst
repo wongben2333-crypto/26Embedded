@@ -93,7 +93,7 @@ IO_PORT "key2" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
 //  ⚠️ 另注：T20 N15 R14 R16 P15 P14 AA14 Y13 是【摄像头 DVP】独有脚?
 //     不装摄像头时可用（注?DVP_CAM ?PMOD/SDRAM1 在原理图里是【复用】的）?
 // =============================================================================
-IO_LOC  "key_pitch" D14;  // Moved to W17, AA19 is now tp_sda
+IO_LOC  "key_pitch" D14;
 IO_PORT "key_pitch" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
 
 // =============================================================================

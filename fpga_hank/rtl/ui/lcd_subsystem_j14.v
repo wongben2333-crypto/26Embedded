@@ -59,10 +59,10 @@ module lcd_subsystem_j14 (
     output wire        lcd_init_ok,       // 1 when SSD1963 initialization completed
 
     // FT5206 / FT5426 Capacitive Touch Pins (J14)
-    inout  wire        tp_scl,            // U18 (J14-359)
-    inout  wire        tp_sda,            // Y19 (J14-31)
-    input  wire        tp_int,            // Y19 (J14-33)
-    output wire        tp_rst_n,          // U18 (J14-35)
+    inout  wire        tp_scl,            // AA18 (J14-29)
+    inout  wire        tp_sda,            // AA19 (J14-28)
+    input  wire        tp_int,            // Y19 (J14-31)
+    output wire        tp_rst_n,          // W17 (J14-9)
 
     // Touch Event Outputs to Synthesizer / top.v
     output reg         touch_on_valid,
