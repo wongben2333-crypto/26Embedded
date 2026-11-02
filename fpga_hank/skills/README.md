@@ -1,93 +1,120 @@
-# skills —— 本项目的踩坑知识库
+# 本项目 skill 索引
 
-这里放着 `fpga_hank` 开发过程中**自建的 3 个 skill**。
-它们记录的不是"知识"，而是**这个项目真实踩过的坑**——每一条都有实测出处。
+> **用途**：上下文不够时，照下表找到该读哪个 skill，直接 `read` 它的 `SKILL.md`。
+> ⚠️ 本机 `dsh-skill-filesystem` 曾报 `inactive` ⇒ **skill 不一定自动加载，直接读文件即可。**
+> 路径均为相对本仓库根：`.dsh/skills/<name>/SKILL.md`
 
-| Skill | 大小 | 内容 |
+---
+
+## 一、写作与排版类（**本轮新建**）
+
+| Skill | 何时用 | 入口 | 自包含 |
+|---|---|---|---|
+| ⭐ **`zh-academic-writing`** | **写/改中文技术文档、去 AI 味、段落逻辑、标题导语** | [SKILL.md](zh-academic-writing/SKILL.md) | ✅ 5 文件 / 70 KB |
+| ⭐ **`docx-editor-cn`** | **Markdown → Word 排版**：三线表、原生公式、SEQ 域编号、字号体系 | [SKILL.md](docx-editor-cn/SKILL.md) | ✅ 3 文件 / 25 KB |
+| ⭐ **`tech-figure-plotting`** | **画图**：配色/字号/画幅/线型/标记/导出/图型选择 | [SKILL.md](tech-figure-plotting/SKILL.md) | ✅ 3 文件 / 31 KB |
+| `tech-doc-writing` | （**v1，已被 `zh-academic-writing` 取代**）早期综合版 | [SKILL.md](tech-doc-writing/SKILL.md) | ✅ 4 文件 / 193 KB |
+
+## 二、FPGA 工程类（**此前已有**）
+
+| Skill | 何时用 |
+|---|---|
+| `gowin-flow` | 高云 EDA 命令行全链路构建（综合→布局布线→位流→烧录）、Tcl 脚本、时序排查 |
+| `fpga-verify` | 验证与取证门禁：32 谱峰频谱、真实采样率推导、延迟分位数、赛线红线自审、lint/形式验证 |
+| `verilog-review` | Verilog/SystemVerilog RTL 审查清单（Gowin 综合器定制）|
+
+---
+
+## 三、各写作 skill 的分工与内部结构
+
+### `zh-academic-writing`（**主用**）
+```
+SKILL.md                                  12 节：六层漏斗 / 三条边界 / DEAI 五类痕迹 /
+                                          AXES 段落模型 / 行文 F / 用词 W / 标点 PN /
+                                          保护清单 / 交付协议 / 本项目体裁基准 / 排版 / 工具纪律
+references/
+  upstream-tuiqiao.md                     「推敲」skill 规则（去 AI 味、W/PN/F/T、保护清单 P1-P17）
+  upstream-academic-writing.md            学术写作 skill + DEAI_GUIDE 原文摘录
+  upstream-docx-editor-cn.md              中文学术 Word 排版原文
+  synthesis-v1.md                         第一版综合（MY-WRITING-SKILL）
+```
+
+### `docx-editor-cn`（**Word 排版规格，抓取存档**）
+```
+SKILL.md            入口（frontmatter 标注上游仓库/路径/抓取方式/日期）
+REFERENCE.md        ⭐ 上游原文：页面/字体/三线表/公式 3 列表格/SEQ 域自动编号/
+                    11 个已解决问题/docx-js 关键规则/辅助函数
+PROJECT-DIFF.md     本项目实测规格 vs 上游规格的差异对照 + 上游更强的三处 + 本项目独有纪律
+```
+**⇒ 其中「本项目更强的三处」指上游在【原生公式 OMML】【三线表】【SEQ 域自动编号】更强，本项目待升级。**
+
+### `tech-figure-plotting`（**绘图规范**）
+```
+SKILL.md                     10 节：三阶段流程（选择→适配→检查）/ 图型选择 / 配色 /
+                             字体字号 / 画幅 / 线条标记 / 导出 / ⛔ 不得自绘假证据 /
+                             可读性 12 条 / 现有图件改进点 / 代码骨架
+references/
+  upstream-plotting.md        pythesis style_guide.md 全文 + vivid-figures SKILL.md 三阶段流程
+  example_figures.py          ⭐ 已按规范重画的 6 张图脚本（可直接改数据复用）
+```
+
+---
+
+## 四、抓取来源与许可
+
+| Skill | 上游 | 许可 |
 |---|---|---|
-| `gowin-flow/` | 13.4 KB | 高云 Gowin 命令行全链路规范（综合→P&R→位流→烧录）+ 实测坑位 |
-| `verilog-review/` | 9.4 KB | RTL 审查清单 + "波形正常但实际错误"的案例复盘 |
-| `fpga-verify/` | 14.1 KB + 22 个附件 | 取证纪律、判据脚本、形式验证模板；`references/traps.md` 22.7 KB |
+| `zh-academic-writing` | `TingYu1769/skills-tuiqiao` ｜ `oceangis/skill_academic-writing-skills` ｜ `Gostyan/docx-skill-4-cn-paper` ｜ `YuanZHAO321/eloquent-science-zh` | MIT / Academic-Use-Only（个人使用）|
+| `docx-editor-cn` | `Gostyan/docx-skill-4-cn-paper` | MIT |
+| `tech-figure-plotting` | `stephenlzc/pythesis-plot` ｜ `yjz211/vivid-figures-skill` | MIT ｜ 个人非商业（用户已确认仅个人使用、不发布）|
+
+**⇒ 抓取通道（重要）**：
+```
+github.com 与 raw.githubusercontent.com 曾不可达；
+⭐ jsDelivr 可通：https://cdn.jsdelivr.net/gh/<user>/<repo>@<branch>/<path>
+⚠️ 但 PowerShell Invoke-WebRequest 走 jsDelivr 报 TLS 握手失败 ⇒ 只能用 web_fetch
+⚠️ .mplstyle / .json 等非文本 MIME（application/octet-stream）抓不到
+```
 
 ---
 
-## 为什么值得读
+## 五、原始存档位置（项目内，非 skill 目录）
 
-这 3 个 skill 里最值钱的部分是 **`fpga-verify/references/traps.md`**，它记了 **§1–§10** 共十类坑，
-每一类都写清了 **现象 / 根因 / 正确做法**。摘几条：
+```
+_research/doc-format/
+  FORMAT-SPEC.md                      58,108 B   三份往届参考的排版实测规格（623 行）
+  FORMAT-SPEC-LEAD.md                  5,114 B   Lead 实测版
+  REFERENCE-STYLE-ANALYSIS.md          6,385 B   三份参考的文风与格式分析
+  SECTION-STYLE-COMPARISON.md         12,997 B   逐节写作思路与用词对比
+  TUIQIAO-RULES.md                    10,556 B   「推敲」规则提炼
+  MY-WRITING-SKILL.md                 16,523 B   第一版综合
+  FETCH-academic-writing-skills.md    12,988 B   学术写作 skill + DEAI_GUIDE 原文摘录
+  FETCH-plotting-skills.md             9,035 B   绘图 skill 原文摘录
+  SKILL-docx-editor-cn.md             16,320 B   与 docx-editor-cn/REFERENCE.md 同一份
+  WRITING-SKILLS-CATALOG.md            4,978 B   检索到的仓库清单（含待抓 URL）
+  _ref_技术文档-张杰-国一.txt           30,418 B   国一全文
+  _ref_技术报告-钟超炀-国二.txt         89,622 B   国二全文
+  ref-fulltext.txt                   115,102 B   冯若陈国二全文
 
-- **§1** `--fs` 漏传参数 → 32 个谱峰**全部**误判 FAIL
-- **§2** 谱峰数达标但增益不均 9.74 dB（时分复用 ROM 的地址推进缺陷）
-- **§3** **反自欺：判据本身必须先被验证**
-- **§6** 证据必须来自**稳定快照**（运行中的文件读出来会自相矛盾）
-- **§7** 交付级风险：Gowin 工程**不可移植**（换路径即报 EX5998）
-- **§8** ★ 隔离基准**不能**用来"排除嫌疑"（一个被实测推翻的推断）
-- **§9** ★★ **五条"看起来对、实际错"的教训**：
-  位流哈希不能当修订标识 / 构建必须绑修订号守卫 / 判据脚本自己也会错（假 PASS）/
-  ModelSim 不 `log` 则波形库为空 / 位级 VCD 重组必须按时间戳对齐
-- **§10** 这五条的共同教训：**"看起来成功"和"看起来失败"都不可信；
-  可信的是"把期望值算出来，和实测值逐项对撞"**
+_research/doc-figures/                图件与脚本（make_figures_v2.py 为当前规范版）
+_research/doc-drafts/…                正文 Markdown（ch1..ch4 + appendix）
+_research/doc-tools/build_docx.py     Word 生成流水线
+```
 
 ---
 
-## 怎么让 DSH 真正加载它们
-
-⚠️ **DSH 的 skill 发现深度【只有一层】**：必须是 `<root>/<name>/SKILL.md`。
-
-**放在 `fpga_hank/skills/` 下不会自动加载** —— 这个目录是给你**阅读**和**装到正确位置**用的。
-
-### 装到你自己的项目里（推荐）
+## 六、常用命令
 
 ```powershell
-# 在你要用它的项目根下建 .dsh\skills\
-New-Item -ItemType Directory -Force -Path .dsh\skills
+$py = "C:\Users\Danny\AppData\Local\Python\pythoncore-3.14-64\python.exe"   # 有 matplotlib + python-docx
 
-# 把三个 skill 复制进去（注意：复制的是【一级子目录】）
-Copy-Item fpga_hank\skills\gowin-flow, `
-          fpga_hank\skills\verilog-review, `
-          fpga_hank\skills\fpga-verify `
-          .dsh\skills\ -Recurse
+# 重画全部图（当前规范版）
+& $py "_research\doc-figures\make_figures_v2.py"
+
+# 生成 Word
+& $py "_research\doc-tools\build_docx.py" --out "技术文档.docx"
+& $py "_research\doc-tools\build_docx.py" --draft <目录> --out x.docx
+
+# 文风扫描
+& $py "_research\doc-draft\_scan_deai.py"
 ```
-
-结果应该是：
-
-```
-<你的项目>\.dsh\skills\
-├─ gowin-flow\SKILL.md
-├─ verilog-review\SKILL.md
-└─ fpga-verify\SKILL.md
-```
-
-### 或装成用户级（所有项目都能用）
-
-```powershell
-Copy-Item fpga_hank\skills\gowin-flow, `
-          fpga_hank\skills\verilog-review, `
-          fpga_hank\skills\fpga-verify `
-          "$env:USERPROFILE\.dsh\skills\" -Recurse
-```
-
-### 直接读也行
-
-skill 正文就是普通 Markdown，**不依赖任何加载器**。
-加载器不生效时，直接 `read .dsh/skills/<name>/SKILL.md` 完全等效。
-
----
-
-## ⚠️ 两个硬门槛（实测，装第三方 skill 时更要小心）
-
-1. **frontmatter 只认 `name` + `description`**
-   （可选 `whenToUse` / `metadata` / `disable-model-invocation` / `user-invocable`）。
-   Claude skill 常见的 **`tools:` / `allowed-tools:` DSH 不认**
-   ⇒ **整个 skill 会被静默丢弃，而且没有任何诊断信息**。
-   本项目的 skill 只用 `name` + `description`，所以是安全的。
-
-2. **发现深度只有一层**（`<root>/<name>/SKILL.md`），**刻意不支持嵌套** `**/SKILL.md`。
-   ⇒ 把 skill 放进 `something/skills/` 这类更深的位置**会静默失效**。
-
----
-
-## 向前兼容约定
-
-如果将来要引入第三方 skill，应保持一个**唯一权威源**，
-其他位置的副本必须是**可再生的派生物**（单向：源 → 副本），**禁止反向手改副本**。
