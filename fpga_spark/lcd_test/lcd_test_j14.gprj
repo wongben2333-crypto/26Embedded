@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gowin-fpga-project>
 <Project><Template>FPGA</Template><Version>5</Version>
-<Device name="GW5AST-138C" pn="GW5AST-LV138PG484AC1/I0">gw5ast138c-007</Device>
+<Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
 <FileList>
 <File path="rtl/audio/pt8211_tx.v" type="file.verilog" enable="1"/>
 <File path="rtl/effects/audio_fx.v" type="file.verilog" enable="1"/>
@@ -33,6 +33,7 @@
 <File path="rtl/visualizer/fft_hann.hex" type="file.hex" enable="1"/>
 <File path="rtl/visualizer/fft_twiddle.hex" type="file.hex" enable="1"/>
 <File path="constraints/lcd_test_j14.cst" type="file.cst" enable="1"/>
+<File path="constraints/lcd_test_j14.sdc" type="file.sdc" enable="1"/>
 </FileList>
 <OptionList>
     <Option key="top_module" value="lcd_test_top"/>

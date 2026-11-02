@@ -775,34 +775,18 @@ module lcd_ui (
         end
     endfunction
 
-    function text_pixel;
+    function text_box;
         input [6:0] str_id;
         input [9:0] curr_x, curr_y;
         input [9:0] start_x, start_y;
         input [1:0] scale; // 1: 5x7, 2: 10x14
-        reg [9:0] rx, ry;
-        reg [9:0] char_idx;
-        reg [5:0] s_len;
-        reg [7:0] ch;
-        reg [2:0] c_col, c_row;
+        reg [9:0] w_px;
+        reg [8:0] h_px;
         begin
-            text_pixel = 1'b0;
-            s_len = get_str_len(str_id);
-            if (curr_x >= start_x && curr_y >= start_y) begin
-                rx = (curr_x - start_x) / scale;
-                ry = (curr_y - start_y) / scale;
-                if (ry < 10'd7 && rx < ({4'd0, s_len} * 10'd6)) begin
-                    char_idx = rx / 10'd6;
-                    c_col = rx % 10'd6;
-                    c_row = ry[2:0];
-                    if (c_col < 3'd5) begin
-                        ch = get_char(str_id, char_idx[5:0]);
-                        if (ch != 8'd0) begin
-                            text_pixel = font_dot(ch, c_col, c_row);
-                        end
-                    end
-                end
-            end
+            w_px = (scale == 2'd2) ? ({4'd0, get_str_len(str_id)} * 10'd12) : ({4'd0, get_str_len(str_id)} * 10'd6);
+            h_px = (scale == 2'd2) ? 9'd14 : 9'd7;
+            text_box = (curr_x >= start_x) && (curr_x < start_x + w_px) &&
+                       (curr_y >= start_y) && (curr_y < start_y + h_px);
         end
     endfunction
 
@@ -2250,12 +2234,18 @@ module lcd_ui (
     wire tab3_bar = (page == 2'd3) && (px >= 10'd626 && px <= 10'd742 && py >= 9'd33 && py <= 9'd35);
     wire tab_active_bar = tab0_bar || tab1_bar || tab2_bar || tab3_bar;
 
-    wire t_nav_title = text_pixel(0, px, py, 10'd16,  9'd12, 2'd1);
-    wire t_nav_tab0  = text_pixel(1, px, py, 10'd180, 9'd12, 2'd1);
-    wire t_nav_tab1  = text_pixel(2, px, py, 10'd330, 9'd12, 2'd1);
-    wire t_nav_tab2  = text_pixel(3, px, py, 10'd480, 9'd12, 2'd1);
-    wire t_nav_tab3  = text_pixel(4, px, py, 10'd630, 9'd12, 2'd1);
-    wire t_nav_rate  = text_pixel(5, px, py, 10'd728, 9'd12, 2'd1);
+    wire b_t_nav_title = text_box(0, px, py, 10'd16, 9'd12, 2'd1);
+    wire t_nav_title = b_t_nav_title && shared_text_on;
+    wire b_t_nav_tab0 = text_box(1, px, py, 10'd180, 9'd12, 2'd1);
+    wire t_nav_tab0 = b_t_nav_tab0 && shared_text_on;
+    wire b_t_nav_tab1 = text_box(2, px, py, 10'd330, 9'd12, 2'd1);
+    wire t_nav_tab1 = b_t_nav_tab1 && shared_text_on;
+    wire b_t_nav_tab2 = text_box(3, px, py, 10'd480, 9'd12, 2'd1);
+    wire t_nav_tab2 = b_t_nav_tab2 && shared_text_on;
+    wire b_t_nav_tab3 = text_box(4, px, py, 10'd630, 9'd12, 2'd1);
+    wire t_nav_tab3 = b_t_nav_tab3 && shared_text_on;
+    wire b_t_nav_rate = text_box(5, px, py, 10'd728, 9'd12, 2'd1);
+    wire t_nav_rate = b_t_nav_rate && shared_text_on;
 
     // -------------------------------------------------------------------------
     // PAGE 0: 演奏主界面 (PERFORMANCE DASHBOARD - REFINED v2)
@@ -2282,17 +2272,21 @@ module lcd_ui (
     wire p0_c2_strip = p0_c2_box && (py >= 9'd44 && py <= 9'd46);
     wire p0_c3_strip = p0_c3_box && (py >= 9'd44 && py <= 9'd46);
 
-    wire t_p0_c1_t  = (page == 2'd0) && text_pixel(6,  px, py, 10'd30,  9'd52, 2'd1);
-    wire t_p0_c1_v1 = (page == 2'd0) && text_pixel(7,  px, py, 10'd30,  9'd68, 2'd1);
-    wire t_p0_c1_v2 = (page == 2'd0) && text_pixel(8,  px, py, 10'd30,  9'd86, 2'd1);
+    wire b_t_p0_c1_t = (page == 2'd0) && text_box(6, px, py, 10'd30, 9'd52, 2'd1);
+    wire t_p0_c1_t = b_t_p0_c1_t && shared_text_on;
+    wire b_t_p0_c1_v1 = (page == 2'd0) && text_box(7, px, py, 10'd30, 9'd68, 2'd1);
+    wire t_p0_c1_v1 = b_t_p0_c1_v1 && shared_text_on;
+    wire b_t_p0_c1_v2 = (page == 2'd0) && text_box(8, px, py, 10'd30, 9'd86, 2'd1);
+    wire t_p0_c1_v2 = b_t_p0_c1_v2 && shared_text_on;
 
-    wire t_p0_c2_t  = (page == 2'd0) && text_pixel(9,  px, py, 10'd286, 9'd52, 2'd1);
-    wire t_p0_c2_v1 = (page == 2'd0) && (audio_active ?
-        text_pixel(10, px, py, 10'd286, 9'd68, 2'd1) :
-        text_pixel(11, px, py, 10'd286, 9'd68, 2'd1));
+    wire b_t_p0_c2_t = (page == 2'd0) && text_box(9, px, py, 10'd286, 9'd52, 2'd1);
+    wire t_p0_c2_t = b_t_p0_c2_t && shared_text_on;
+    wire b_t_p0_c2_v1 = (page == 2'd0) && text_box(audio_active ? 7'd10 : 7'd11, px, py, 10'd286, 9'd68, 2'd1);
+    wire t_p0_c2_v1 = b_t_p0_c2_v1 && shared_text_on;
 
     // Card 2 硬件音量指示条与标签 (x: 286..510, y: 84..94)
-    wire t_p0_vol_lbl = (page == 2'd0) && text_pixel(7'd80, px, py, 10'd286, 9'd86, 2'd1);
+    wire b_t_p0_vol_lbl = (page == 2'd0) && text_box(7'd80, px, py, 10'd286, 9'd86, 2'd1);
+    wire t_p0_vol_lbl = b_t_p0_vol_lbl && shared_text_on;
     wire p0_vol_bar_box = (page == 2'd0) && (px >= 10'd316 && px <= 10'd510 && py >= 9'd85 && py <= 9'd93);
     wire p0_vol_bar_border = (page == 2'd0) && (
         ((px == 10'd316 || px == 10'd510) && py >= 9'd85 && py <= 9'd93) ||
@@ -2301,9 +2295,12 @@ module lcd_ui (
     wire [7:0] p0_vol_fill_w = master_vol + (master_vol >> 1);
     wire p0_vol_bar_fill = (page == 2'd0) && (px >= 10'd318 && px <= (10'd318 + {2'b0, p0_vol_fill_w}) && py >= 9'd87 && py <= 9'd91) && (master_vol != 7'd0);
 
-    wire t_p0_c3_t  = (page == 2'd0) && text_pixel(12, px, py, 10'd542, 9'd52, 2'd1);
-    wire t_p0_c3_v1 = (page == 2'd0) && text_pixel(13, px, py, 10'd542, 9'd68, 2'd1);
-    wire t_p0_c3_v2 = (page == 2'd0) && text_pixel(14, px, py, 10'd542, 9'd86, 2'd1);
+    wire b_t_p0_c3_t = (page == 2'd0) && text_box(12, px, py, 10'd542, 9'd52, 2'd1);
+    wire t_p0_c3_t = b_t_p0_c3_t && shared_text_on;
+    wire b_t_p0_c3_v1 = (page == 2'd0) && text_box(13, px, py, 10'd542, 9'd68, 2'd1);
+    wire t_p0_c3_v1 = b_t_p0_c3_v1 && shared_text_on;
+    wire b_t_p0_c3_v2 = (page == 2'd0) && text_box(14, px, py, 10'd542, 9'd86, 2'd1);
+    wire t_p0_c3_v2 = b_t_p0_c3_v2 && shared_text_on;
 
     // 左侧大示波器: x: 20..440, y: 114..468 (高 354px, 宽 420px)
     wire p0_scope_box = (page == 2'd0) && (px >= 10'd20 && px <= 10'd440 && py >= 9'd114 && py <= 9'd468);
@@ -2311,8 +2308,10 @@ module lcd_ui (
         ((px == 10'd20 || px == 10'd440) && py >= 9'd114 && py <= 9'd468) ||
         ((py == 9'd114 || py == 9'd468) && px >= 10'd20 && px <= 10'd440)
     );
-    wire t_p0_scp_hdr = (page == 2'd0) && text_pixel(15, px, py, 10'd32,  9'd122, 2'd1);
-    wire t_p0_scp_dac = (page == 2'd0) && text_pixel(16, px, py, 10'd348, 9'd122, 2'd1);
+    wire b_t_p0_scp_hdr = (page == 2'd0) && text_box(15, px, py, 10'd32, 9'd122, 2'd1);
+    wire t_p0_scp_hdr = b_t_p0_scp_hdr && shared_text_on;
+    wire b_t_p0_scp_dac = (page == 2'd0) && text_box(16, px, py, 10'd348, 9'd122, 2'd1);
+    wire t_p0_scp_dac = b_t_p0_scp_dac && shared_text_on;
     wire t_p0_silent  = 1'b0; // Continuous live scope, no popup silence overlay
 
     wire p0_scope_grid = p0_scope_box && (
@@ -2332,10 +2331,14 @@ module lcd_ui (
         ((px == 10'd456 || px == 10'd778) && py >= 9'd114 && py <= 9'd280) ||
         ((py == 9'd114 || py == 9'd280) && px >= 10'd456 && px <= 10'd778)
     );
-    wire t_p0_vu_hdr = (page == 2'd0) && text_pixel(18, px, py, 10'd468, 9'd122, 2'd1);
-    wire t_p0_vu_l   = (page == 2'd0) && text_pixel(19, px, py, 10'd468, 9'd142, 2'd1);
-    wire t_p0_vu_r   = (page == 2'd0) && text_pixel(20, px, py, 10'd468, 9'd160, 2'd1);
-    wire t_p0_vu_scl = (page == 2'd0) && text_pixel(21, px, py, 10'd486, 9'd178, 2'd1);
+    wire b_t_p0_vu_hdr = (page == 2'd0) && text_box(18, px, py, 10'd468, 9'd122, 2'd1);
+    wire t_p0_vu_hdr = b_t_p0_vu_hdr && shared_text_on;
+    wire b_t_p0_vu_l = (page == 2'd0) && text_box(19, px, py, 10'd468, 9'd142, 2'd1);
+    wire t_p0_vu_l = b_t_p0_vu_l && shared_text_on;
+    wire b_t_p0_vu_r = (page == 2'd0) && text_box(20, px, py, 10'd468, 9'd160, 2'd1);
+    wire t_p0_vu_r = b_t_p0_vu_r && shared_text_on;
+    wire b_t_p0_vu_scl = (page == 2'd0) && text_box(21, px, py, 10'd486, 9'd178, 2'd1);
+    wire t_p0_vu_scl = b_t_p0_vu_scl && shared_text_on;
 
     // VU 动态电平条: 16 段
     wire [9:0] vu_p0_w = (vu_level * 10'd270) >> 8;
@@ -2345,7 +2348,8 @@ module lcd_ui (
 
     // ADSR 分界线与曲线 (16 位防溢出平滑曲线)
     wire p0_adsr_sep  = (page == 2'd0) && (px >= 10'd468 && px <= 10'd766 && py == 9'd194);
-    wire t_p0_adsr    = (page == 2'd0) && text_pixel(22, px, py, 10'd468, 9'd198, 2'd1);
+    wire b_t_p0_adsr = (page == 2'd0) && text_box(22, px, py, 10'd468, 9'd198, 2'd1);
+    wire t_p0_adsr = b_t_p0_adsr && shared_text_on;
 
     wire [8:0] adsr_y_atk = 9'd268 - (({6'd0, px - 10'd486} * 16'd46) / 16'd34);
     wire [8:0] adsr_y_dec = 9'd222 + (({6'd0, px - 10'd520} * 16'd18) / 16'd60);
@@ -2366,9 +2370,8 @@ module lcd_ui (
         ((py == 9'd294 || py == 9'd468) && px >= 10'd456 && px <= 10'd778)
     );
     wire any_key_active = note_active || (|key_active_mask);
-    wire t_p0_piano_hdr = (page == 2'd0) && (any_key_active ?
-        text_pixel(23, px, py, 10'd468, 9'd302, 2'd1) :
-        text_pixel(24, px, py, 10'd468, 9'd302, 2'd1));
+    wire b_t_p0_piano_hdr = (page == 2'd0) && text_box(any_key_active ? 7'd23 : 7'd24, px, py, 10'd468, 9'd302, 2'd1);
+    wire t_p0_piano_hdr = b_t_p0_piano_hdr && shared_text_on;
 
     // 7 个白键: x = 460 + i * 45, 宽度 43px, 高度 y: 322..458
     wire [8:0] pkx = (px >= 10'd460 && px <= 10'd773) ? (px - 10'd460) : 9'd0;
@@ -2422,20 +2425,32 @@ module lcd_ui (
     );
 
     // 琴键音符标签文字
-    wire t_pk_w0 = text_pixel(25, px, py, 10'd474, 9'd440, 2'd1);
-    wire t_pk_w1 = text_pixel(26, px, py, 10'd519, 9'd440, 2'd1);
-    wire t_pk_w2 = text_pixel(27, px, py, 10'd564, 9'd440, 2'd1);
-    wire t_pk_w3 = text_pixel(28, px, py, 10'd609, 9'd440, 2'd1);
-    wire t_pk_w4 = text_pixel(29, px, py, 10'd654, 9'd440, 2'd1);
-    wire t_pk_w5 = text_pixel(30, px, py, 10'd699, 9'd440, 2'd1);
-    wire t_pk_w6 = text_pixel(31, px, py, 10'd744, 9'd440, 2'd1);
+    wire b_t_pk_w0 = text_box(25, px, py, 10'd474, 9'd440, 2'd1);
+    wire t_pk_w0 = b_t_pk_w0 && shared_text_on;
+    wire b_t_pk_w1 = text_box(26, px, py, 10'd519, 9'd440, 2'd1);
+    wire t_pk_w1 = b_t_pk_w1 && shared_text_on;
+    wire b_t_pk_w2 = text_box(27, px, py, 10'd564, 9'd440, 2'd1);
+    wire t_pk_w2 = b_t_pk_w2 && shared_text_on;
+    wire b_t_pk_w3 = text_box(28, px, py, 10'd609, 9'd440, 2'd1);
+    wire t_pk_w3 = b_t_pk_w3 && shared_text_on;
+    wire b_t_pk_w4 = text_box(29, px, py, 10'd654, 9'd440, 2'd1);
+    wire t_pk_w4 = b_t_pk_w4 && shared_text_on;
+    wire b_t_pk_w5 = text_box(30, px, py, 10'd699, 9'd440, 2'd1);
+    wire t_pk_w5 = b_t_pk_w5 && shared_text_on;
+    wire b_t_pk_w6 = text_box(31, px, py, 10'd744, 9'd440, 2'd1);
+    wire t_pk_w6 = b_t_pk_w6 && shared_text_on;
     wire t_pk_w_all = t_pk_w0 || t_pk_w1 || t_pk_w2 || t_pk_w3 || t_pk_w4 || t_pk_w5 || t_pk_w6;
 
-    wire t_pk_b0 = text_pixel(32, px, py, 10'd497, 9'd386, 2'd1);
-    wire t_pk_b1 = text_pixel(33, px, py, 10'd542, 9'd386, 2'd1);
-    wire t_pk_b2 = text_pixel(34, px, py, 10'd632, 9'd386, 2'd1);
-    wire t_pk_b3 = text_pixel(35, px, py, 10'd677, 9'd386, 2'd1);
-    wire t_pk_b4 = text_pixel(36, px, py, 10'd722, 9'd386, 2'd1);
+    wire b_t_pk_b0 = text_box(32, px, py, 10'd497, 9'd386, 2'd1);
+    wire t_pk_b0 = b_t_pk_b0 && shared_text_on;
+    wire b_t_pk_b1 = text_box(33, px, py, 10'd542, 9'd386, 2'd1);
+    wire t_pk_b1 = b_t_pk_b1 && shared_text_on;
+    wire b_t_pk_b2 = text_box(34, px, py, 10'd632, 9'd386, 2'd1);
+    wire t_pk_b2 = b_t_pk_b2 && shared_text_on;
+    wire b_t_pk_b3 = text_box(35, px, py, 10'd677, 9'd386, 2'd1);
+    wire t_pk_b3 = b_t_pk_b3 && shared_text_on;
+    wire b_t_pk_b4 = text_box(36, px, py, 10'd722, 9'd386, 2'd1);
+    wire t_pk_b4 = b_t_pk_b4 && shared_text_on;
     wire t_pk_b_all = t_pk_b0 || t_pk_b1 || t_pk_b2 || t_pk_b3 || t_pk_b4;
 
     // -------------------------------------------------------------------------
@@ -2446,8 +2461,10 @@ module lcd_ui (
         ((px == 10'd20 || px == 10'd778) && py >= 9'd44 && py <= 9'd244) ||
         ((py == 9'd44 || py == 9'd244) && px >= 10'd20 && px <= 10'd778)
     );
-    wire t_p1_scp_hdr = (page == 2'd1) && text_pixel(15, px, py, 10'd32,  9'd52, 2'd1);
-    wire t_p1_scp_scl = (page == 2'd1) && text_pixel(37, px, py, 10'd620, 9'd52, 2'd1);
+    wire b_t_p1_scp_hdr = (page == 2'd1) && text_box(15, px, py, 10'd32, 9'd52, 2'd1);
+    wire t_p1_scp_hdr = b_t_p1_scp_hdr && shared_text_on;
+    wire b_t_p1_scp_scl = (page == 2'd1) && text_box(37, px, py, 10'd620, 9'd52, 2'd1);
+    wire t_p1_scp_scl = b_t_p1_scp_scl && shared_text_on;
     wire t_p1_silent  = 1'b0; // Continuous live scope
 
     wire p1_scope_grid = p1_scope_box && (
@@ -2467,8 +2484,10 @@ module lcd_ui (
         ((px == 10'd20 || px == 10'd778) && py >= 9'd254 && py <= 9'd468) ||
         ((py == 9'd254 || py == 9'd468) && px >= 10'd20 && px <= 10'd778)
     );
-    wire t_p1_spec_hdr = (page == 2'd1) && text_pixel(39, px, py, 10'd32,  9'd262, 2'd1);
-    wire t_p1_spec_rng = (page == 2'd1) && text_pixel(40, px, py, 10'd640, 9'd262, 2'd1);
+    wire b_t_p1_spec_hdr = (page == 2'd1) && text_box(39, px, py, 10'd32, 9'd262, 2'd1);
+    wire t_p1_spec_hdr = b_t_p1_spec_hdr && shared_text_on;
+    wire b_t_p1_spec_rng = (page == 2'd1) && text_box(40, px, py, 10'd640, 9'd262, 2'd1);
+    wire t_p1_spec_rng = b_t_p1_spec_rng && shared_text_on;
 
     wire [8:0] p1_bar_h = {1'b0,spectrum_level};
 
@@ -2483,15 +2502,24 @@ module lcd_ui (
         px == 10'd413 || px == 10'd505 || px == 10'd597 || px == 10'd689 || px == 10'd758
     );
 
-    wire t_f0 = text_pixel(41, px, py, 10'd36,  9'd440, 2'd1); // 50HZ
-    wire t_f1 = text_pixel(42, px, py, 10'd125, 9'd440, 2'd1); // 125HZ
-    wire t_f2 = text_pixel(43, px, py, 10'd217, 9'd440, 2'd1); // 250HZ
-    wire t_f3 = text_pixel(44, px, py, 10'd309, 9'd440, 2'd1); // 500HZ
-    wire t_f4 = text_pixel(45, px, py, 10'd405, 9'd440, 2'd1); // 1KHZ
-    wire t_f5 = text_pixel(46, px, py, 10'd497, 9'd440, 2'd1); // 2KHZ
-    wire t_f6 = text_pixel(47, px, py, 10'd589, 9'd440, 2'd1); // 4KHZ
-    wire t_f7 = text_pixel(48, px, py, 10'd681, 9'd440, 2'd1); // 8KHZ
-    wire t_f8 = text_pixel(49, px, py, 10'd745, 9'd440, 2'd1); // 16KHZ
+    wire b_t_f0 = text_box(41, px, py, 10'd36, 9'd440, 2'd1);
+    wire t_f0 = b_t_f0 && shared_text_on; // 50HZ
+    wire b_t_f1 = text_box(42, px, py, 10'd125, 9'd440, 2'd1);
+    wire t_f1 = b_t_f1 && shared_text_on; // 125HZ
+    wire b_t_f2 = text_box(43, px, py, 10'd217, 9'd440, 2'd1);
+    wire t_f2 = b_t_f2 && shared_text_on; // 250HZ
+    wire b_t_f3 = text_box(44, px, py, 10'd309, 9'd440, 2'd1);
+    wire t_f3 = b_t_f3 && shared_text_on; // 500HZ
+    wire b_t_f4 = text_box(45, px, py, 10'd405, 9'd440, 2'd1);
+    wire t_f4 = b_t_f4 && shared_text_on; // 1KHZ
+    wire b_t_f5 = text_box(46, px, py, 10'd497, 9'd440, 2'd1);
+    wire t_f5 = b_t_f5 && shared_text_on; // 2KHZ
+    wire b_t_f6 = text_box(47, px, py, 10'd589, 9'd440, 2'd1);
+    wire t_f6 = b_t_f6 && shared_text_on; // 4KHZ
+    wire b_t_f7 = text_box(48, px, py, 10'd681, 9'd440, 2'd1);
+    wire t_f7 = b_t_f7 && shared_text_on; // 8KHZ
+    wire b_t_f8 = text_box(49, px, py, 10'd745, 9'd440, 2'd1);
+    wire t_f8 = b_t_f8 && shared_text_on; // 16KHZ
     wire t_p1_freqs = t_f0 || t_f1 || t_f2 || t_f3 || t_f4 || t_f5 || t_f6 || t_f7 || t_f8;
 
     // -------------------------------------------------------------------------
@@ -2518,17 +2546,26 @@ module lcd_ui (
     wire p2_c2_strip = p2_c2_box && (py >= 9'd44 && py <= 9'd46);
     wire p2_c3_strip = p2_c3_box && (py >= 9'd44 && py <= 9'd46);
 
-    wire t_p2_c1_t  = (page == 2'd2) && text_pixel(50, px, py, 10'd30,  9'd52, 2'd1);
-    wire t_p2_c1_v1 = (page == 2'd2) && text_pixel(51, px, py, 10'd30,  9'd68, 2'd1);
-    wire t_p2_c1_v2 = (page == 2'd2) && text_pixel(52, px, py, 10'd30,  9'd86, 2'd1);
+    wire b_t_p2_c1_t = (page == 2'd2) && text_box(50, px, py, 10'd30, 9'd52, 2'd1);
+    wire t_p2_c1_t = b_t_p2_c1_t && shared_text_on;
+    wire b_t_p2_c1_v1 = (page == 2'd2) && text_box(51, px, py, 10'd30, 9'd68, 2'd1);
+    wire t_p2_c1_v1 = b_t_p2_c1_v1 && shared_text_on;
+    wire b_t_p2_c1_v2 = (page == 2'd2) && text_box(52, px, py, 10'd30, 9'd86, 2'd1);
+    wire t_p2_c1_v2 = b_t_p2_c1_v2 && shared_text_on;
 
-    wire t_p2_c2_t  = (page == 2'd2) && text_pixel(53, px, py, 10'd286, 9'd52, 2'd1);
-    wire t_p2_c2_v1 = (page == 2'd2) && text_pixel(54, px, py, 10'd286, 9'd68, 2'd1);
-    wire t_p2_c2_v2 = (page == 2'd2) && text_pixel(55, px, py, 10'd286, 9'd86, 2'd1);
+    wire b_t_p2_c2_t = (page == 2'd2) && text_box(53, px, py, 10'd286, 9'd52, 2'd1);
+    wire t_p2_c2_t = b_t_p2_c2_t && shared_text_on;
+    wire b_t_p2_c2_v1 = (page == 2'd2) && text_box(54, px, py, 10'd286, 9'd68, 2'd1);
+    wire t_p2_c2_v1 = b_t_p2_c2_v1 && shared_text_on;
+    wire b_t_p2_c2_v2 = (page == 2'd2) && text_box(55, px, py, 10'd286, 9'd86, 2'd1);
+    wire t_p2_c2_v2 = b_t_p2_c2_v2 && shared_text_on;
 
-    wire t_p2_c3_t  = (page == 2'd2) && text_pixel(56, px, py, 10'd542, 9'd52, 2'd1);
-    wire t_p2_c3_v1 = (page == 2'd2) && text_pixel(57, px, py, 10'd542, 9'd68, 2'd1);
-    wire t_p2_c3_v2 = (page == 2'd2) && text_pixel(58, px, py, 10'd542, 9'd86, 2'd1);
+    wire b_t_p2_c3_t = (page == 2'd2) && text_box(56, px, py, 10'd542, 9'd52, 2'd1);
+    wire t_p2_c3_t = b_t_p2_c3_t && shared_text_on;
+    wire b_t_p2_c3_v1 = (page == 2'd2) && text_box(57, px, py, 10'd542, 9'd68, 2'd1);
+    wire t_p2_c3_v1 = b_t_p2_c3_v1 && shared_text_on;
+    wire b_t_p2_c3_v2 = (page == 2'd2) && text_box(58, px, py, 10'd542, 9'd86, 2'd1);
+    wire t_p2_c3_v2 = b_t_p2_c3_v2 && shared_text_on;
 
     // 中部: 32 个振荡器阵列 (x: 20..778, y: 114..246)
     wire p2_osc_box = (page == 2'd2) && (px >= 10'd20 && px <= 10'd778 && py >= 9'd114 && py <= 9'd246);
@@ -2536,7 +2573,8 @@ module lcd_ui (
         ((px == 10'd20 || px == 10'd778) && py >= 9'd114 && py <= 9'd246) ||
         ((py == 9'd114 || py == 9'd246) && px >= 10'd20 && px <= 10'd778)
     );
-    wire t_p2_osc_hdr = (page == 2'd2) && text_pixel(59, px, py, 10'd32, 9'd122, 2'd1);
+    wire b_t_p2_osc_hdr = (page == 2'd2) && text_box(59, px, py, 10'd32, 9'd122, 2'd1);
+    wire t_p2_osc_hdr = b_t_p2_osc_hdr && shared_text_on;
 
     wire [9:0] p2_cx = (px - 10'd32) % 10'd92;
     wire [8:0] p2_cy = (py - 9'd140) % 9'd25;
@@ -2576,8 +2614,10 @@ module lcd_ui (
     // 独立标题带 (y: 256..282) -> 彻底与下方的谱峰隔离！
     wire p2_hdr_band = (page == 2'd2) && (px >= 10'd20 && px <= 10'd778 && py >= 9'd256 && py <= 9'd282);
     wire p2_hdr_line = (page == 2'd2) && (px >= 10'd20 && px <= 10'd778 && py == 9'd282);
-    wire t_p2_pk_hdr = (page == 2'd2) && text_pixel(60, px, py, 10'd32,  9'd264, 2'd1);
-    wire t_p2_pk_det = (page == 2'd2) && text_pixel(61, px, py, 10'd640, 9'd264, 2'd1);
+    wire b_t_p2_pk_hdr = (page == 2'd2) && text_box(60, px, py, 10'd32, 9'd264, 2'd1);
+    wire t_p2_pk_hdr = b_t_p2_pk_hdr && shared_text_on;
+    wire b_t_p2_pk_det = (page == 2'd2) && text_box(61, px, py, 10'd640, 9'd264, 2'd1);
+    wire t_p2_pk_det = b_t_p2_pk_det && shared_text_on;
 
     // 32 根独立谱线针状柱 (基线 y = 434, 顶点不超过 315)
     wire p2_peak_base = (page == 2'd2) && (px >= 10'd36 && px <= 10'd764 && py == 9'd434);
@@ -2595,15 +2635,24 @@ module lcd_ui (
         px == 10'd415 || px == 10'd507 || px == 10'd599 || px == 10'd691 || px == 10'd760
     );
 
-    wire t_p2_f0 = text_pixel(62, px, py, 10'd36,  9'd444, 2'd1); // 200 Hz
-    wire t_p2_f1 = text_pixel(63, px, py, 10'd130, 9'd444, 2'd1); // 1.0 kHz
-    wire t_p2_f2 = text_pixel(64, px, py, 10'd222, 9'd444, 2'd1); // 1.8 kHz
-    wire t_p2_f3 = text_pixel(65, px, py, 10'd314, 9'd444, 2'd1); // 2.6 kHz
-    wire t_p2_f4 = text_pixel(66, px, py, 10'd406, 9'd444, 2'd1); // 3.4 kHz
-    wire t_p2_f5 = text_pixel(67, px, py, 10'd498, 9'd444, 2'd1); // 4.2 kHz
-    wire t_p2_f6 = text_pixel(68, px, py, 10'd590, 9'd444, 2'd1); // 5.0 kHz
-    wire t_p2_f7 = text_pixel(69, px, py, 10'd682, 9'd444, 2'd1); // 5.8 kHz
-    wire t_p2_f8 = text_pixel(70, px, py, 10'd750, 9'd444, 2'd1); // 6.4 kHz
+    wire b_t_p2_f0 = text_box(62, px, py, 10'd36, 9'd444, 2'd1);
+    wire t_p2_f0 = b_t_p2_f0 && shared_text_on; // 200 Hz
+    wire b_t_p2_f1 = text_box(63, px, py, 10'd130, 9'd444, 2'd1);
+    wire t_p2_f1 = b_t_p2_f1 && shared_text_on; // 1.0 kHz
+    wire b_t_p2_f2 = text_box(64, px, py, 10'd222, 9'd444, 2'd1);
+    wire t_p2_f2 = b_t_p2_f2 && shared_text_on; // 1.8 kHz
+    wire b_t_p2_f3 = text_box(65, px, py, 10'd314, 9'd444, 2'd1);
+    wire t_p2_f3 = b_t_p2_f3 && shared_text_on; // 2.6 kHz
+    wire b_t_p2_f4 = text_box(66, px, py, 10'd406, 9'd444, 2'd1);
+    wire t_p2_f4 = b_t_p2_f4 && shared_text_on; // 3.4 kHz
+    wire b_t_p2_f5 = text_box(67, px, py, 10'd498, 9'd444, 2'd1);
+    wire t_p2_f5 = b_t_p2_f5 && shared_text_on; // 4.2 kHz
+    wire b_t_p2_f6 = text_box(68, px, py, 10'd590, 9'd444, 2'd1);
+    wire t_p2_f6 = b_t_p2_f6 && shared_text_on; // 5.0 kHz
+    wire b_t_p2_f7 = text_box(69, px, py, 10'd682, 9'd444, 2'd1);
+    wire t_p2_f7 = b_t_p2_f7 && shared_text_on; // 5.8 kHz
+    wire b_t_p2_f8 = text_box(70, px, py, 10'd750, 9'd444, 2'd1);
+    wire t_p2_f8 = b_t_p2_f8 && shared_text_on; // 6.4 kHz
     wire t_p2_freqs = t_p2_f0 || t_p2_f1 || t_p2_f2 || t_p2_f3 || t_p2_f4 || t_p2_f5 || t_p2_f6 || t_p2_f7 || t_p2_f8;
 
     // -------------------------------------------------------------------------
@@ -2616,18 +2665,24 @@ module lcd_ui (
     );
     wire p3_banner_strip = p3_banner_box && (py >= 9'd44 && py <= 9'd46);
 
-    wire t_p3_tr_idx = (page == 2'd3) && text_pixel(71, px, py, 10'd32, 9'd54, 2'd1);
-    wire t_p3_tr_nam = (page == 2'd3) && text_pixel(72, px, py, 10'd32, 9'd70, 2'd2); // 放大 2x
-    wire t_p3_tr_inf = (page == 2'd3) && text_pixel(73, px, py, 10'd32, 9'd94, 2'd1);
+    wire b_t_p3_tr_idx = (page == 2'd3) && text_box(71, px, py, 10'd32, 9'd54, 2'd1);
+    wire t_p3_tr_idx = b_t_p3_tr_idx && shared_text_on;
+    wire b_t_p3_tr_nam = (page == 2'd3) && text_box(72, px, py, 10'd32, 9'd70, 2'd2);
+    wire t_p3_tr_nam = b_t_p3_tr_nam && shared_text_on; // 放大 2x
+    wire b_t_p3_tr_inf = (page == 2'd3) && text_box(73, px, py, 10'd32, 9'd94, 2'd1);
+    wire t_p3_tr_inf = b_t_p3_tr_inf && shared_text_on;
 
     wire p3_prog_panel = (page == 2'd3) && (px >= 10'd20 && px <= 10'd778 && py >= 9'd130 && py <= 9'd220);
     wire p3_prog_border = (page == 2'd3) && (
         ((px == 10'd20 || px == 10'd778) && py >= 9'd130 && py <= 9'd220) ||
         ((py == 9'd130 || py == 9'd220) && px >= 10'd20 && px <= 10'd778)
     );
-    wire t_p3_pr_txt = (page == 2'd3) && text_pixel(74, px, py, 10'd32,  9'd138, 2'd1);
-    wire t_p3_pr_key = (page == 2'd3) && text_pixel(75, px, py, 10'd600, 9'd138, 2'd1);
-    wire t_p3_pr_hdl = (page == 2'd3) && text_pixel(76, px, py, 10'd32,  9'd196, 2'd1);
+    wire b_t_p3_pr_txt = (page == 2'd3) && text_box(74, px, py, 10'd32, 9'd138, 2'd1);
+    wire t_p3_pr_txt = b_t_p3_pr_txt && shared_text_on;
+    wire b_t_p3_pr_key = (page == 2'd3) && text_box(75, px, py, 10'd600, 9'd138, 2'd1);
+    wire t_p3_pr_key = b_t_p3_pr_key && shared_text_on;
+    wire b_t_p3_pr_hdl = (page == 2'd3) && text_box(76, px, py, 10'd32, 9'd196, 2'd1);
+    wire t_p3_pr_hdl = b_t_p3_pr_hdl && shared_text_on;
 
 
     wire [17:0] fill_prod = {10'd0, song_progress} * 18'd732;
@@ -2642,9 +2697,12 @@ module lcd_ui (
         ((px == 10'd20 || px == 10'd778) && py >= 9'd230 && py <= 9'd468) ||
         ((py == 9'd230 || py == 9'd468) && px >= 10'd20 && px <= 10'd778)
     );
-    wire t_p3_sc_hdr = (page == 2'd3) && text_pixel(77, px, py, 10'd32,  9'd238, 2'd1);
-    wire t_p3_sc_mel = (page == 2'd3) && text_pixel(78, px, py, 10'd560, 9'd238, 2'd1);
-    wire t_p3_sc_ply = (page == 2'd3) && text_pixel(79, px, py, 10'd345, 9'd426, 2'd1);
+    wire b_t_p3_sc_hdr = (page == 2'd3) && text_box(77, px, py, 10'd32, 9'd238, 2'd1);
+    wire t_p3_sc_hdr = b_t_p3_sc_hdr && shared_text_on;
+    wire b_t_p3_sc_mel = (page == 2'd3) && text_box(78, px, py, 10'd560, 9'd238, 2'd1);
+    wire t_p3_sc_mel = b_t_p3_sc_mel && shared_text_on;
+    wire b_t_p3_sc_ply = (page == 2'd3) && text_box(79, px, py, 10'd345, 9'd426, 2'd1);
+    wire t_p3_sc_ply = b_t_p3_sc_ply && shared_text_on;
 
     wire p3_stave = (page == 2'd3) && p3_score_box && (
         py == 9'd280 || py == 9'd305 || py == 9'd330 || py == 9'd355 || py == 9'd380
@@ -2664,34 +2722,7 @@ module lcd_ui (
     wire [8:0] s_idx_6 = song_note_idx + 9'd4;
     wire [8:0] s_idx_7 = song_note_idx + 9'd5;
 
-    wire [6:0] s_note_0 = get_song_note(song_index, s_idx_0);
-    wire [6:0] s_note_1 = get_song_note(song_index, s_idx_1);
-    wire [6:0] s_note_2 = get_song_note(song_index, s_idx_2);
-    wire [6:0] s_note_3 = get_song_note(song_index, s_idx_3);
-    wire [6:0] s_note_4 = get_song_note(song_index, s_idx_4);
-    wire [6:0] s_note_5 = get_song_note(song_index, s_idx_5);
-    wire [6:0] s_note_6 = get_song_note(song_index, s_idx_6);
-    wire [6:0] s_note_7 = get_song_note(song_index, s_idx_7);
-
-    wire [8:0] s_y_0 = note_to_y(s_note_0);
-    wire [8:0] s_y_1 = note_to_y(s_note_1);
-    wire [8:0] s_y_2 = note_to_y(s_note_2);
-    wire [8:0] s_y_3 = note_to_y(s_note_3);
-    wire [8:0] s_y_4 = note_to_y(s_note_4);
-    wire [8:0] s_y_5 = note_to_y(s_note_5);
-    wire [8:0] s_y_6 = note_to_y(s_note_6);
-    wire [8:0] s_y_7 = note_to_y(s_note_7);
-
-    wire [8:0] s_yb_0 = note_to_y(s_note_0 >= 7'd60 ? (s_note_0 - 7'd12) : s_note_0);
-    wire [8:0] s_yb_1 = note_to_y(s_note_1 >= 7'd60 ? (s_note_1 - 7'd12) : s_note_1);
-    wire [8:0] s_yb_2 = note_to_y(s_note_2 >= 7'd60 ? (s_note_2 - 7'd12) : s_note_2);
-    wire [8:0] s_yb_3 = note_to_y(s_note_3 >= 7'd60 ? (s_note_3 - 7'd12) : s_note_3);
-    wire [8:0] s_yb_4 = note_to_y(s_note_4 >= 7'd60 ? (s_note_4 - 7'd12) : s_note_4);
-    wire [8:0] s_yb_5 = note_to_y(s_note_5 >= 7'd60 ? (s_note_5 - 7'd12) : s_note_5);
-    wire [8:0] s_yb_6 = note_to_y(s_note_6 >= 7'd60 ? (s_note_6 - 7'd12) : s_note_6);
-    wire [8:0] s_yb_7 = note_to_y(s_note_7 >= 7'd60 ? (s_note_7 - 7'd12) : s_note_7);
-
-    // Continuous X coordinates: 360 + (slot - 2)*60 - sub_scroll
+    // Continuous X coordinates: 360 + (slot - 2)*60 - sub_scroll (spaced 60px apart; width <= 45px, never overlap)
     wire signed [11:0] s_x_0 = 12'sd240 - $signed({6'd0, song_sub_scroll});
     wire signed [11:0] s_x_1 = 12'sd300 - $signed({6'd0, song_sub_scroll});
     wire signed [11:0] s_x_2 = 12'sd360 - $signed({6'd0, song_sub_scroll});
@@ -2702,24 +2733,153 @@ module lcd_ui (
     wire signed [11:0] s_x_7 = 12'sd660 - $signed({6'd0, song_sub_scroll});
 
     wire signed [11:0] px_s = $signed({2'b00, px});
+    wire in_sx_0 = (px_s >= s_x_0 - 12'sd22) && (px_s <= s_x_0 + 12'sd22);
+    wire in_sx_1 = (px_s >= s_x_1 - 12'sd22) && (px_s <= s_x_1 + 12'sd22);
+    wire in_sx_2 = (px_s >= s_x_2 - 12'sd22) && (px_s <= s_x_2 + 12'sd22);
+    wire in_sx_3 = (px_s >= s_x_3 - 12'sd22) && (px_s <= s_x_3 + 12'sd22);
+    wire in_sx_4 = (px_s >= s_x_4 - 12'sd22) && (px_s <= s_x_4 + 12'sd22);
+    wire in_sx_5 = (px_s >= s_x_5 - 12'sd22) && (px_s <= s_x_5 + 12'sd22);
+    wire in_sx_6 = (px_s >= s_x_6 - 12'sd22) && (px_s <= s_x_6 + 12'sd22);
+    wire in_sx_7 = (px_s >= s_x_7 - 12'sd22) && (px_s <= s_x_7 + 12'sd22);
 
-    wire hit_m_0 = (page == 2'd3) && (s_y_0 != 9'd0) && (px_s >= s_x_0 - 12'sd18 && px_s <= s_x_0 + 12'sd18) && (py >= s_y_0 - 9'd7 && py <= s_y_0 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_m_1 = (page == 2'd3) && (s_y_1 != 9'd0) && (px_s >= s_x_1 - 12'sd18 && px_s <= s_x_1 + 12'sd18) && (py >= s_y_1 - 9'd7 && py <= s_y_1 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_m_2 = (page == 2'd3) && (s_y_2 != 9'd0) && (px_s >= s_x_2 - 12'sd18 && px_s <= s_x_2 + 12'sd18) && (py >= s_y_2 - 9'd7 && py <= s_y_2 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_m_3 = (page == 2'd3) && (s_y_3 != 9'd0) && (px_s >= s_x_3 - 12'sd18 && px_s <= s_x_3 + 12'sd18) && (py >= s_y_3 - 9'd7 && py <= s_y_3 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_m_4 = (page == 2'd3) && (s_y_4 != 9'd0) && (px_s >= s_x_4 - 12'sd18 && px_s <= s_x_4 + 12'sd18) && (py >= s_y_4 - 9'd7 && py <= s_y_4 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_m_5 = (page == 2'd3) && (s_y_5 != 9'd0) && (px_s >= s_x_5 - 12'sd18 && px_s <= s_x_5 + 12'sd18) && (py >= s_y_5 - 9'd7 && py <= s_y_5 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_m_6 = (page == 2'd3) && (s_y_6 != 9'd0) && (px_s >= s_x_6 - 12'sd18 && px_s <= s_x_6 + 12'sd18) && (py >= s_y_6 - 9'd7 && py <= s_y_6 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_m_7 = (page == 2'd3) && (s_y_7 != 9'd0) && (px_s >= s_x_7 - 12'sd18 && px_s <= s_x_7 + 12'sd18) && (py >= s_y_7 - 9'd7 && py <= s_y_7 + 9'd7) && (px >= 10'd32 && px <= 10'd764);
+    wire [8:0] sel_s_idx = in_sx_0 ? s_idx_0 : in_sx_1 ? s_idx_1 : in_sx_2 ? s_idx_2 : in_sx_3 ? s_idx_3 :
+                           in_sx_4 ? s_idx_4 : in_sx_5 ? s_idx_5 : in_sx_6 ? s_idx_6 : s_idx_7;
+    wire signed [11:0] sel_s_x = in_sx_0 ? s_x_0 : in_sx_1 ? s_x_1 : in_sx_2 ? s_x_2 : in_sx_3 ? s_x_3 :
+                                 in_sx_4 ? s_x_4 : in_sx_5 ? s_x_5 : in_sx_6 ? s_x_6 : s_x_7;
 
-    wire hit_b_0 = (page == 2'd3) && (s_yb_0 != 9'd0) && (px_s >= s_x_0 - 12'sd22 && px_s <= s_x_0 + 12'sd22) && (py >= s_yb_0 - 9'd6 && py <= s_yb_0 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_b_1 = (page == 2'd3) && (s_yb_1 != 9'd0) && (px_s >= s_x_1 - 12'sd22 && px_s <= s_x_1 + 12'sd22) && (py >= s_yb_1 - 9'd6 && py <= s_yb_1 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_b_2 = (page == 2'd3) && (s_yb_2 != 9'd0) && (px_s >= s_x_2 - 12'sd22 && px_s <= s_x_2 + 12'sd22) && (py >= s_yb_2 - 9'd6 && py <= s_yb_2 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_b_3 = (page == 2'd3) && (s_yb_3 != 9'd0) && (px_s >= s_x_3 - 12'sd22 && px_s <= s_x_3 + 12'sd22) && (py >= s_yb_3 - 9'd6 && py <= s_yb_3 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_b_4 = (page == 2'd3) && (s_yb_4 != 9'd0) && (px_s >= s_x_4 - 12'sd22 && px_s <= s_x_4 + 12'sd22) && (py >= s_yb_4 - 9'd6 && py <= s_yb_4 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_b_5 = (page == 2'd3) && (s_yb_5 != 9'd0) && (px_s >= s_x_5 - 12'sd22 && px_s <= s_x_5 + 12'sd22) && (py >= s_yb_5 - 9'd6 && py <= s_yb_5 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_b_6 = (page == 2'd3) && (s_yb_6 != 9'd0) && (px_s >= s_x_6 - 12'sd22 && px_s <= s_x_6 + 12'sd22) && (py >= s_yb_6 - 9'd6 && py <= s_yb_6 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
-    wire hit_b_7 = (page == 2'd3) && (s_yb_7 != 9'd0) && (px_s >= s_x_7 - 12'sd22 && px_s <= s_x_7 + 12'sd22) && (py >= s_yb_7 - 9'd6 && py <= s_yb_7 + 9'd6) && (px >= 10'd32 && px <= 10'd764);
+    wire [6:0] sel_s_note = get_song_note(song_index, sel_s_idx);
+    wire [8:0] sel_s_y    = note_to_y(sel_s_note);
+    wire [8:0] sel_s_yb   = note_to_y(sel_s_note >= 7'd60 ? (sel_s_note - 7'd12) : sel_s_note);
+
+    wire hit_m_common = (page == 2'd3) && (sel_s_y != 9'd0) &&
+                        (px_s >= sel_s_x - 12'sd18 && px_s <= sel_s_x + 12'sd18) &&
+                        (py >= sel_s_y - 9'd7 && py <= sel_s_y + 9'd7) &&
+                        (px >= 10'd32 && px <= 10'd764);
+    wire hit_b_common = (page == 2'd3) && (sel_s_yb != 9'd0) &&
+                        (px_s >= sel_s_x - 12'sd22 && px_s <= sel_s_x + 12'sd22) &&
+                        (py >= sel_s_yb - 9'd6 && py <= sel_s_yb + 9'd6) &&
+                        (px >= 10'd32 && px <= 10'd764);
+
+    wire hit_m_0 = in_sx_0 && hit_m_common;
+    wire hit_m_1 = in_sx_1 && hit_m_common;
+    wire hit_m_2 = in_sx_2 && hit_m_common;
+    wire hit_m_3 = in_sx_3 && hit_m_common;
+    wire hit_m_4 = in_sx_4 && hit_m_common;
+    wire hit_m_5 = in_sx_5 && hit_m_common;
+    wire hit_m_6 = in_sx_6 && hit_m_common;
+    wire hit_m_7 = in_sx_7 && hit_m_common;
+
+    wire hit_b_0 = in_sx_0 && hit_b_common;
+    wire hit_b_1 = in_sx_1 && hit_b_common;
+    wire hit_b_2 = in_sx_2 && hit_b_common;
+    wire hit_b_3 = in_sx_3 && hit_b_common;
+    wire hit_b_4 = in_sx_4 && hit_b_common;
+    wire hit_b_5 = in_sx_5 && hit_b_common;
+    wire hit_b_6 = in_sx_6 && hit_b_common;
+    wire hit_b_7 = in_sx_7 && hit_b_common;
+
+    // -------------------------------------------------------------------------
+    // Shared Single-Instance Text & Font Engine (Replaces 80 Parallel Copies)
+    // -------------------------------------------------------------------------
+    reg [6:0] sel_str_id;
+    reg [9:0] sel_start_x;
+    reg [8:0] sel_start_y;
+    reg [1:0] sel_scale;
+    always @(*) begin
+        sel_str_id  = 7'd0;
+        sel_start_x = 10'd0;
+        sel_start_y = 9'd0;
+        sel_scale   = 2'd1;
+        if (b_t_nav_title) begin sel_str_id = 0; sel_start_x = 10'd16; sel_start_y = 9'd12; sel_scale = 2'd1; end
+        else if (b_t_nav_tab0) begin sel_str_id = 1; sel_start_x = 10'd180; sel_start_y = 9'd12; sel_scale = 2'd1; end
+        else if (b_t_nav_tab1) begin sel_str_id = 2; sel_start_x = 10'd330; sel_start_y = 9'd12; sel_scale = 2'd1; end
+        else if (b_t_nav_tab2) begin sel_str_id = 3; sel_start_x = 10'd480; sel_start_y = 9'd12; sel_scale = 2'd1; end
+        else if (b_t_nav_tab3) begin sel_str_id = 4; sel_start_x = 10'd630; sel_start_y = 9'd12; sel_scale = 2'd1; end
+        else if (b_t_nav_rate) begin sel_str_id = 5; sel_start_x = 10'd728; sel_start_y = 9'd12; sel_scale = 2'd1; end
+        else if (b_t_p0_c1_t) begin sel_str_id = 6; sel_start_x = 10'd30; sel_start_y = 9'd52; sel_scale = 2'd1; end
+        else if (b_t_p0_c1_v1) begin sel_str_id = 7; sel_start_x = 10'd30; sel_start_y = 9'd68; sel_scale = 2'd1; end
+        else if (b_t_p0_c1_v2) begin sel_str_id = 8; sel_start_x = 10'd30; sel_start_y = 9'd86; sel_scale = 2'd1; end
+        else if (b_t_p0_c2_t) begin sel_str_id = 9; sel_start_x = 10'd286; sel_start_y = 9'd52; sel_scale = 2'd1; end
+        else if (b_t_p0_c2_v1) begin sel_str_id = audio_active ? 7'd10 : 7'd11; sel_start_x = 10'd286; sel_start_y = 9'd68; sel_scale = 2'd1; end
+        else if (b_t_p0_vol_lbl) begin sel_str_id = 7'd80; sel_start_x = 10'd286; sel_start_y = 9'd86; sel_scale = 2'd1; end
+        else if (b_t_p0_c3_t) begin sel_str_id = 12; sel_start_x = 10'd542; sel_start_y = 9'd52; sel_scale = 2'd1; end
+        else if (b_t_p0_c3_v1) begin sel_str_id = 13; sel_start_x = 10'd542; sel_start_y = 9'd68; sel_scale = 2'd1; end
+        else if (b_t_p0_c3_v2) begin sel_str_id = 14; sel_start_x = 10'd542; sel_start_y = 9'd86; sel_scale = 2'd1; end
+        else if (b_t_p0_scp_hdr) begin sel_str_id = 15; sel_start_x = 10'd32; sel_start_y = 9'd122; sel_scale = 2'd1; end
+        else if (b_t_p0_scp_dac) begin sel_str_id = 16; sel_start_x = 10'd348; sel_start_y = 9'd122; sel_scale = 2'd1; end
+        else if (b_t_p0_vu_hdr) begin sel_str_id = 18; sel_start_x = 10'd468; sel_start_y = 9'd122; sel_scale = 2'd1; end
+        else if (b_t_p0_vu_l) begin sel_str_id = 19; sel_start_x = 10'd468; sel_start_y = 9'd142; sel_scale = 2'd1; end
+        else if (b_t_p0_vu_r) begin sel_str_id = 20; sel_start_x = 10'd468; sel_start_y = 9'd160; sel_scale = 2'd1; end
+        else if (b_t_p0_vu_scl) begin sel_str_id = 21; sel_start_x = 10'd486; sel_start_y = 9'd178; sel_scale = 2'd1; end
+        else if (b_t_p0_adsr) begin sel_str_id = 22; sel_start_x = 10'd468; sel_start_y = 9'd198; sel_scale = 2'd1; end
+        else if (b_t_p0_piano_hdr) begin sel_str_id = any_key_active ? 7'd23 : 7'd24; sel_start_x = 10'd468; sel_start_y = 9'd302; sel_scale = 2'd1; end
+        else if (b_t_pk_w0) begin sel_str_id = 25; sel_start_x = 10'd474; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_pk_w1) begin sel_str_id = 26; sel_start_x = 10'd519; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_pk_w2) begin sel_str_id = 27; sel_start_x = 10'd564; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_pk_w3) begin sel_str_id = 28; sel_start_x = 10'd609; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_pk_w4) begin sel_str_id = 29; sel_start_x = 10'd654; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_pk_w5) begin sel_str_id = 30; sel_start_x = 10'd699; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_pk_w6) begin sel_str_id = 31; sel_start_x = 10'd744; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_pk_b0) begin sel_str_id = 32; sel_start_x = 10'd497; sel_start_y = 9'd386; sel_scale = 2'd1; end
+        else if (b_t_pk_b1) begin sel_str_id = 33; sel_start_x = 10'd542; sel_start_y = 9'd386; sel_scale = 2'd1; end
+        else if (b_t_pk_b2) begin sel_str_id = 34; sel_start_x = 10'd632; sel_start_y = 9'd386; sel_scale = 2'd1; end
+        else if (b_t_pk_b3) begin sel_str_id = 35; sel_start_x = 10'd677; sel_start_y = 9'd386; sel_scale = 2'd1; end
+        else if (b_t_pk_b4) begin sel_str_id = 36; sel_start_x = 10'd722; sel_start_y = 9'd386; sel_scale = 2'd1; end
+        else if (b_t_p1_scp_hdr) begin sel_str_id = 15; sel_start_x = 10'd32; sel_start_y = 9'd52; sel_scale = 2'd1; end
+        else if (b_t_p1_scp_scl) begin sel_str_id = 37; sel_start_x = 10'd620; sel_start_y = 9'd52; sel_scale = 2'd1; end
+        else if (b_t_p1_spec_hdr) begin sel_str_id = 39; sel_start_x = 10'd32; sel_start_y = 9'd262; sel_scale = 2'd1; end
+        else if (b_t_p1_spec_rng) begin sel_str_id = 40; sel_start_x = 10'd640; sel_start_y = 9'd262; sel_scale = 2'd1; end
+        else if (b_t_f0) begin sel_str_id = 41; sel_start_x = 10'd36; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_f1) begin sel_str_id = 42; sel_start_x = 10'd125; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_f2) begin sel_str_id = 43; sel_start_x = 10'd217; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_f3) begin sel_str_id = 44; sel_start_x = 10'd309; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_f4) begin sel_str_id = 45; sel_start_x = 10'd405; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_f5) begin sel_str_id = 46; sel_start_x = 10'd497; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_f6) begin sel_str_id = 47; sel_start_x = 10'd589; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_f7) begin sel_str_id = 48; sel_start_x = 10'd681; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_f8) begin sel_str_id = 49; sel_start_x = 10'd745; sel_start_y = 9'd440; sel_scale = 2'd1; end
+        else if (b_t_p2_c1_t) begin sel_str_id = 50; sel_start_x = 10'd30; sel_start_y = 9'd52; sel_scale = 2'd1; end
+        else if (b_t_p2_c1_v1) begin sel_str_id = 51; sel_start_x = 10'd30; sel_start_y = 9'd68; sel_scale = 2'd1; end
+        else if (b_t_p2_c1_v2) begin sel_str_id = 52; sel_start_x = 10'd30; sel_start_y = 9'd86; sel_scale = 2'd1; end
+        else if (b_t_p2_c2_t) begin sel_str_id = 53; sel_start_x = 10'd286; sel_start_y = 9'd52; sel_scale = 2'd1; end
+        else if (b_t_p2_c2_v1) begin sel_str_id = 54; sel_start_x = 10'd286; sel_start_y = 9'd68; sel_scale = 2'd1; end
+        else if (b_t_p2_c2_v2) begin sel_str_id = 55; sel_start_x = 10'd286; sel_start_y = 9'd86; sel_scale = 2'd1; end
+        else if (b_t_p2_c3_t) begin sel_str_id = 56; sel_start_x = 10'd542; sel_start_y = 9'd52; sel_scale = 2'd1; end
+        else if (b_t_p2_c3_v1) begin sel_str_id = 57; sel_start_x = 10'd542; sel_start_y = 9'd68; sel_scale = 2'd1; end
+        else if (b_t_p2_c3_v2) begin sel_str_id = 58; sel_start_x = 10'd542; sel_start_y = 9'd86; sel_scale = 2'd1; end
+        else if (b_t_p2_osc_hdr) begin sel_str_id = 59; sel_start_x = 10'd32; sel_start_y = 9'd122; sel_scale = 2'd1; end
+        else if (b_t_p2_pk_hdr) begin sel_str_id = 60; sel_start_x = 10'd32; sel_start_y = 9'd264; sel_scale = 2'd1; end
+        else if (b_t_p2_pk_det) begin sel_str_id = 61; sel_start_x = 10'd640; sel_start_y = 9'd264; sel_scale = 2'd1; end
+        else if (b_t_p2_f0) begin sel_str_id = 62; sel_start_x = 10'd36; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p2_f1) begin sel_str_id = 63; sel_start_x = 10'd130; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p2_f2) begin sel_str_id = 64; sel_start_x = 10'd222; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p2_f3) begin sel_str_id = 65; sel_start_x = 10'd314; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p2_f4) begin sel_str_id = 66; sel_start_x = 10'd406; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p2_f5) begin sel_str_id = 67; sel_start_x = 10'd498; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p2_f6) begin sel_str_id = 68; sel_start_x = 10'd590; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p2_f7) begin sel_str_id = 69; sel_start_x = 10'd682; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p2_f8) begin sel_str_id = 70; sel_start_x = 10'd750; sel_start_y = 9'd444; sel_scale = 2'd1; end
+        else if (b_t_p3_tr_idx) begin sel_str_id = 71; sel_start_x = 10'd32; sel_start_y = 9'd54; sel_scale = 2'd1; end
+        else if (b_t_p3_tr_nam) begin sel_str_id = 72; sel_start_x = 10'd32; sel_start_y = 9'd70; sel_scale = 2'd2; end
+        else if (b_t_p3_tr_inf) begin sel_str_id = 73; sel_start_x = 10'd32; sel_start_y = 9'd94; sel_scale = 2'd1; end
+        else if (b_t_p3_pr_txt) begin sel_str_id = 74; sel_start_x = 10'd32; sel_start_y = 9'd138; sel_scale = 2'd1; end
+        else if (b_t_p3_pr_key) begin sel_str_id = 75; sel_start_x = 10'd600; sel_start_y = 9'd138; sel_scale = 2'd1; end
+        else if (b_t_p3_pr_hdl) begin sel_str_id = 76; sel_start_x = 10'd32; sel_start_y = 9'd196; sel_scale = 2'd1; end
+        else if (b_t_p3_sc_hdr) begin sel_str_id = 77; sel_start_x = 10'd32; sel_start_y = 9'd238; sel_scale = 2'd1; end
+        else if (b_t_p3_sc_mel) begin sel_str_id = 78; sel_start_x = 10'd560; sel_start_y = 9'd238; sel_scale = 2'd1; end
+        else if (b_t_p3_sc_ply) begin sel_str_id = 79; sel_start_x = 10'd345; sel_start_y = 9'd426; sel_scale = 2'd1; end
+    end
+    wire [9:0]  sh_dx   = px - sel_start_x;
+    wire [8:0]  sh_dy   = py - sel_start_y;
+    wire [9:0]  sh_rx   = (sel_scale == 2'd2) ? (sh_dx >> 1) : sh_dx;
+    wire [8:0]  sh_ry   = (sel_scale == 2'd2) ? (sh_dy >> 1) : sh_dy;
+    wire [21:0] sh_div6 = sh_rx * 12'd683;
+    wire [5:0]  sh_cidx = sh_div6[17:12];
+    wire [9:0]  sh_rem6 = sh_rx - (sh_cidx * 10'd6);
+    wire [2:0]  sh_ccol = sh_rem6[2:0];
+    wire [2:0]  sh_crow = sh_ry[2:0];
+    wire [7:0]  sh_ch   = get_char(sel_str_id, sh_cidx);
+    wire        shared_text_on = (sh_ccol < 3'd5) && (sh_ch != 8'd0) && font_dot(sh_ch, sh_ccol, sh_crow);
 
     // -------------------------------------------------------------------------
     // 最终像素颜色仲裁器 (Clean Hierarchical Priority Multiplexer)

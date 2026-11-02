@@ -273,10 +273,11 @@ module lcd_test_top #(
     wire [6:0]  bus_off_note = s_off_valid ? s_off_note : (m_off_valid ? m_off_note : (k1_play_off ? 7'd69 : 7'd0));
 
     // ------------------------------------------------------------------------
-    // Piano Synthesis Engine (8 Voices x 6 Additive Harmonics)
+    // Piano Synthesis Engine (4 Voices x 6 Additive Harmonics - Optimized for GW5AT-60B)
     // ------------------------------------------------------------------------
     wire signed [15:0] mix_piano;
-    wire [7:0]         piano_active;
+    wire [3:0]         piano_active_raw;
+    wire [7:0]         piano_active = {4'b0, piano_active_raw};
 
     piano_engine #(
         .N_VOICES  (8),
@@ -301,7 +302,7 @@ module lcd_test_top #(
         .bow_speed  ((work_mode == 2'd1) ? 7'd0 : drive_amt),
         .reset_all  (m_reset_all),
         .mix_out    (mix_piano),
-        .active     (piano_active),
+        .active     (piano_active_raw),
         .key_sound_active (piano_key_active)
     );
 

@@ -237,6 +237,9 @@ module piano_engine #(
         .lp_sh    (vel_lp_bus)
     );
 
+    // 共享琴槌初值乘法器（8 声部共用 1 颗 DSP，仅在 on_pulse 时采样）
+    wire [33:0] ham_init_bus = inst_ham_gain * vel_gain_bus;
+
     // ------------------------------------------------- 表情参数（拓展②）----
     // 颤音速率：f_lfo = vib_rate × 0.1 Hz（0 → 0，50 → 5.0 Hz，127 → 12.7 Hz）
     //           vib_inc = round(f_lfo × 2^32 / fs)，查表（生成脚本算好）
@@ -1016,7 +1019,7 @@ module piano_engine #(
         if (!rst_n) vld <= 12'd0;
         else        vld <= {vld[10:0], sample_tick};
     end
-    wire lim_vld = vld[4];
+    wire lim_vld = vld[11];
 
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -1132,18 +1135,19 @@ module piano_voice #(
     reg [31:0]        lfsr;                   // 每声部独立噪声源
     reg signed [17:0] nz_lp;                  // 噪声一阶低通状态
 
-    // 流水寄存器
-    reg [17:0]        env_q [0:N_PART-1];     // 旧包络的 Q16 增益（多留 2 位余量）
-    reg signed [18:0] prod  [0:N_PART-1];     // 各泛音 sin × env
+    // 流水寄存器（6 泛音 + 2 LFO 时分共享单颗正弦 ROM 与单颗泛音乘法器，省 56 BSRAM + 40 DSP）
+    reg [7:0]         ph_q  [0:N_PART-1];     // 采样时刻旧相位高 8 位快照
+    reg [15:0]        env_q [0:N_PART-1];     // 采样时刻旧包络 Q16 增益快照
+    reg [7:0]         lfo_ph_q;
+    reg [7:0]         vib_ph_q;
+    reg [3:0]         p_step;                 // 0=空闲, 1..6=读泛音0..5, 7=读lfo, 8=读vib, 9=锁存vout
+    reg signed [21:0] psum;                   // 6 泛音乘积累加器
     reg [17:0]        ham_g_q;
     reg signed [17:0] nz_q;
     reg signed [21:0] ham_prod;
-    reg [18:0]        uni_q;                  // 齐奏拍频系数（Q16）
+    reg [15:0]        uni_q;                  // 齐奏拍频系数（Q16, 0.25..0.75 fits in 16 bits）
+    reg signed [15:0] vib_sin;                // 颤音 LFO 正弦值
 
-    // ---------------------------------------------------- 每泛音常量 --------
-    // s_ring/s_damp 由生成脚本给出；用【常量索引】例化查表 ⇒ 综合时折叠成常数移位
-    // （零 LUT）。这也是"音高相关衰减不用变移位器"的关键。
-    wire signed [15:0] sin_dat [0:N_PART-1];
     wire [4:0]         cf_sr   [0:N_PART-1];
     // ★★ 弓弦驱动（`drive`，2026-10-06）
     //   drv_src = CC21 弓速；**为 0 时用【固定中速兜底 64】** —— 这是"诚实的固定值"，
@@ -1180,28 +1184,13 @@ module piano_voice #(
     generate
     for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_part
         localparam [2:0] PN = gn[2:0];
-        wire signed [15:0] sd;
         wire [4:0] sr, sdamp, st1, st2;
         wire [16:0] amp_u;
         wire [15:0] k_u;
 
-        piano_sin_rom u_sin (
-            .clk   (clk),
-            .phase (ph[gn][PHASE_W-1 -: 8]),   // 一个整周期 256 步
-            .data  (sd)
-        );
-
-        // ⚠️ 每个泛音一份查表实例，输出必须接到【各自的数组元素】。
-        //   第一版 6 个实例的输出接在同一根 wire 上（cf_st1_u 等）⇒ 同一网络多驱动，
-        //   值会变成线与/x；当时那些线没用上所以没暴露，但一旦拿来算非谐性拉伸
-        //   （滑音/颤音要按泛音重算相位增量）就会直接出错。
         piano_partial_lut u_cfg (
             .n       (PN),
-            .inst    (2'd0),          // ★★ 必须【常量 0】：这样 s_ring/s_damp/st1/st2
-                                      //    才能被综合器折叠成常数移位。
-                                      //    若这里接 inst_sel（动态），每采样路径上会立刻
-                                      //    长出桶形移位器 —— MODE=1 裕量只有 +0.009 ns。
-                                      //    乐器差异已由装载期决定（pl_amp/pl_k/pl_st1/pl_st2）。
+            .inst    (2'd0),
             .amp_q16 (amp_u),
             .k_q12   (k_u),
             .s_ring  (sr),
@@ -1210,7 +1199,6 @@ module piano_voice #(
             .st2     (st2)
         );
 
-        assign sin_dat[gn] = sd;
         assign cf_sr[gn]   = sr;
         assign cf_sd[gn]   = sdamp;
         assign cf_st1[gn]  = st1;
@@ -1220,43 +1208,25 @@ module piano_voice #(
     end
     endgenerate
 
-    // -------- 齐奏失谐 LFO：起始相位 90° ⇒ 正弦表读出的就是 cos --------
-    wire signed [15:0] lfo_cos;
-    piano_sin_rom u_lfo (
+    // 单颗共享正弦波表 ROM（服务 6 个泛音 + 齐奏 LFO + 颤音 LFO，每采样仅需 8 拍）
+    wire [7:0] rom_addr = (p_step == 4'd1) ? ph_q[0]  :
+                          (p_step == 4'd2) ? ph_q[1]  :
+                          (p_step == 4'd3) ? ph_q[2]  :
+                          (p_step == 4'd4) ? ph_q[3]  :
+                          (p_step == 4'd5) ? ph_q[4]  :
+                          (p_step == 4'd6) ? ph_q[5]  :
+                          (p_step == 4'd7) ? lfo_ph_q : vib_ph_q;
+    wire signed [15:0] rom_dat;
+    piano_sin_rom u_sin_shared (
         .clk   (clk),
-        .phase (lfo_ph[PHASE_W-1 -: 8]),
-        .data  (lfo_cos)
+        .phase (rom_addr),
+        .data  (rom_dat)
     );
 
-    // 三弦等幅相加 ⇒ 幅度 ∝ (2+cos)/3 ∈ [1/3, 1]；取 /4 换取一次纯移位，
-    // 整体电平差由生成脚本里的幅度系数统一补偿。单根 LFO 支路成本：1 个累加器
-    // + 1 份 1/4 波表 + 1 次 17×19 乘法。
-    //
-    // ★★ 必须全程【有符号】运算 ★★
-    //   写成 `(18'd131072 + {lfo_cos, 1'b0}) >>> 2` 是错的：拼接 {signed, 1'b0}
-    //   在 Verilog 里是【无符号】的，cos 为负时它的 17 位补码被当成大正数
-    //   （cos=-1 → 131070），于是系数在 cos 过零处从 0.25 直接跳到 1.0 ——
-    //   不是慢速起伏，而是一个大幅锯齿 + 直流偏置。
-    //   本项目实测症状：单音波形 mean=+9551（满幅 32767），正半周恒削顶。
-    wire signed [17:0] cos2   = $signed({{2{lfo_cos[15]}}, lfo_cos}) <<< 1; // 2·cos
+    wire signed [15:0] lfo_cos = rom_dat;
+    wire signed [17:0] cos2    = $signed({{2{lfo_cos[15]}}, lfo_cos}) <<< 1; // 2·cos
     wire signed [19:0] uni_sum = 20'sd131072 + {{2{cos2[17]}}, cos2};       // 2+cos
     wire signed [19:0] uni_calc = uni_sum >>> 2;                            // (2+cos)/4 ∈ [0.25,0.75]
-
-    // ===================== 表情调制（拓展②：颤音 + 滑音）=========================
-    //  ★ 映射公式（也写在 piano_engine.v 文件头）：
-    //    颤音：f_inst = f_note × (1 + sin(2π·f_lfo·t)·depth_k/65536)
-    //          f_lfo = vib_rate × 0.1 Hz；depth_k = vib_depth × 15
-    //          ⇒ vib_depth 0..127 → ±0 .. ±2.907 % → ±0 .. ±49.6 cent（线性）
-    //    滑音：f_note(t) 从 f_old 线性推进到 f_new，N = glide_time×4ms×fs 个采样点
-    //          f0_cur += (f_new − f_old)/N 每采样点一次
-    //  ★★ 回归保证：vib_act=0 且 gliding=0 时，下面 inc_use 选的是【原来的 inc[]】，
-    //     相位通路逐位与加表情前一致（不是"应该一样"，是结构性同一条通路）。
-    wire signed [15:0] vib_sin;
-    piano_sin_rom u_vib_lfo (
-        .clk   (clk),
-        .phase (vib_ph[PHASE_W-1 -: 8]),
-        .data  (vib_sin)
-    );
 
     // 频偏分数（Q16）：dev = sin × depth_k / 32768
     wire signed [26:0] vib_dev_full = vib_sin * $signed({1'b0, vib_depth_k}); // 16×12 → 27
@@ -1277,7 +1247,8 @@ module piano_voice #(
     wire signed [11:0] vib_dev = vib_dev_full[26:15];
     // f0_mod = f0_cur × (1 + dev/65536) = f0_cur + ((f0_cur × dev) >> 16)
     //   ★ 别写成"乘 18 bit 增益 (65536+dev)"：那是 33×18 大乘法。
-    wire signed [44:0] f0_mod_full2 = $signed({1'b0, f0_cur}) * vib_dev_r; // 33×12 → 45 bit
+    // 25×12 有符号乘法（单颗 MULTALU27X18 容纳，消除 MULT27X36 双倍 DSP 占用）
+    wire signed [36:0] f0_mod_full2 = $signed({1'b0, f0_cur[31:8]}) * vib_dev_r;
 
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -1286,7 +1257,7 @@ module piano_voice #(
         end else begin
             vib_dev_r <= vib_dev;
             f0_mod_r  <= {1'b0, f0_cur}
-                       + {{4{f0_mod_full2[44]}}, f0_mod_full2[44:16]};
+                       + {{4{f0_mod_full2[36]}}, f0_mod_full2[36:8]};
         end
     end
 
@@ -1304,32 +1275,40 @@ module piano_voice #(
 
     // 用【被调制的基频】重算 6 个泛音的相位增量（非谐性拉伸同样适用）
     //   inc_vib[n] = n·f0_mod + (f0_mod>>st1) + (f0_mod>>st2)  —— 纯移位加法，无乘法器
-    wire [31:0] inc_vib [0:N_PART-1];
-    generate
-    for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_modinc
-        localparam integer NP = gn + 1;
-        wire [32:0] f0e = {1'b0, f0_mod_r};
-        wire [32:0] nf0 = (NP == 1) ?  f0e                    :
-                          (NP == 2) ? (f0e << 1)              :
-                          (NP == 3) ? ((f0e << 1) + f0e)      :
-                          (NP == 4) ? (f0e << 2)              :
-                          (NP == 5) ? ((f0e << 2) + f0e)      :
-                                      ((f0e << 2) + (f0e << 1));
-        assign inc_vib[gn] = nf0 + (f0e >> cf_st1[gn]) + (f0e >> cf_st2[gn]);
+    // 6 泛音调制增量时分共享单套移位加法器（每声部 6 拍轮询更新，远快于 512 拍 sample_tick）
+    reg [2:0] mod_idx;
+    always @(posedge clk) begin
+        if (!rst_n) mod_idx <= 3'd0;
+        else        mod_idx <= (mod_idx == 3'd5) ? 3'd0 : (mod_idx + 3'd1);
     end
-    endgenerate
+    wire [32:0] f0e_m = {1'b0, f0_mod_r};
+    wire [32:0] nf0_m = (mod_idx == 3'd0) ?  f0e_m                      :
+                        (mod_idx == 3'd1) ? (f0e_m << 1)                :
+                        (mod_idx == 3'd2) ? ((f0e_m << 1) + f0e_m)      :
+                        (mod_idx == 3'd3) ? (f0e_m << 2)                :
+                        (mod_idx == 3'd4) ? ((f0e_m << 2) + f0e_m)      :
+                                            ((f0e_m << 2) + (f0e_m << 1));
+    wire [32:0] st1_m = (mod_idx == 3'd0) ? (f0e_m >> cf_st1[0]) :
+                        (mod_idx == 3'd1) ? (f0e_m >> cf_st1[1]) :
+                        (mod_idx == 3'd2) ? (f0e_m >> cf_st1[2]) :
+                        (mod_idx == 3'd3) ? (f0e_m >> cf_st1[3]) :
+                        (mod_idx == 3'd4) ? (f0e_m >> cf_st1[4]) :
+                                            (f0e_m >> cf_st1[5]);
+    wire [32:0] st2_m = (mod_idx == 3'd0) ? (f0e_m >> cf_st2[0]) :
+                        (mod_idx == 3'd1) ? (f0e_m >> cf_st2[1]) :
+                        (mod_idx == 3'd2) ? (f0e_m >> cf_st2[2]) :
+                        (mod_idx == 3'd3) ? (f0e_m >> cf_st2[3]) :
+                        (mod_idx == 3'd4) ? (f0e_m >> cf_st2[4]) :
+                                            (f0e_m >> cf_st2[5]);
+    wire [31:0] inc_vib_cur = nf0_m + st1_m + st2_m;
 
-    // ★ 回归开关：表情关闭时走原来的 inc[]（逐位一致）
-    // ★ inc_vib 先打一拍：这样"调制链(乘法+6 路移位加法)"与"相位累加器"之间
-    //   多了一级寄存器，相位累加器输入只剩一个 mux。
-    //   表情关闭时 mux 选 inc[j] ⇒ 与原通路**逐位相同**，回归不受影响。
     reg [PHASE_W-1:0] inc_vib_r [0:N_PART-1];
-    integer           ij;                     // ⚠️ 不能用 j：j 在本模块更靠后才声明
+    integer           ij;
     always @(posedge clk) begin
         if (!rst_n)
             for (ij = 0; ij < N_PART; ij = ij + 1) inc_vib_r[ij] <= {PHASE_W{1'b0}};
         else
-            for (ij = 0; ij < N_PART; ij = ij + 1) inc_vib_r[ij] <= inc_vib[ij];
+            inc_vib_r[mod_idx] <= inc_vib_cur;
     end
 
     wire [PHASE_W-1:0] inc_use [0:N_PART-1];
@@ -1387,6 +1366,22 @@ module piano_voice #(
     // 噪声样点（显式 signed：拼接结果是无符号的，必须先转换再参与有符号减法）
     wire signed [17:0] nz_s = {{2{lfsr[31]}}, lfsr[31:16]};
 
+    // 每泛音共享单套 32-bit 衰减减法器、底噪比较器与弓弦加法器（逐位等价，省 ~4,600 ALU）
+    wire [ENV_W-1:0] env_next_val [0:N_PART-1];
+    generate
+    for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_env_alu
+        wire [31:0] env_sh   = (!gate_r) ? (env[gn] >> cf_sd[gn]) : (env[gn] >> cf_sr[gn]);
+        wire [31:0] env_thr  = (!gate_r) ? (32'd1 << cf_sd[gn])   : (32'd1 << cf_sr[gn]);
+        wire        env_flr  = (env[gn] <= env_thr);
+        wire [31:0] env_dec  = env[gn] - env_sh;
+        wire        env_ramp = (env_sh < drv_q);
+        wire [31:0] env_base = env_ramp ? env[gn] : env_dec;
+        wire [31:0] env_add  = env_ramp ? drv_r4  : drv_q;
+        wire [31:0] env_drv  = env_base + env_add;
+        assign env_next_val[gn] = (gate_r && drv_act) ? env_drv : (env_flr ? 32'd0 : env_dec);
+    end
+    endgenerate
+
     // ------------------------------------------------------- 主状态更新 -----
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -1394,9 +1389,11 @@ module piano_voice #(
                 ph[j]    <= {PHASE_W{1'b0}};
                 inc[j]   <= {PHASE_W{1'b0}};
                 env[j]   <= {ENV_W{1'b0}};
-                env_q[j] <= 18'd0;          // ★ 必须复位：否则首个 tick 之前它是 X，
-                                            //   乘出来 prod=X → vout=X → mix_out 全程 X
+                ph_q[j]  <= 8'd0;
+                env_q[j] <= 16'd0;
             end
+            lfo_ph_q  <= 8'h40;
+            vib_ph_q  <= 8'd0;
             note_r    <= 7'd0;
             gate_r    <= 1'b0;
             velgain_r <= 17'd0;
@@ -1478,23 +1475,8 @@ module piano_voice #(
                 //      ⇒ 4.261e9 < 2^32=4.295e9 ⇒ **不会溢出** ✓
                 //   ⚠️ !gate_r ⇒ 不加驱动 ⇒ 抬弓自动归零、s_damp 快释放生效 ✓
                 for (j = 0; j < N_PART; j = j + 1) begin
-                    if (!gate_r) begin
-                        if (env[j] <= (32'd1 << cf_sd[j]))
-                            env[j] <= 32'd0;
-                        else
-                            env[j] <= env[j] - (env[j] >> cf_sd[j]);
-                    end else if (env_en) begin
-                        if (drv_act && ((env[j] >> cf_sr[j]) < drv_q))
-                            env[j] <= env[j] + drv_r4;                       // 定速斜坡（常量左移）
-                        else if (drv_act)
-                            env[j] <= env[j] - (env[j] >> cf_sr[j]) + drv_q; // 稳态
-                        else begin
-                            if (env[j] <= (32'd1 << cf_sr[j]))
-                                env[j] <= 32'd0;
-                            else
-                                env[j] <= env[j] - (env[j] >> cf_sr[j]);     // 钢琴/吉他：自然衰减到底直接归零
-                        end
-                    end
+                    if (!gate_r || env_en)
+                        env[j] <= env_next_val[j];
                 end
 
                 // 齐奏失谐 LFO
@@ -1534,12 +1516,15 @@ module piano_voice #(
                 lfsr    <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
                 nz_lp   <= nz_lp + ((nz_s - nz_lp) >>> lpsh_r);
 
-                // 流水第一级：快照【旧】包络 / 旧琴槌增益 / 旧噪声
-                //   （正弦 ROM 也在这一拍锁存旧相位，两者天然对齐）
-                for (j = 0; j < N_PART; j = j + 1)
-                    env_q[j] <= {2'b0, env[j][ENV_W-1 -: 16]};
-                ham_g_q <= {2'b0, ham_env[ENV_W-1 -: 16]};
-                nz_q    <= nz_lp;
+                // 流水第一级：快照【旧】相位 / 旧包络 / 旧琴槌增益 / 旧噪声
+                for (j = 0; j < N_PART; j = j + 1) begin
+                    ph_q[j]  <= ph[j][PHASE_W-1 -: 8];
+                    env_q[j] <= env[j][ENV_W-1 -: 16];
+                end
+                lfo_ph_q <= lfo_ph[PHASE_W-1 -: 8];
+                vib_ph_q <= vib_ph[PHASE_W-1 -: 8];
+                ham_g_q  <= {2'b0, ham_env[ENV_W-1 -: 16]};
+                nz_q     <= nz_lp;
             end
 
             // ---------------- 2) note-on（1 拍，优先级高于周期更新）---------
@@ -1569,7 +1554,7 @@ module piano_voice #(
                 sus_pend <= 1'b0;
                 for (j = 0; j < N_PART; j = j + 1) begin
                     env[j]   <= 32'd0;
-                    env_q[j] <= 18'd0;
+                    env_q[j] <= 16'd0;
                 end
                 ham_env  <= 32'd0;
                 ham_g_q  <= 18'd0;
@@ -1606,60 +1591,49 @@ module piano_voice #(
         end
     end
 
-    // ------------------------------------------------------- 流水第二级 -----
-    // 16 bit 有符号正弦 × 17 bit 包络 → 35 bit 乘积（全宽形成）→ >>16
-    wire signed [34:0] pf [0:N_PART-1];
-    generate
-    for (gn = 0; gn < N_PART; gn = gn + 1) begin : g_prod
-        assign pf[gn] = $signed(sin_dat[gn]) * $signed({1'b0, env_q[gn]});
-    end
-    endgenerate
+    // -------------------------------------------- 时分多路流水第二/三级 -----
+    // p_step == 2..7 时 rom_dat 依次输出泛音 0..5 的正弦值，单颗乘法器完成累加
+    wire [15:0] env_q_sel = (p_step == 4'd2) ? env_q[0] :
+                            (p_step == 4'd3) ? env_q[1] :
+                            (p_step == 4'd4) ? env_q[2] :
+                            (p_step == 4'd5) ? env_q[3] :
+                            (p_step == 4'd6) ? env_q[4] : env_q[5];
+    wire signed [32:0] pf_seq   = $signed(rom_dat) * $signed({1'b0, env_q_sel});
+    wire signed [18:0] prod_seq = $signed({{2{pf_seq[32]}}, pf_seq[32:16]});
 
     // 琴槌：18 bit 噪声 × 18 bit 增益 → 37 bit
     wire signed [36:0] hpf = nz_q * $signed({1'b0, ham_g_q});
 
-    // ★★ 位选（part-select）在 Verilog 里【永远是无符号】，赋给更宽的 signed 变量时
-    //    会被【零扩展】而不是符号扩展 —— 负的半周会变成接近满量程的正数。
-    //    本项目实测症状：ham_prod 在 ±2.1e6（≈ 2^21）之间跳，单音输出被顶到
-    //    +32767 恒削顶、mean=+9551。修法：拼 $signed()，或让两侧位宽完全一致。
-    //    （下面 prod 两侧恰好同宽 19 bit，所以本来就对；ham_prod 是 21→22，
-    //      必须显式 $signed。）
+    // 22 bit × 17 bit → 39 bit（单颗 MULTALU27X18 即可容纳）→ >>16
+    wire signed [38:0] vmul   = psum * $signed({1'b0, uni_q});
+    wire signed [24:0] vscale = $signed({{2{vmul[38]}}, vmul[38:16]});
+
     always @(posedge clk) begin
         if (!rst_n) begin
-            for (j = 0; j < N_PART; j = j + 1)
-                prod[j] <= 19'sd0;
+            p_step   <= 4'd0;
+            psum     <= 22'sd0;
             ham_prod <= 22'sd0;
-            uni_q    <= 19'd0;
-        end else begin
-            for (j = 0; j < N_PART; j = j + 1)
-                prod[j] <= $signed(pf[j][34:16]);   // 等价于 >>> 16（有符号）
-            ham_prod <= $signed(hpf[36:16]);
-            uni_q    <= uni_calc[18:0];             // 正值，0.25..0.75 Q16
+            uni_q    <= 16'd0;
+            vib_sin  <= 16'sd0;
+            vout     <= 25'sd0;
+        end else if (sample_tick) begin
+            p_step   <= 4'd1;
+            psum     <= 22'sd0;
+        end else if (p_step != 4'd0) begin
+            if ((p_step >= 4'd2) && (p_step <= 4'd7))
+                psum <= psum + {{3{prod_seq[18]}}, prod_seq};
+            if (p_step == 4'd7)
+                ham_prod <= $signed(hpf[36:16]);
+            if (p_step == 4'd8)
+                uni_q <= uni_calc[15:0];
+            if (p_step == 4'd9) begin
+                vib_sin <= rom_dat;
+                vout    <= vscale + ham_prod;
+                p_step  <= 4'd0;
+            end else begin
+                p_step <= p_step + 4'd1;
+            end
         end
-    end
-
-    // ------------------------------------------------------- 流水第三级 -----
-    reg signed [21:0] psum;
-    always @(*) begin
-        psum = 22'sd0;
-        for (j = 0; j < N_PART; j = j + 1)
-            psum = psum + prod[j];
-    end
-
-    // 22 bit × 19 bit → 41 bit（全宽）→ >>16 ⇒ 取 [40:16]
-    wire signed [40:0] vmul = psum * $signed({1'b0, uni_q});
-
-    // ★★ 位选（part-select）在 Verilog 里【永远是无符号】的 ★★
-    //   写成 `vmul[40:16] + ham_prod` 时，因为左操作数无符号，整个加法被当成
-    //   无符号运算：负的 ham_prod 会被【零扩展】成一个大正数加进去，
-    //   结果是输出被顶到 +32767 恒削顶（本项目实测：单音 RMS 直接爆表、
-    //   松键后电平反而更大 —— 因为噪声项的符号全错）。
-    //   必须用 $signed() 把位选恢复成有符号再相加。
-    wire signed [24:0] vscale = $signed(vmul[40:16]);
-
-    always @(posedge clk) begin
-        if (!rst_n) vout <= 25'sd0;
-        else        vout <= vscale + ham_prod;
     end
 
 endmodule

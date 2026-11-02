@@ -222,33 +222,33 @@ module song_player #(
     assign song_index = song_index_r;
     assign song_count = rom_n_songs;
 
-    reg [7:0] total_sec_r;
-    reg [7:0] total_notes_r;
+    reg [7:0]  total_sec_r;
+    reg [7:0]  total_notes_r;
+    reg [14:0] inv_notes_q12;
     always @(*) begin
         case (song_index_r)
-            4'd0: begin total_sec_r = 8'd11; total_notes_r = 8'd18; end // 我落泪情绪零碎
-            4'd1: begin total_sec_r = 8'd38; total_notes_r = 8'd62; end // 欢乐颂
-            4'd2: begin total_sec_r = 8'd24; total_notes_r = 8'd42; end // 小星星
-            4'd3: begin total_sec_r = 8'd27; total_notes_r = 8'd50; end // 铃儿响叮当
-            4'd4: begin total_sec_r = 8'd6;  total_notes_r = 8'd37; end // 致爱丽丝
-            default: begin total_sec_r = 8'd30; total_notes_r = 8'd40; end
+            4'd0: begin total_sec_r = 8'd11; total_notes_r = 8'd18; inv_notes_q12 = 15'd22756; end // 我落泪情绪零碎
+            4'd1: begin total_sec_r = 8'd38; total_notes_r = 8'd62; inv_notes_q12 = 15'd6607;  end // 欢乐颂
+            4'd2: begin total_sec_r = 8'd24; total_notes_r = 8'd42; inv_notes_q12 = 15'd9753;  end // 小星星
+            4'd3: begin total_sec_r = 8'd27; total_notes_r = 8'd50; inv_notes_q12 = 15'd8192;  end // 铃儿响叮当
+            4'd4: begin total_sec_r = 8'd6;  total_notes_r = 8'd37; inv_notes_q12 = 15'd11071; end // 致爱丽丝
+            default: begin total_sec_r = 8'd30; total_notes_r = 8'd40; inv_notes_q12 = 15'd10240; end
         endcase
     end
 
-    wire [8:0] cur_note_idx_w = (note_idx > 9'd0) ? (note_idx - 9'd1) : 9'd0;
-    wire [16:0] pct_prod = {8'd0, cur_note_idx_w} * 17'd100;
-    wire [7:0] pct_w = (cur_note_idx_w >= total_notes_r) ? 8'd100 :
-                       (pct_prod / {9'd0, total_notes_r});
+    wire [8:0]  cur_note_idx_w = (note_idx > 9'd0) ? (note_idx - 9'd1) : 9'd0;
+    wire [23:0] pct_q12 = cur_note_idx_w * inv_notes_q12;
+    wire [7:0]  pct_w   = (cur_note_idx_w >= total_notes_r) ? 8'd100 : pct_q12[19:12];
 
     wire [11:0] dur_top = dur_cnt[19:8];
     wire [11:0] cur_top = (cur_dur[19:8] == 12'd0) ? 12'd1 : cur_dur[19:8];
     wire [17:0] scroll_num = dur_top * 6'd60;
-    wire [5:0]  sub_scroll_w = ((scroll_num / cur_top) >= 6'd60) ? 6'd59 : (scroll_num / cur_top);
 
-    // Register outputs to break long combinational timing paths into the LCD UI
-    reg [7:0] song_progress_pct_r;
-    reg [8:0] song_note_idx_r;
-    reg [5:0] song_sub_scroll_r;
+    // Register outputs and incrementally track sub_scroll without combinational division
+    reg [7:0]  song_progress_pct_r;
+    reg [8:0]  song_note_idx_r;
+    reg [5:0]  song_sub_scroll_r;
+    wire [17:0] next_scroll_thr = (song_sub_scroll_r + 6'd1) * cur_top;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -258,7 +258,10 @@ module song_player #(
         end else begin
             song_progress_pct_r <= pct_w;
             song_note_idx_r     <= cur_note_idx_w;
-            song_sub_scroll_r   <= (state == S_WAIT) ? sub_scroll_w : 6'd0;
+            if ((state != S_WAIT) || (dur_cnt == 20'd0))
+                song_sub_scroll_r <= 6'd0;
+            else if ((song_sub_scroll_r < 6'd59) && (scroll_num >= next_scroll_thr))
+                song_sub_scroll_r <= song_sub_scroll_r + 6'd1;
         end
     end
 

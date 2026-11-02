@@ -21,7 +21,7 @@ module audio_visualizer #(
     localparam IDLE=0, LOAD_READ=1, LOAD_MUL=2, LOAD_WRITE=3,
                FFT_START=4, CLEAR=5, WAIT_FFT=6, SCAN_READ=7,
                SCAN_SQUARE=8, SCAN_ADD=9, SCAN_ACCUM=10,
-               LEVEL_READ=11, LEVEL_WRITE=12;
+               LEVEL_READ=11, LEVEL_LATCH=12, LEVEL_WRITE=13;
     reg [3:0] state;
     reg capture_bank, read_bank, work_bank, display_bank;
     reg [11:0] capture_pos, load_pos;
@@ -90,11 +90,12 @@ module audio_visualizer #(
     `include "visualizer/fft_bands.vh"
     reg [35:0] re_square, im_square;
     reg [36:0] bin_power;
-    (* syn_ramstyle = "registers" *) reg [36:0] bands [0:31]; /* synthesis syn_ramstyle = "registers" */
-    (* syn_ramstyle = "registers" *) reg [36:0] bench [0:31]; /* synthesis syn_ramstyle = "registers" */
+    (* syn_ramstyle = "block_ram" *) reg [36:0] bands [0:31]; /* synthesis syn_ramstyle = "block_ram" */
+    (* syn_ramstyle = "block_ram" *) reg [36:0] bench [0:31]; /* synthesis syn_ramstyle = "block_ram" */
     reg [5:0] level_index;
     reg [36:0] level_power;
-    (* syn_ramstyle = "registers" *) reg [7:0] levels [0:127]; /* synthesis syn_ramstyle = "registers" */
+    (* syn_ramstyle = "block_ram" *) reg [7:0] spec_levels  [0:63]; /* synthesis syn_ramstyle = "block_ram" */
+    (* syn_ramstyle = "block_ram" *) reg [7:0] bench_levels [0:63]; /* synthesis syn_ramstyle = "block_ram" */
     wire [5:0] band_slot = spectrum_band(bin_index);
     wire [5:0] bench_slot = benchmark_band(bin_index);
 
@@ -119,8 +120,41 @@ module audio_visualizer #(
             else power_height = scaled[10:3];
         end
     endfunction
-    assign spectrum_level = display_valid ? levels[{display_bank,1'b0,spectrum_col}] : 8'd0;
-    assign benchmark_level = display_valid ? levels[{display_bank,1'b1,spectrum_col}] : 8'd0;
+
+    // Synchronous SDPB read/write ports for BSRAM inference (saves ~3,400 FFs & ~3,500 LUTs)
+    wire [4:0]  band_rd_addr  = (state == LEVEL_READ) ? level_index[4:0] : band_slot[4:0];
+    wire [4:0]  bench_rd_addr = (state == LEVEL_READ) ? level_index[4:0] : bench_slot[4:0];
+    reg  [36:0] band_rd_q, bench_rd_q;
+    reg  [7:0]  spec_level_q, bench_level_q;
+
+    wire        band_we    = (state == CLEAR) || ((state == SCAN_ACCUM) && !band_slot[5] && (bin_power > band_rd_q));
+    wire [4:0]  band_waddr = (state == CLEAR) ? level_index[4:0] : band_slot[4:0];
+    wire [36:0] band_wdata = (state == CLEAR) ? 37'd0 : bin_power;
+
+    wire        bench_we    = (state == CLEAR) || ((state == SCAN_ACCUM) && !bench_slot[5] && (bin_power > bench_rd_q));
+    wire [4:0]  bench_waddr = (state == CLEAR) ? level_index[4:0] : bench_slot[4:0];
+    wire [36:0] bench_wdata = (state == CLEAR) ? 37'd0 : bin_power;
+
+    wire [7:0]  cur_power_height = power_height(level_power);
+
+    always @(posedge clk) begin
+        if (band_we)  bands[band_waddr] <= band_wdata;
+        band_rd_q <= bands[band_rd_addr];
+
+        if (bench_we) bench[bench_waddr] <= bench_wdata;
+        bench_rd_q <= bench[bench_rd_addr];
+
+        if ((state == LEVEL_WRITE) && !level_index[5])
+            spec_levels[{work_bank, level_index[4:0]}] <= cur_power_height;
+        spec_level_q <= spec_levels[{display_bank, spectrum_col}];
+
+        if ((state == LEVEL_WRITE) && level_index[5])
+            bench_levels[{work_bank, level_index[4:0]}] <= cur_power_height;
+        bench_level_q <= bench_levels[{display_bank, spectrum_col}];
+    end
+
+    assign spectrum_level = display_valid ? spec_level_q : 8'd0;
+    assign benchmark_level = display_valid ? bench_level_q : 8'd0;
     assign vu_level = !display_valid ? 8'd0 : (display_peak[15] ? 8'd255 : display_peak[14:7]);
     assign audio_active = display_valid && (display_peak > 16'd32);
 
@@ -152,7 +186,6 @@ module audio_visualizer #(
                 end
                 FFT_START: begin level_index <= 6'd0; state <= CLEAR; end
                 CLEAR: begin
-                    bands[level_index[4:0]] <= 37'd0; bench[level_index[4:0]] <= 37'd0;
                     if (level_index == 6'd31) state <= WAIT_FFT;
                     else level_index <= level_index + 6'd1;
                 end
@@ -166,17 +199,17 @@ module audio_visualizer #(
                 end
                 SCAN_ADD: begin bin_power <= {1'b0,re_square} + {1'b0,im_square}; state <= SCAN_ACCUM; end
                 SCAN_ACCUM: begin
-                    if (!band_slot[5] && bin_power > bands[band_slot[4:0]]) bands[band_slot[4:0]] <= bin_power;
-                    if (!bench_slot[5] && bin_power > bench[bench_slot[4:0]]) bench[bench_slot[4:0]] <= bin_power;
                     if (bin_index == 12'd2047) begin level_index <= 6'd0; state <= LEVEL_READ; end
                     else begin bin_index <= bin_index + 12'd1; state <= SCAN_READ; end
                 end
                 LEVEL_READ: begin
-                    level_power <= level_index[5] ? bench[level_index[4:0]] : bands[level_index[4:0]];
+                    state <= LEVEL_LATCH;
+                end
+                LEVEL_LATCH: begin
+                    level_power <= level_index[5] ? bench_rd_q : band_rd_q;
                     state <= LEVEL_WRITE;
                 end
                 LEVEL_WRITE: begin
-                    levels[{work_bank,level_index}] <= power_height(level_power);
                     if (level_index == 6'd63) begin pending <= 1'b1; state <= IDLE; end
                     else begin level_index <= level_index + 6'd1; state <= LEVEL_READ; end
                 end
