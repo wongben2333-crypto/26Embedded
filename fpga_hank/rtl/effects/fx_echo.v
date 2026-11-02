@@ -67,8 +67,11 @@ module fx_echo #(
     wire signed [24:0] wet_f = d_rd * $signed({1'b0, WET_Q8});
     wire signed [16:0] fb_s  = fb_f  >>> 8;
     wire signed [16:0] wet_s = wet_f >>> 8;
-    wire signed [17:0] wr_f  = {x[15], x} + {{1'b0, fb_s[16]},  fb_s};
-    wire signed [17:0] y_f   = {x[15], x} + {{1'b0, wet_s[16]}, wet_s};
+    wire signed [17:0] dry_ext = $signed({{2{x[15]}}, x});
+    wire signed [17:0] fb_ext  = $signed({fb_s[16], fb_s});
+    wire signed [17:0] wet_ext = $signed({wet_s[16], wet_s});
+    wire signed [17:0] wr_f  = dry_ext + fb_ext;
+    wire signed [17:0] y_f   = dry_ext + wet_ext;
     wire signed [15:0] wr_n  = sat16(wr_f);
     wire signed [15:0] y_n   = sat16(y_f);
 

@@ -186,7 +186,7 @@ module hw_input_mgr #(
 
     always @(posedge clk) begin
         if (!rst_n) begin
-            q1_d <= 2'b11; vol_r <= 7'd100; enc_dbg <= 16'sd0;
+            q1_d <= 2'b11; vol_r <= 7'd127; enc_dbg <= 16'sd0;
         end else if (tick1ms) begin
             q1_d <= q1;
             enc_dbg <= enc_dbg + qstep(q1_d, q1);

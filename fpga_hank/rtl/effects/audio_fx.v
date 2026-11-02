@@ -117,8 +117,6 @@
 
 module audio_fx #(
     // 契约参数：0=旁路 1=延迟 2=合唱 3=混响。最高档位序号 = 3。
-    // 本模块内部不需要它做译码（fx_sel 已经是 2 bit），保留以符合契约、
-    // 并为将来扩展更多效果档预留。
     parameter integer N_FX = 3
 )(
     input  wire        clk,
@@ -129,8 +127,12 @@ module audio_fx #(
     input  wire [6:0]  param,            // 0..127 深度/反馈量
 
     input  wire signed [15:0] fx_in,
-    output reg  signed [15:0] fx_out
+    output reg  signed [15:0] fx_out_l,   // ★ 赛题拓展②：真立体声左声道
+    output reg  signed [15:0] fx_out_r,   // ★ 赛题拓展②：真立体声右声道
+    output wire signed [15:0] fx_out     // 单声道兼容输出 (= fx_out_l)
 );
+
+    assign fx_out = fx_out_l;
 
     localparam [1:0] FX_BYPASS = 2'b00,
                      FX_DELAY  = 2'b01,
@@ -159,38 +161,40 @@ module audio_fx #(
     end
 
     // =========================================================================
-    //  效果 1：延迟 / 回声
+    //  效果 1：立体声乒乓延迟 (Stereo Ping-Pong Delay)
     // =========================================================================
-    wire signed [15:0] echo_y;
-    fx_echo #(.AW(15), .DEPTH(32768), .LEN_MIN(9766)) u_echo (
+    wire signed [15:0] echo_y_l, echo_y_r;
+    fx_echo #(.AW(15), .DEPTH(32768), .LEN_MIN(9766)) u_echo_l (
         .clk(clk), .rst_n(rst_n), .sample_tick(sample_tick),
         .clr_en(clr_en), .clr_addr(clr_addr),
-        .param(param), .x(fx_in), .y(echo_y)
+        .param(param), .x(fx_in), .y(echo_y_l)
+    );
+    fx_echo #(.AW(15), .DEPTH(32768), .LEN_MIN(13672)) u_echo_r (
+        .clk(clk), .rst_n(rst_n), .sample_tick(sample_tick),
+        .clr_en(clr_en), .clr_addr(clr_addr),
+        .param(param), .x(fx_in), .y(echo_y_r)
     );
 
     // =========================================================================
-    //  效果 2：合唱
+    //  效果 2：90° 正交立体声合唱 (Quadrature Stereo Chorus)
     // =========================================================================
-    wire signed [15:0] chor_y;
-    fx_chorus #(.AW(11), .DEPTH(2048), .BASE(1024), .LFO_INC(137)) u_chorus (
+    wire signed [15:0] chor_y_l, chor_y_r;
+    fx_chorus #(.AW(11), .DEPTH(2048), .BASE(1024), .LFO_INC(137), .LFO_PH_INIT(24'd0)) u_chorus_l (
         .clk(clk), .rst_n(rst_n), .sample_tick(sample_tick),
         .clr_en(clr_en), .clr_addr(clr_addr),
-        .param(param), .x(fx_in), .y(chor_y)
+        .param(param), .x(fx_in), .y(chor_y_l)
+    );
+    fx_chorus #(.AW(11), .DEPTH(2048), .BASE(1024), .LFO_INC(137), .LFO_PH_INIT(24'h40_0000)) u_chorus_r (
+        .clk(clk), .rst_n(rst_n), .sample_tick(sample_tick),
+        .clr_en(clr_en), .clr_addr(clr_addr),
+        .param(param), .x(fx_in), .y(chor_y_r)
     );
 
     // =========================================================================
-    //  效果 3：Schroeder/Freeverb 混响 —— 4 并联梳状 + 2 串联全通
+    //  效果 3：Schroeder/Freeverb 立体声混响 —— 4 并联梳状 + 2 串联正交全通
     // =========================================================================
-    // 输入固定衰减 1/64 = 0.015625（≈ Freeverb 的 fixedgain 0.015），
-    // 理由与最坏情况核算见文件头"输入电平必须算过"一节：0.015625 × 18.3 = 0.286 < 1。
     wire signed [15:0] rev_in = fx_in >>> 6;
 
-    // 梳状反馈：0.699 ~ 0.945（Q8 179~242），覆盖 Freeverb 可用区间的下半段。
-    //   · 0.699 ⇒ T60 ≈ 0.59 s（小房间）
-    //   · 0.945 ⇒ T60 ≈ 3.7 s（大教堂）
-    //   计算依据：T60 = -3·L / log10(g)，L 取最长梳状 3003 采样点 = 30.7 ms。
-    //   ⚠️ 上限刻意停在 0.945 而不是 Freeverb 的 0.98：留 5.5% 余量，见文件头
-    //     关于"算术右移取整偏差会不会把 g 推过 1"的核算。
     wire [7:0] comb_fb = 8'd179 + {1'b0, param[6:1]};
 
     wire signed [15:0] c0, c1, c2, c3;
@@ -211,11 +215,11 @@ module audio_fx #(
         .clr_en(clr_en), .clr_addr(clr_addr),
         .x(rev_in), .fb_q8(comb_fb), .y(c3));
 
-    // 4 路并联求和（4×16 bit → 18 bit 承接，防中间溢出）
+    // 4 路并联求和
     wire signed [17:0] comb_sum = c0 + c1 + c2 + c3;
-    wire signed [15:0] ap_in    = comb_sum >>> 2;      // 取平均，保持电平可控
+    wire signed [15:0] ap_in    = comb_sum >>> 2;
 
-    // 两级串联全通扩散器（g = 0.5，Freeverb 同）
+    // 两级串联全通扩散器（g = 0.5）
     wire signed [15:0] ap1_y, ap2_y;
     fx_allpass #(.AW(11), .DEPTH(2048), .DLY(1231)) u_ap1 (
         .clk(clk), .rst_n(rst_n), .sample_tick(sample_tick),
@@ -226,12 +230,20 @@ module audio_fx #(
         .clr_en(clr_en), .clr_addr(clr_addr),
         .x(ap1_y), .fb_q8(8'd128), .y(ap2_y));
 
-    // 湿度：param << 1（0 ~ 0.99）。param=0 ⇒ 湿声 0 ⇒ 等于干声直通。
-    wire [7:0]         wet_q8 = {param, 1'b0};
-    wire signed [24:0] wet_f  = ap2_y * $signed({1'b0, wet_q8});
-    wire signed [16:0] wet_s  = wet_f >>> 8;
-    wire signed [17:0] rev_f  = {fx_in[15], fx_in} + {{1'b0, wet_s[16]}, wet_s};
-    wire signed [15:0] rev_y  = sat16(rev_f);
+    // 湿度：param << 1（0 ~ 0.99）
+    wire [7:0]         wet_q8   = {param, 1'b0};
+    wire signed [24:0] wet_f_l  = ap2_y * $signed({1'b0, wet_q8});
+    wire signed [24:0] wet_f_r  = ap1_y * $signed({1'b0, wet_q8});
+    wire signed [16:0] wet_s_l  = wet_f_l >>> 8;
+    wire signed [16:0] wet_s_r  = wet_f_r >>> 8;
+
+    wire signed [17:0] dry_ext  = $signed({{2{fx_in[15]}}, fx_in});
+    wire signed [17:0] wet_ext_l = $signed({wet_s_l[16], wet_s_l});
+    wire signed [17:0] wet_ext_r = $signed({wet_s_r[16], wet_s_r});
+    wire signed [17:0] rev_f_l  = dry_ext + wet_ext_l;
+    wire signed [17:0] rev_f_r  = dry_ext + wet_ext_r;
+    wire signed [15:0] rev_y_l  = sat16(rev_f_l);
+    wire signed [15:0] rev_y_r  = sat16(rev_f_r);
 
     function signed [15:0] sat16;
         input signed [17:0] v;
@@ -243,21 +255,29 @@ module audio_fx #(
     endfunction
 
     // =========================================================================
-    //  输出选择
+    //  立体声输出选择
     // =========================================================================
     always @(*) begin
         if (fx_sel == FX_BYPASS) begin
-            // ★ 旁路必须【逐 bit 直通】，不经过任何寄存器/增益：
-            //   验收判据之一就是"fx_sel=00 时 fx_out == fx_in"。
-            fx_out = fx_in;
+            fx_out_l = fx_in;
+            fx_out_r = fx_in;
         end else if (clr_en) begin
-            // 清缓冲期间静音：此时延迟线内容无意义，不能让它漏到输出
-            fx_out = 16'sd0;
+            fx_out_l = 16'sd0;
+            fx_out_r = 16'sd0;
         end else begin
             case (fx_sel)
-                FX_DELAY:  fx_out = echo_y;
-                FX_CHORUS: fx_out = chor_y;
-                default:   fx_out = rev_y;      // FX_REVERB
+                FX_DELAY: begin
+                    fx_out_l = echo_y_l;
+                    fx_out_r = echo_y_r;
+                end
+                FX_CHORUS: begin
+                    fx_out_l = chor_y_l;
+                    fx_out_r = chor_y_r;
+                end
+                default: begin // FX_REVERB
+                    fx_out_l = rev_y_l;
+                    fx_out_r = rev_y_r;
+                end
             endcase
         end
     end

@@ -92,7 +92,12 @@ module fx_dist (
     // [FIX] Smooth monotonic pre-gain curve: gain_q8 = 48 + (drive * 6) + ((drive * drive) >> 4)
     // Guarantees strictly monotonic THD increase across drive = 0..127 without premature rail saturation
     wire [13:0] dr_sq   = drive_r * drive_r;
-    wire [15:0] gain_q8 = 16'd48 + ({9'd0, drive_r} * 16'd6) + {6'd0, dr_sq[13:4]};
+    reg [15:0] gain_q8_r = 16'd48;
+    always @(posedge clk) begin
+        if (!rst_n) gain_q8_r <= 16'd48;
+        else if (en_a) gain_q8_r <= 16'd48 + ({9'd0, drive_r} * 16'd6) + {6'd0, dr_sq[13:4]};
+    end
+    wire [15:0] gain_q8 = gain_q8_r;
 
     wire signed [32:0] pa     = x * $signed({1'b0, gain_q8});   // Q8 -> 33 bit
     wire signed [15:0] xg     = sat16(pa >>> 8);                // 饱和 => 保证 |x| <= 1

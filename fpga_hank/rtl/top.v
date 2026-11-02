@@ -43,12 +43,15 @@ module top #(
     //   ⚠️ 改这个值必须同步重新生成 tone_bank.v / piano_rom.v（频率字按新采样率折算）
     parameter integer BCK_DIV    = 1,
     // MODE=0/1 下效果器的【上电默认档】：0=旁路 1=延迟 2=合唱 3=混响
-    //   ⚠️ 默认旁路 —— 万一效果器有问题，最坏情况只是"没效果"，不会毁掉演示
+    //   ⚠️ 默认旁路 —— 保证上电即具备极致清澈的干声基底，按按键或发送 CC 可随时开启效果器
     parameter integer FX_DEFAULT = 0,
     // ★ 138K 进阶总开关：1 = 启用 32复音×6泛音(192独立振荡器) TDM 引擎；0 = 8复音×6泛音并行引擎
     parameter integer USE_TDM32  = 1,
     // ★ 电吉他过载+箱体模拟级联开关：1 = 串联 guitar_fx (电吉他档自动开启过载+4x12箱体)
-    parameter integer EN_GUITAR_FX = 1
+    parameter integer EN_GUITAR_FX = 1,
+    // ★ 7寸 ATK-MD0700 (SSD1963 8080 J14) 仪器大屏 UI 与双缓冲 3.0s 实时示波器开关
+    //   设置为 1（启用并具备智能空闲静音与断线检测保护，零音频串扰）：
+    parameter integer EN_LCD_J14   = 1
 )(
     input  wire       clk,        // V22, 50 MHz 板载有源晶振
     output wire [3:0] led,        // T18 R18 R17 P16，低有效
@@ -60,7 +63,7 @@ module top #(
     // ------ 交互按键（赛题基础要求①：≥2 个独立可控维度）------
     input  wire       key,        // AB13  MODE=0:播放/停止；MODE=2:无（恒发声）
     input  wire       key2,       // Y12   MODE=0:切歌；MODE=1:切效果器；MODE=2:音色
-    input  wire       key_pitch,  // Y22   MODE=2:变调（每按一下升 1 半音）
+    input  wire       key_pitch,  // AA19  MODE=2:变调（每按一下升 1 半音）；放歌:切歌
 
     // ------ 电脑控制链路新增（2026-10-05 上板确证）------
     // V14：官方引脚文件给 `rxp` 写的是 V14（Version 31004+）；已上板回环验证
@@ -72,9 +75,25 @@ module top #(
     input  wire [5:0]  photo_hw,   // J13 16..21          挡光=0（经 S9012）
     input  wire        ec1a,       // J13-22 D17  EC11 #1 正交 A
     input  wire        ec1b,       // J13-23 A19  EC11 #1 正交 B
-    inout  wire        scl_tof,    // J8-10  AB22 ToF#1 总线 A SCL（必须 inout）
-    inout  wire        sda_tof,    // J8-11  Y21  ToF#1 总线 A SDA
-    output wire        dbg_tx      // J9-11  P19  调试遥测 115200（CPU 脚）
+    inout  wire        scl_tof,    // J13    A18  ToF#1 总线 A SCL（必须 inout）
+    inout  wire        sda_tof,    // J13    D15  ToF#1 总线 A SDA
+    output wire        dbg_tx,     // U15         UART TX（遥测 & 屏幕硬件截屏输出）
+
+    // ------ J14 7寸 800x480 ATK-MD0700 (SSD1963 16-bit 8080) 仪器屏接口 ------
+    output wire        lcd_cs,     // AB21 (J14-354)
+    output wire        lcd_rs,     // R14  (J14-39)
+    output wire        lcd_wr,     // AB20 (J14-357)
+    output wire        lcd_rd,     // AB18 (J14-30)
+    output wire        lcd_rst,    // Y18  (J14-32)
+    inout  wire [15:0] lcd_db,     // 16-bit 8080 数据总线
+    output wire        lcd_dpi_bl, // P20 -> GND (关闭底板 RGB 背光升压)
+    output wire        ws_dout,    // J16 -> 板载 WS2812 RGB 状态灯
+
+    // ------ 电容触摸屏接口 (FT5206 / FT5426 I2C on J14) ------
+    inout  wire        tp_scl,     // U18 (J14-359)  I2C SCL
+    inout  wire        tp_sda,     // Y19 (J14-31)  I2C SDA
+    input  wire        tp_int,     // Y19 (J14-33)  触摸中断（低有效）
+    output wire        tp_rst_n    // U18 (J14-35) 触摸复位（低有效，严禁使用 T20/J14-33 专用脚）
 );
 
     // ---------------------------------------------------- 上电复位 ----------
@@ -94,13 +113,14 @@ module top #(
     // ---------------------------------------------------- I2S 发送 ---------
     // ★ 必须【先例化】pt8211_tx，因为 sample_tick 由它产生，下游全靠它当节拍
     wire               sample_tick;
-    wire signed [15:0] audio_mix;
+    wire signed [15:0] audio_mix_l, audio_mix_r;
+    wire signed [15:0] audio_mix = audio_mix_l;
 
     pt8211_tx #(.BCK_DIV(BCK_DIV)) u_dac (
         .clk        (clk),
         .reset      (~rst_n),
-        .sample_l   (audio_mix),
-        .sample_r   (audio_mix),
+        .sample_l   (audio_mix_l),
+        .sample_r   (audio_mix_r),
         .sample_tick(sample_tick),
         .bck        (HP_BCK),
         .ws         (HP_WS),
@@ -148,37 +168,49 @@ module top #(
     wire kp_press  = kp_db & ~kp_db_d;
 
     // ================= 运行期模式：自由演奏 / 指定曲目（2026-10-06 新增）=================
-    //  需求（用户）：key2 进曲目模式（自动播放）；key1 在曲目模式下 = 播放/暂停；
-    //               上电默认【自由演奏】；key2 再按一下【回自由演奏】（否则回不去）。
-    //  run_mode: 1 = 自由演奏（midi_rx 驱动）, 0 = 指定曲目（song_player 驱动）
+    //  需求（用户）：key2 进曲目模式（自动播放）；再按一下 key2 回自由演奏；
+    //               自由演奏下【同时响应】电脑串口 MIDI (COM9) 与 J13 物理乐器输入；
+    //               曲目模式下：短按 key1 = 换乐器（钢琴→吉他→小提琴），长按 key1 (≥0.5s) = 切下一首歌。
     reg        k1_db_d;
     always @(posedge clk) k1_db_d <= key_db;
     wire k1_press = key_db & ~k1_db_d;          // key1 上升沿
+    wire k1_rel   = ~key_db & k1_db_d;          // key1 下降沿（松开）
 
-    // MODE3 runtime source: 0=physical inputs, 1=PC MIDI, 2=song player.
-    // MODE1 keeps the historical PC/song toggle; MODE0 is song-only.
-    reg [1:0] source_mode = (MODE == 3) ? 2'd0 : 2'd1;
+    // key1 长按检测（≥0.5s = 25,000,000 clk 触发切歌；短按松开触发换乐器）
+    localparam [24:0] K1_LONG_MAX = 25'd25_000_000;
+    reg [24:0] k1_hold_cnt = 25'd0;
+    reg        k1_long_fired = 1'b0;
+    always @(posedge clk) begin
+        if (!rst_n || !key_db) begin
+            k1_hold_cnt   <= 25'd0;
+            k1_long_fired <= 1'b0;
+        end else if (k1_hold_cnt < K1_LONG_MAX) begin
+            k1_hold_cnt <= k1_hold_cnt + 25'd1;
+        end else begin
+            k1_long_fired <= 1'b1;
+        end
+    end
+    wire k1_long_pulse  = run_song && key_db && (k1_hold_cnt == K1_LONG_MAX - 25'd1);
+    wire k1_short_pulse = run_song && k1_rel && !k1_long_fired;
+
+    // 运行期模式：1=自由演奏（上电默认，同时支持 PC MIDI + J13 物理按键），2=自动放歌
+    reg [1:0] source_mode = 2'd1;
     always @(posedge clk) begin
         if (!rst_n) begin
-            source_mode <= (MODE == 3) ? 2'd0 : 2'd1;
-        end else if (MODE == 3 && k2_press) begin
-            if (source_mode == 2'd2) source_mode <= 2'd0;
-            else                    source_mode <= source_mode + 2'd1;
-        end else if (MODE == 1 && k2_press) begin
-            source_mode <= (source_mode == 2'd1) ? 2'd2 : 2'd1;
+            source_mode <= 2'd1;
+        end else if (((MODE == 1) || (MODE == 3)) && k2_press) begin
+            source_mode <= (source_mode == 2'd2) ? 2'd1 : 2'd2;
         end
     end
     wire run_song = (MODE == 0) || (((MODE == 1) || (MODE == 3)) && (source_mode == 2'd2));
-    wire source_physical = (MODE == 3) && (source_mode == 2'd0);
+    wire source_physical = (MODE == 3) && !run_song;
 
-    // ★ 2026-10-06（用户要求）：曲目模式下 key1 = 【换乐器播放】（按一下切一个），
-    //   不再做"暂停/播放"；暂停/播放由 key2 的进出模式承担。
-    //   乐器选择走独立寄存器 inst_song，和自由演奏的 CC20 选择的 inst_sel 互不干扰。
+    // ★ 曲目模式下短按 key1 = 【换乐器播放】（钢琴→吉他→小提琴→钢琴）
     reg [1:0] inst_song = 2'd0;
     always @(posedge clk) begin
-        if (!rst_n)                          inst_song <= 2'd0;
-        else if (run_song & k1_press)
-            inst_song <= (inst_song == 2'd2) ? 2'd0 : (inst_song + 2'd1);      // 钢琴→吉他→小提琴→钢琴
+        if (!rst_n)                   inst_song <= 2'd0;
+        else if (k1_short_pulse || (touch_timbre_pulse && run_song))
+            inst_song <= (inst_song >= 2'd3) ? 2'd0 : (inst_song + 2'd1);
     end
     wire [1:0] inst_sel_eff = run_song ? inst_song : inst_sel;
     wire mode_chg = ((MODE == 1) || (MODE == 3)) & k2_press;
@@ -192,7 +224,12 @@ module top #(
         else if (mode_chg)   mute_cnt <= MUTE_LEN[15:0];
         else if (mute_cnt != 16'd0) mute_cnt <= mute_cnt - 16'd1;
     end
-    wire audio_muted = (mute_cnt != 16'd0);
+    reg audio_muted_r = 1'b1;
+    always @(posedge clk) begin
+        if (!rst_n) audio_muted_r <= 1'b1;
+        else        audio_muted_r <= (mute_cnt != 16'd0);
+    end
+    wire audio_muted = audio_muted_r;
 
     // 变调（MODE=2 用；上电必须是原调 ⇒ 初值 8 ⇒ pitch_semi=0）
     reg  [3:0] pitch_step = 4'd8;
@@ -216,30 +253,17 @@ module top #(
     wire        bus_glide_on, bus_vib_on, bus_sustain, bus_reset_all;
     wire [6:0]  bus_glide_time, bus_vib_depth, bus_vib_rate;
 
-    // ---- 来源 A：song_player（MODE=0）----
+    // ---- 来源 A：song_player（MODE=0 / 曲目模式）----
     wire        s_on_valid, s_off_valid;
     wire [6:0]  s_on_note,  s_on_vel,  s_off_note;
-    wire        s_playing;
+    wire        s_playing,  s_paused;
     wire [3:0]  s_song_index, s_song_count;
-
-    song_player #(.CLK_HZ(50_000_000)) u_song (
-        .clk        (clk),
-        .rst_n      (rst_n),
-        .sample_tick(sample_tick),
-        // ★ 2026-10-06 运行期模式：进入曲目模式由 run_en 上升沿自动播放 ⇒ key_play 不再需要
-        .key_play   (1'b0),
-        .key_next   (1'b0),          // 用户已定：不做切歌
-        .key_pause  (1'b0),          // ★ 取消：曲目模式下 key1 改为【换乐器】（不在播放器里做暂停）
-        .run_en     (run_song),      // ★ 电平使能：0 ⇒ 强制停止 + 走完 128 拍全关
-        .on_valid   (s_on_valid),
-        .on_note    (s_on_note),
-        .on_vel     (s_on_vel),
-        .off_valid  (s_off_valid),
-        .off_note   (s_off_note),
-        .playing    (s_playing),
-        .song_index (s_song_index),
-        .song_count (s_song_count)
-    );
+    wire        s_sustain,  s_vib_on,  s_glide_on;
+    wire [6:0]  s_vib_depth, s_vib_rate, s_glide_time;
+    wire [7:0]  song_elapsed_sec, song_elapsed_min, song_total_sec, song_progress_pct;
+    wire [8:0]  song_note_idx;
+    wire [5:0]  song_sub_scroll;
+    wire [6:0]  song_active_note;
 
     // ---- 来源 B：uart_rx → midi_rx（MODE=1）----
     wire [7:0] uart_data;
@@ -257,6 +281,8 @@ module top #(
     wire [6:0]  m_on_note,  m_on_vel,  m_off_note;
     wire        m_glide_on, m_vib_on, m_sustain, m_reset_all;
     wire [6:0]  m_glide_time, m_vib_depth, m_vib_rate;
+    wire [6:0]  m_cc_num, m_cc_val;
+    wire        m_cc_any_valid;
 
     midi_rx u_midi (
         .clk        (clk),
@@ -282,18 +308,56 @@ module top #(
         .cc_any_valid (m_cc_any_valid)
     );
 
+    // 放歌模式下允许通过：长按板载 key1 (≥0.5s) / 外接变调键 kp_press / MIDI CC27 / 串口 '>' 或 's' 切歌
+    wire song_next_cmd  = k1_long_pulse ||
+                          (m_cc_any_valid && (m_cc_num == 7'd27)) ||
+                          (uart_valid && !uart_data[7] && (uart_data == ">" || uart_data == "s" || uart_data == "S")) ||
+                          (run_song && kp_press);
+    wire song_pause_cmd = (m_cc_any_valid && (m_cc_num == 7'd26) && (m_cc_val == 7'd64)) ||
+                          (uart_valid && !uart_data[7] && (uart_data == "p" || uart_data == "P"));
+
+    song_player #(.CLK_HZ(50_000_000)) u_song (
+        .clk              (clk),
+        .rst_n            (rst_n),
+        .sample_tick      (sample_tick),
+        .key_play         (1'b0),
+        .key_next         (song_next_cmd),
+        .key_pause        (song_pause_cmd),
+        .run_en           (run_song),
+        .on_valid         (s_on_valid),
+        .on_note          (s_on_note),
+        .on_vel           (s_on_vel),
+        .off_valid        (s_off_valid),
+        .off_note         (s_off_note),
+        .playing          (s_playing),
+        .paused           (s_paused),
+        .song_index       (s_song_index),
+        .song_count       (s_song_count),
+        .song_sustain     (s_sustain),
+        .song_vib_on      (s_vib_on),
+        .song_vib_depth   (s_vib_depth),
+        .song_vib_rate    (s_vib_rate),
+        .song_glide_on    (s_glide_on),
+        .song_glide_time  (s_glide_time),
+        .song_elapsed_sec (song_elapsed_sec),
+        .song_elapsed_min (song_elapsed_min),
+        .song_total_sec   (song_total_sec),
+        .song_progress_pct(song_progress_pct),
+        .song_note_idx    (song_note_idx),
+        .song_sub_scroll  (song_sub_scroll),
+        .song_active_note (song_active_note)
+    );
+
     // ================= 乐器/效果器 CC 译码（2026-10-06 新增）=================
     //  CC20 -> 乐器选择：0=钢琴 1=吉他 3=小提琴（协议值 3 映射到内部音色槽 2）
     //  CC21 -> 挂电量（吉他效果器强度）0..127
     //  ⚠️ midi_rx 只做传输层（原样透传 0..127），语义在这里定 —— 见 AGENTS.md §4.1
-    wire [6:0] m_cc_num, m_cc_val;
-    wire       m_cc_any_valid;
     reg  [1:0] inst_sel    = 2'd0;      // ★ 上电默认钢琴（防 X）
     reg  [6:0] drive_amt   = 7'd0;
     reg  [6:0] bow_force_amt = 7'd64;
     reg  [6:0] bow_pos_amt   = 7'd64;
     reg  [1:0] fx_sel_cc   = FX_DEFAULT[1:0];
-    reg  [6:0] fx_param_cc = 7'd64;
+    reg  [6:0] fx_param_cc = 7'd42;     // 默认 33% 适度音乐厅混响深度，自然透气不糊音
     reg  [1:0] cab_sel_cc  = 2'd1;      // 默认 4x12 密闭箱体
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -302,11 +366,15 @@ module top #(
             bow_force_amt <= 7'd64;
             bow_pos_amt   <= 7'd64;
             fx_sel_cc   <= FX_DEFAULT[1:0];
-            fx_param_cc <= 7'd64;
+            fx_param_cc <= 7'd42;
             cab_sel_cc  <= 2'd1;
         end else begin
-            if ((MODE != 2) && kp_press)
+            if ((MODE != 2) && !run_song && kp_press)
                 fx_sel_cc <= fx_sel_cc + 2'd1; // 板载/外接按键循环切换 旁路/延迟/合唱/混响
+            if (touch_timbre_pulse && !run_song)
+                inst_sel <= (inst_sel >= 2'd3) ? 2'd0 : (inst_sel + 2'd1);
+            if (touch_fx_pulse)
+                fx_sel_cc <= fx_sel_cc + 2'd1;
             if (m_cc_any_valid) begin
                 case (m_cc_num)
                     7'd20: inst_sel    <= m_cc_val[1:0];
@@ -336,11 +404,11 @@ module top #(
     wire [5:0]  h_photo_state;
     wire [15:0] h_tof_dist;
     wire [7:0]  h_ovf;
+    wire        h_dbg_tx;
 
     hw_input_mgr #(
         .CLK_HZ(50_000_000),
-        .QUIET ((MODE == 3) ? 0 : 1)     // MODE=3 full; other modes: pins stay
-                                         // but I2C+telemetry frozen (clean audio)
+        .QUIET ((MODE == 3) ? 2 : 1)     // MODE=3: 保留按键/光电/EC11/ToF，冻结 U15 连续串口遥测防干扰 DAC
     ) u_hwin (
         .clk        (clk),
         .rst_n      (rst_n),
@@ -350,7 +418,7 @@ module top #(
         .ec1b_raw   (ec1b),
         .scl_a      (scl_tof),
         .sda_a      (sda_tof),
-        .dbg_tx     (dbg_tx),
+        .dbg_tx     (h_dbg_tx),
         .ev_on_valid(h_on_valid),
         .ev_on_note (h_on_note),
         .ev_on_vel  (h_on_vel),
@@ -367,23 +435,72 @@ module top #(
 
     // ---- 按 MODE 选择来源 ----
     // MODE=0：song_player；MODE=1：midi_rx；MODE=2：测试模式不使用音符总线
-    // MODE=3：hw_input_mgr（硬件乐器）
-    //  ★ 2026-10-06：由【运行期】run_song 选择（MODE=0 恒曲目 / MODE=1 运行期 / MODE=2 不用）
-    //  第 2 道清音：切换瞬间给 piano_engine 一个 reset_all 一拍脉冲（释放所有声部）
-    //  ★ S5：MODE=3 下 run_song 恒 0（编译期折叠），m_reset_all/mode_chg 都不进总线
+    // MODE=3：自由演奏时【同时融合】PC MIDI (m_*) 与硬件外设 (h_*)；按 key2 进出曲目自动播放 (s_*)
+    // ★ 注意：退出曲目模式时 song_player 会进入 S_OFF/S_ALLOFF 连发 128 拍 s_off_valid，
+    //   因此 s_off_valid 必须始终透传到 bus_off_valid，确保切回自由演奏时 100% 释放残留声部！
+    // 触摸屏按键发声通路与控制总线
+    wire        touch_on_valid;
+    wire [6:0]  touch_on_note;
+    wire [6:0]  touch_on_vel;
+    wire        touch_off_valid;
+    wire [6:0]  touch_off_note;
+    wire        touch_timbre_pulse;
+    wire        touch_fx_pulse;
+    wire [6:0]  touch_vol_val;
+    wire        touch_vol_valid;
+
+    wire free_on_valid_w  = m_on_valid  | (source_physical & h_on_valid) | touch_on_valid;
+    wire [6:0] free_on_note_w = touch_on_valid ? touch_on_note : (m_on_valid ? m_on_note : h_on_note);
+    wire [6:0] free_on_vel_w  = touch_on_valid ? touch_on_vel  : (m_on_valid ? m_on_vel  : h_on_vel);
+    wire free_off_valid_w = m_off_valid | (source_physical & h_off_valid) | touch_off_valid;
+    wire [6:0] free_off_note_w = touch_off_valid ? touch_off_note : (m_off_valid ? m_off_note : h_off_note);
+
+    wire bus_on_valid_c  = (MODE == 2) ? 1'b0 : (run_song ? s_on_valid   : free_on_valid_w);
+    wire [6:0] bus_on_note_c = (MODE == 2) ? 7'd0 : (run_song ? s_on_note    : free_on_note_w);
+    wire [6:0] bus_on_vel_c  = (MODE == 2) ? 7'd0 : (run_song ? s_on_vel     : free_on_vel_w);
+    wire bus_off_valid_c = (MODE == 2) ? 1'b0 : ((run_song | s_off_valid) ? s_off_valid : free_off_valid_w);
+    wire [6:0] bus_off_note_c = (MODE == 2) ? 7'd0 : ((run_song | s_off_valid) ? s_off_note  : free_off_note_w);
+
+    // ★ 时序优化流水线寄存器：切断跨芯片长组合路径，确保 50 MHz 建立时间裕量充足
+    reg        bus_on_valid_r  = 1'b0;
+    reg [6:0]  bus_on_note_r   = 7'd0;
+    reg [6:0]  bus_on_vel_r    = 7'd0;
+    reg        bus_off_valid_r = 1'b0;
+    reg [6:0]  bus_off_note_r  = 7'd0;
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            bus_on_valid_r  <= 1'b0;
+            bus_on_note_r   <= 7'd0;
+            bus_on_vel_r    <= 7'd0;
+            bus_off_valid_r <= 1'b0;
+            bus_off_note_r  <= 7'd0;
+        end else begin
+            bus_on_valid_r  <= bus_on_valid_c;
+            bus_on_note_r   <= bus_on_note_c;
+            bus_on_vel_r    <= bus_on_vel_c;
+            bus_off_valid_r <= bus_off_valid_c;
+            bus_off_note_r  <= bus_off_note_c;
+        end
+    end
+
     wire bus_reset_all_w = (MODE == 2) ? 1'b0 : (m_reset_all | mode_chg);
-    assign bus_on_valid   = (MODE == 2) ? 1'b0 : (run_song ? s_on_valid  : (source_physical ? h_on_valid   : m_on_valid));
-    assign bus_on_note    = (MODE == 2) ? 7'd0 : (run_song ? s_on_note   : (source_physical ? h_on_note    : m_on_note));
-    assign bus_on_vel     = (MODE == 2) ? 7'd0 : (run_song ? s_on_vel    : (source_physical ? h_on_vel     : m_on_vel));
-    assign bus_off_valid  = (MODE == 2) ? 1'b0 : (run_song ? s_off_valid : (source_physical ? h_off_valid  : m_off_valid));
-    assign bus_off_note   = (MODE == 2) ? 7'd0 : (run_song ? s_off_note  : (source_physical ? h_off_note   : m_off_note));
-    assign bus_cc_valid   = (MODE == 2) ? 1'b0 : (run_song ? 1'b0        : (source_physical ? 1'b0         : m_cc_valid));
-    assign bus_glide_on   = (MODE == 2) ? 1'b0 : (run_song ? 1'b0        : (source_physical ? h_glide_on   : m_glide_on));
-    assign bus_glide_time = (MODE == 2) ? 7'd0 : (run_song ? 7'd0        : (source_physical ? h_glide_time : m_glide_time));
-    assign bus_vib_on     = (MODE == 2) ? 1'b0 : (run_song ? 1'b0        : (source_physical ? 1'b0         : m_vib_on));
-    assign bus_vib_depth  = (MODE == 2) ? 7'd0 : (run_song ? 7'd0        : (source_physical ? 7'd0         : m_vib_depth));
-    assign bus_vib_rate   = (MODE == 2) ? 7'd50 : (run_song ? 7'd50       : (source_physical ? 7'd50        : m_vib_rate));
-    assign bus_sustain    = (MODE == 2) ? 1'b0 : (run_song ? 1'b0        : (source_physical ? 1'b0         : m_sustain));
+    assign bus_on_valid   = bus_on_valid_r;
+    assign bus_on_note    = bus_on_note_r;
+    assign bus_on_vel     = bus_on_vel_r;
+    assign bus_off_valid  = bus_off_valid_r;
+    assign bus_off_note   = bus_off_note_r;
+    assign bus_cc_valid   = (MODE == 2) ? 1'b0  : (run_song ? 1'b0         : m_cc_valid);
+    assign bus_glide_on   = (MODE == 2) ? 1'b0  : (run_song ? s_glide_on   : m_glide_on);
+    assign bus_glide_time = (MODE == 2) ? 7'd0  : (run_song ? s_glide_time : m_glide_time);
+    // 放歌模式：长音揉弦给弦乐（小提琴与二胡）
+    assign bus_vib_on     = (MODE == 2) ? 1'b0  : (run_song ? (s_vib_on && (inst_sel_eff_r >= 2'd2)) : m_vib_on);
+    assign bus_vib_depth  = (MODE == 2) ? 7'd0  : (run_song ? s_vib_depth  : m_vib_depth);
+    assign bus_vib_rate   = (MODE == 2) ? 7'd50 : (run_song ? s_vib_rate   : m_vib_rate);
+    // 仅钢琴支持延音踏板（吉他/提琴/二胡有各自的物理运弓/衰减机理，不受延音踏板控制）：
+    assign bus_sustain    = (MODE == 2) ? 1'b0  :
+                            (inst_sel_eff_r != 2'd0) ? 1'b0 :
+                            (run_song ? s_sustain : m_sustain);
     assign bus_reset_all  = bus_reset_all_w;
 
     // ★ 2026-10-06：把"曲目模式强制值"寄存一拍 —— 修上一版 −0.074 ns（mux 直连关键路径）
@@ -515,6 +632,7 @@ module top #(
         .clk       (clk),
         .rst_n     (rst_n),
         .sample_tick(sample_tick),
+        .sustain   (bus_sustain),
         .inst_sel  (inst_sel_eff_r),
         .bow_force (bow_force_amt),
         .bow_pos   (bow_pos_amt),
@@ -554,7 +672,7 @@ module top #(
     endgenerate
 
     wire [1:0] fx_sel = (MODE == 0) ? FX_DEFAULT[1:0] : fx_sel_cc;
-    wire signed [15:0] fx_out;
+    wire signed [15:0] fx_out_l, fx_out_r, fx_out;
 
     audio_fx #(
         .N_FX   (3)
@@ -565,6 +683,8 @@ module top #(
         .fx_sel     (fx_sel),
         .param      (fx_param_cc),
         .fx_in      (mix_post_guitar),
+        .fx_out_l   (fx_out_l),
+        .fx_out_r   (fx_out_r),
         .fx_out     (fx_out)
     );
 
@@ -715,34 +835,140 @@ module top #(
         end
     endfunction
 
-    reg [6:0] vol_r = 7'd100;                  // 上电音量 100（≈-8.9 dB）
+    // ---------------------------------------------------- 音量控制增益级 (EC11 与 MODE=3) ----
+    reg [6:0] vol_r = 7'd127;                  // 上电满音量 127（0 dB，确保音箱响亮清晰）
     always @(posedge clk)
-        if (!rst_n) vol_r <= 7'd100;
+        if (!rst_n) vol_r <= 7'd127;
         else        vol_r <= h_volume;
     wire [15:0] vol_word = vol_lut(vol_r);
-    reg signed [15:0] gain_a;
+    reg signed [15:0] gain_a_l, gain_a_r;
     reg signed [15:0] gain_b;
     always @(posedge clk) begin
         if (!rst_n) begin
-            gain_a <= 16'sd0;
-            gain_b <= 16'sd0;
+            gain_a_l <= 16'sd0;
+            gain_a_r <= 16'sd0;
+            gain_b   <= 16'sd0;
         end else begin
-            gain_a <= $signed(fx_out);
-            gain_b <= $signed(vol_word);
+            gain_a_l <= $signed(fx_out_l);
+            gain_a_r <= $signed(fx_out_r);
+            gain_b   <= $signed(vol_word);
         end
     end
-    wire signed [31:0] gain_prod = gain_a * gain_b;
-    reg signed [15:0] gain_out;
-    always @(posedge clk)
-        if (!rst_n) gain_out <= 16'sd0;
-        else        gain_out <= gain_prod[30:15];
+    wire signed [31:0] gain_prod_l = gain_a_l * gain_b;
+    wire signed [31:0] gain_prod_r = gain_a_r * gain_b;
+    reg signed [15:0] gain_out_l, gain_out_r;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            gain_out_l <= 16'sd0;
+            gain_out_r <= 16'sd0;
+        end else begin
+            gain_out_l <= gain_prod_l[30:15];
+            gain_out_r <= gain_prod_r[30:15];
+        end
+    end
 
-    wire signed [15:0] audio_mix_raw = (MODE == 2) ? mix_bank :
-                                       (MODE == 3) ? gain_out  : fx_out;
-    assign audio_mix = audio_muted ? 16'sd0 : audio_mix_raw;   // ★ 第 3 道清音
+    wire signed [15:0] audio_mix_raw_l = (MODE == 2) ? mix_bank   :
+                                         (MODE == 3) ? gain_out_l : fx_out_l;
+    wire signed [15:0] audio_mix_raw_r = (MODE == 2) ? mix_bank   :
+                                         (MODE == 3) ? gain_out_r : fx_out_r;
+    assign audio_mix_l = audio_muted ? 16'sd0 : audio_mix_raw_l;   // ★ 第 3 道清音 (左)
+    assign audio_mix_r = audio_muted ? 16'sd0 : audio_mix_raw_r;   // ★ 第 3 道清音 (右)
 
     // ---------------------------------------------------- 功放使能 ---------
     assign PA_EN = 1'b0;               // 低有效 ⇒ 常开
+
+    // ---------------------------------------------------- 7寸 J14 仪器大屏 UI
+    wire [1:0] lcd_work_mode = (MODE == 2) ? 2'd2 :
+                               run_song    ? 2'd1 : 2'd0;
+    wire       lcd_uart_tx;
+    wire       lcd_init_ok;
+
+    generate
+    if (EN_LCD_J14 != 0) begin : g_lcd_j14
+        lcd_subsystem_j14 u_lcd_sub (
+            .clk              (clk),
+            .rst_n            (rst_n),
+            .sample_tick      (sample_tick),
+            .audio_mix        (audio_mix_l),
+            .audio_mix_r      (audio_mix_r),
+            .work_mode        (lcd_work_mode),
+            .timbre_sel       (inst_sel_eff_r),
+            .fx_sel           (fx_sel),
+            .voice_active32   (piano_active32),
+            .hw_key_state     (h_key_state),
+            .master_vol       ((MODE == 3) ? vol_r : 7'd100),
+            .bus_on_valid     (bus_on_valid),
+            .bus_on_note      (bus_on_note),
+            .bus_on_vel       (bus_on_vel),
+            .bus_off_valid    (bus_off_valid),
+            .bus_off_note     (bus_off_note),
+            .bus_reset_all    (bus_reset_all),
+            .cc_any_valid     (m_cc_any_valid),
+            .cc_num           (m_cc_num),
+            .cc_val           (m_cc_val),
+            .uart_rx_valid    (uart_valid),
+            .uart_rx_byte     (uart_data),
+            .page_next_pulse  (1'b0),
+            .song_index       (s_song_index[2:0]),
+            .song_playing     (s_playing),
+            .song_progress_pct(song_progress_pct),
+            .song_elapsed_sec (song_elapsed_sec),
+            .song_elapsed_min (song_elapsed_min),
+            .song_total_sec   (song_total_sec),
+            .song_note_idx    (song_note_idx),
+            .song_sub_scroll  (song_sub_scroll),
+            .song_active_note (song_active_note),
+            .lcd_cs           (lcd_cs),
+            .lcd_rs           (lcd_rs),
+            .lcd_wr           (lcd_wr),
+            .lcd_rd           (lcd_rd),
+            .lcd_rst          (lcd_rst),
+            .lcd_db           (lcd_db),
+            .lcd_dpi_bl       (lcd_dpi_bl),
+            .ws_dout          (ws_dout),
+            .lcd_uart_tx      (lcd_uart_tx),
+            .lcd_init_ok      (lcd_init_ok),
+            .tp_scl           (tp_scl),
+            .tp_sda           (tp_sda),
+            .tp_int           (tp_int),
+            .tp_rst_n         (tp_rst_n),
+            .touch_on_valid   (touch_on_valid),
+            .touch_on_note    (touch_on_note),
+            .touch_on_vel     (touch_on_vel),
+            .touch_off_valid  (touch_off_valid),
+            .touch_off_note   (touch_off_note),
+            .touch_timbre_pulse(touch_timbre_pulse),
+            .touch_fx_pulse   (touch_fx_pulse),
+            .touch_vol_val    (touch_vol_val),
+            .touch_vol_valid  (touch_vol_valid)
+        );
+        assign dbg_tx = lcd_uart_tx;
+    end else begin : g_no_lcd_j14
+        assign lcd_cs      = 1'b1;
+        assign lcd_rs      = 1'b1;
+        assign lcd_wr      = 1'b1;
+        assign lcd_rd      = 1'b1;
+        assign lcd_rst     = 1'b1;
+        assign lcd_db      = 16'hzzzz;
+        assign lcd_dpi_bl  = 1'b0;
+        assign ws_dout     = 1'b0;
+        assign lcd_uart_tx = 1'b1;
+        assign lcd_init_ok = 1'b0;
+        assign tp_scl      = 1'bz;
+        assign tp_sda      = 1'bz;
+        assign tp_rst_n    = 1'b1;
+        assign touch_on_valid     = 1'b0;
+        assign touch_on_note      = 7'd0;
+        assign touch_on_vel       = 7'd0;
+        assign touch_off_valid    = 1'b0;
+        assign touch_off_note     = 7'd0;
+        assign touch_timbre_pulse = 1'b0;
+        assign touch_fx_pulse     = 1'b0;
+        assign touch_vol_val      = 7'd100;
+        assign touch_vol_valid    = 1'b0;
+        assign dbg_tx      = h_dbg_tx;
+    end
+    endgenerate
 
     // ---------------------------------------------------- 状态 LED ---------
     // 低有效（驱动 0 点亮）
@@ -767,14 +993,44 @@ module top #(
         end
     end
 
-    // led[0] 心跳；led[1] 采样帧在流动；led[2] 有音符；led[3] 包络/声部活跃
-    //   MODE=0 追加：led[3] 同时指示"正在放歌"（s_playing）
-    assign led[0] = heart[24];
-    assign led[1] = ~samp_seen;
-    assign led[2] = (MODE == 0) ? ~{s_playing} :
-                    (MODE == 1) ? ~(|piano_active) :
-                                  ~(&gate);
-    assign led[3] = ~act_seen;
+    // ---------------------------------------------------- 状态与曲目演奏指引 LED (赛题拓展③/④)
+    // 低有效 (0=点亮, 1=熄灭)
+    reg [6:0] cur_live_note = 7'd60;
+    always @(posedge clk) begin
+        if (!rst_n) cur_live_note <= 7'd60;
+        else if (bus_on_valid) cur_live_note <= bus_on_note;
+    end
+
+    wire [6:0] eff_note = s_playing ? song_active_note : cur_live_note;
+    wire note_sounding = s_playing ? (song_active_note != 7'd0) : (piano_active != 8'd0);
+
+    // 节拍引导与音区指引 (低有效驱动，0=点亮)
+    wire led0_out = s_playing ? ~(song_sub_scroll < 6'd15) : heart[24];
+    wire led1_out = ~(note_sounding && (eff_note < 7'd60));
+    wire led2_out = ~(note_sounding && (eff_note >= 7'd60 && eff_note < 7'd72));
+    wire led3_out = ~(note_sounding && (eff_note >= 7'd72));
+
+    assign led[0] = (MODE == 2) ? heart[24]  : led0_out;
+    assign led[1] = (MODE == 2) ? ~samp_seen : led1_out;
+    assign led[2] = (MODE == 2) ? ~(&gate)   : led2_out;
+    assign led[3] = (MODE == 2) ? ~act_seen  : led3_out;
+
+    // ---------------------------------------------------- 纯硬件超低延迟与确定性无抖动统计引擎 (赛题拓展③)
+    wire [15:0] hw_lat_cur_cycles;
+    wire [15:0] hw_lat_min_cycles;
+    wire [15:0] hw_lat_max_cycles;
+    wire [15:0] hw_lat_trig_cnt;
+
+    hw_latency_profiler u_profiler (
+        .clk               (clk),
+        .rst_n             (rst_n),
+        .trig              (bus_on_valid),
+        .sample_tick       (sample_tick),
+        .cur_latency_cycles(hw_lat_cur_cycles),
+        .min_latency_cycles(hw_lat_min_cycles),
+        .max_latency_cycles(hw_lat_max_cycles),
+        .trig_count        (hw_lat_trig_cnt)
+    );
 
 endmodule
 

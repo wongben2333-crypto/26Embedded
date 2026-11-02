@@ -68,6 +68,7 @@ CC_VIBRATO_RATE     = 76
 CC_VIBRATO_DEPTH_SC = 77
 CC_ALL_SOUND_OFF    = 120
 CC_RESET_ALL_CTRL   = 121
+CC_UI_PAGE          = 28
 
 # ---- 数值 → 物理量 的约定映射（★ RTL 侧必须按同一约定实现，否则两边对不上）----
 GLIDE_MS_PER_STEP = 4.0      # 滑音时间： t_glide ≈ v × 4 ms   （v=25 → 100 ms，v=127 → 508 ms）
@@ -462,6 +463,7 @@ class SerialLink:
         self._active = set()            # 当前按下的音符（用于"不能留挂音"）
         self._on_status = on_status or (lambda msg, kind="info": None)
         self.sent = 0
+        self.recorder = None            # 演奏录音器 (赛题拓展④)
         # 表情参数（CC 下发的当前值；连接成功后 resend_all_params() 会重发一遍）
         self.params = {
             "glide_time": 0,            # CC5   滑音时间 0..127
@@ -533,6 +535,8 @@ class SerialLink:
                 self._ser.write(data)
                 self._ser.flush()
                 self.sent += len(data)
+                if self.recorder is not None and getattr(self.recorder, "recording", False):
+                    self.recorder.log(data)
             return True
         except Exception as e:                      # noqa: BLE001
             self._on_status(f"发送失败：{e}", "err")
@@ -624,11 +628,13 @@ class SerialLink:
         self._write(m_inst(MODE_TO_CC20[p.get("inst", 0)]))            # ★ 音色也补发一次（CC20）
         for _cc, _v in (p.get("fx") or {}).items():      # ★ 效果器参数一并补发（CC21~24）
             self._write(m_cc(int(_cc), int(_v)))
+        self._write(m_cc(CC_UI_PAGE, 0))                 # ★ 确保 LCD 切回演奏主页
 
     def set_instrument(self, idx: int):
-        """音色选择：**CC20** 0=钢琴 1=吉他 2=小提琴（Lead 定的协议）。"""
+        """音色选择：**CC20** 0=钢琴 1=吉他 2=小提琴；并发送 CC28=0 确保 LCD 处于演奏界面。"""
         idx = max(0, min(2, int(idx)))
         self.params["inst"] = idx
+        self._write(m_cc(CC_UI_PAGE, 0))
         return self._write(m_inst(MODE_TO_CC20[idx]))
 
     def set_fx(self, cc: int, val: int):
@@ -651,6 +657,108 @@ class SerialLink:
 
     def active_notes(self):
         return sorted(self._active)
+
+
+# ---------------------------------------------------------------- 演奏录音与回传 (赛题拓展④)
+class MidiRecorder:
+    """实时演奏录音、回传播放与标准 MIDI (.mid) 导出。"""
+
+    def __init__(self, link: SerialLink, on_status=None):
+        self.link = link
+        self._on_status = on_status or (lambda msg, kind="info": None)
+        self.recording = False
+        self.playing = False
+        self.events = []        # list of (rel_time_sec, bytes)
+        self._start_t = 0.0
+
+    def start_record(self):
+        self.events = []
+        self._start_t = time.perf_counter()
+        self.recording = True
+        self._on_status("🔴 正在录制实时演奏...", "info")
+
+    def stop_record(self):
+        if self.recording:
+            self.recording = False
+            dur = time.perf_counter() - self._start_t
+            self._on_status(f"⏹ 录音完成：共记录 {len(self.events)} 个事件（时长 {dur:.1f} 秒）", "ok")
+
+    def log(self, data: bytes):
+        if self.recording:
+            t = time.perf_counter() - self._start_t
+            self.events.append((t, data))
+
+    def replay(self, on_finish=None):
+        if not self.events or self.playing:
+            return
+        if not self.link.connected:
+            self._on_status("请先连接板卡串口后再回传播放", "err")
+            return
+        self.playing = True
+        self._on_status(f"▶ 正在向 FPGA 硬件回传播放录音 ({len(self.events)} 个事件)...", "info")
+
+        def _worker():
+            t0 = time.perf_counter()
+            for t_ev, b in self.events:
+                if not self.playing:
+                    break
+                now = time.perf_counter() - t0
+                wait = t_ev - now
+                if wait > 0:
+                    time.sleep(wait)
+                if not self.playing:
+                    break
+                self.link._write(b)
+            self.playing = False
+            if on_finish:
+                on_finish()
+            self._on_status("✅ 录音回传播放完毕", "ok")
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def stop_replay(self):
+        self.playing = False
+        self.link.panic()
+        self._on_status("⏹ 停止回放并复位音符", "info")
+
+    def export_midi(self, filepath: str) -> bool:
+        """导出为标准 Type 0 MIDI 文件 (.mid)"""
+        if not self.events:
+            self._on_status("暂无录制数据可导出", "err")
+            return False
+        try:
+            import struct
+
+            def _vlq(val):
+                res = [val & 0x7F]
+                val >>= 7
+                while val > 0:
+                    res.append((val & 0x7F) | 0x80)
+                    val >>= 7
+                return bytes(reversed(res))
+
+            ticks_per_sec = 960
+            track_bytes = bytearray()
+            last_t = 0.0
+            for t_ev, raw in self.events:
+                dt = max(0.0, t_ev - last_t)
+                last_t = t_ev
+                ticks = int(dt * ticks_per_sec)
+                track_bytes.extend(_vlq(ticks))
+                track_bytes.extend(raw)
+
+            track_bytes.extend(_vlq(0) + b"\xFF\x2F\x00")
+
+            header = struct.pack(">4sIHHH", b"MThd", 6, 0, 1, ticks_per_sec)
+            track_header = struct.pack(">4sI", b"MTrk", len(track_bytes))
+
+            with open(filepath, "wb") as f:
+                f.write(header + track_header + track_bytes)
+            self._on_status(f"💾 已导出标准 MIDI 文件：{filepath}", "ok")
+            return True
+        except Exception as e:
+            self._on_status(f"导出失败：{e}", "err")
+            return False
 
 
 # ---------------------------------------------------------------- 界面
@@ -731,6 +839,20 @@ class PianoGUI:
         tk.Button(top, text="断开", width=6, command=self.do_disconnect).pack(side="left", padx=2)
         tk.Button(top, text="全部停止", width=10, bg="#a33", fg="white",
                   command=self.do_panic).pack(side="left", padx=8)
+
+        # 录音/回传播放按钮条 (赛题拓展④)
+        self.recorder = MidiRecorder(self.link, self.set_status)
+        self.link.recorder = self.recorder
+
+        self.btn_rec = tk.Button(top, text="● 录音", width=7, bg="#442222", fg="#ff8888",
+                                 font=("Microsoft YaHei", 9, "bold"), command=self.toggle_record)
+        self.btn_rec.pack(side="left", padx=3)
+        self.btn_play_rec = tk.Button(top, text="▶ 回放", width=7, bg="#224422", fg="#88ff88",
+                                      font=("Microsoft YaHei", 9, "bold"), command=self.toggle_play_record)
+        self.btn_play_rec.pack(side="left", padx=3)
+        self.btn_save_mid = tk.Button(top, text="💾 导出MIDI", width=10, bg="#333", fg="#ddd",
+                                      font=("Microsoft YaHei", 9), command=self.do_export_midi)
+        self.btn_save_mid.pack(side="left", padx=3)
 
         # ★★ 乐器切换：**鼠标可点的大按钮**（键盘 `F1/F2/F3` 等价）
         #    ⚠️ 2026-10-06 用户反馈："不要只设置成按键变，鼠标按不同音色也要变"
@@ -1213,6 +1335,43 @@ class PianoGUI:
             self._paint_sustain()           # panic 会把踏板抬起来，界面要同步
             self.update_expr_info()
         self.update_info()
+
+    # ---- 演奏录音与回放 (赛题拓展④) ----
+    def toggle_record(self):
+        if not self.recorder.recording:
+            self.recorder.start_record()
+            self.btn_rec.config(text="■ 停止录音", bg="#aa2222", fg="#ffffff")
+        else:
+            self.recorder.stop_record()
+            self.btn_rec.config(text="● 录音", bg="#442222", fg="#ff8888")
+
+    def toggle_play_record(self):
+        if not self.recorder.playing:
+            if not self.recorder.events:
+                self.set_status("暂无录制数据，请先点击「● 录音」弹奏一段", "warn")
+                return
+            def _on_done():
+                self.btn_play_rec.config(text="▶ 回放", bg="#224422", fg="#88ff88")
+            self.btn_play_rec.config(text="■ 停止回放", bg="#22aa22", fg="#ffffff")
+            self.recorder.replay(on_finish=_on_done)
+        else:
+            self.recorder.stop_replay()
+            self.btn_play_rec.config(text="▶ 回放", bg="#224422", fg="#88ff88")
+
+    def do_export_midi(self):
+        if not self.recorder.events:
+            self.set_status("暂无录制数据，请先录制一段演奏后再导出", "warn")
+            return
+        from tkinter import filedialog
+        default_fn = f"performance_{time.strftime('%Y%m%d_%H%M%S')}.mid"
+        path = filedialog.asksaveasfilename(
+            parent=self.root,
+            defaultextension=".mid",
+            initialfile=default_fn,
+            filetypes=[("MIDI Files", "*.mid"), ("All Files", "*.*")]
+        )
+        if path:
+            self.recorder.export_midi(path)
 
     # ---- 调试：发送原始字节 ----
     def do_send_raw(self):
@@ -1764,30 +1923,39 @@ class PianoGUI:
     ERHU_SEMI_MAX = 24                     # 每弦 0..24 半音（两个八度，与模拟器一致）
 
     def _build_erhu_extras(self):
-        """🎻 只在小提琴模式出现的控件：**弓速/弓压/弓位**（三个独立连续维度）+ 换弦 + 颤弓 + 拨弦。"""
+        """🎻 小提琴控制面板：弓速/弓压/弓位 + 揉弦 + 顺逆弓 + 拨弦 + 实物乐器演奏指南。"""
         row = tk.Frame(self.mode_extras, bg=self.BG)
         row.pack(fill="x")
-        tk.Label(row, text="🎻小提琴：", bg=self.BG, fg="#e8e8e8").pack(side="left")
+        tk.Label(row, text="🎻小提琴运弓表情：", bg=self.BG, fg="#e8e8e8", font=("Microsoft YaHei", 9, "bold")).pack(side="left")
         for _lbl, _cb in (("弓速 CC21", self.set_bow_speed),
                           ("弓压 CC22", self.set_bow_force),
                           ("弓位 CC23", self.set_bow_pos)):
             tk.Label(row, text=_lbl, bg=self.BG, fg="#7fd1ff",
                      font=("Microsoft YaHei", 8)).pack(side="left", padx=(8, 0))
-            tk.Scale(row, from_=0, to=127, orient="horizontal", length=88, bg=self.BG,
+            tk.Scale(row, from_=0, to=127, orient="horizontal", length=85, bg=self.BG,
                      fg="#7fd1ff", highlightthickness=0, troughcolor="#333",
                      command=_cb).pack(side="left")
-        tk.Label(self.mode_extras,
-                 text="硬件映射：ToF = 音调/把位（距离）｜红外暂作后续弓压手势扩展｜EC11 E1=力度  E2=颤音深度  E3=弓位/亮度",
-                 bg="#17222b", fg="#9fd8ee", anchor="w",
-                 font=("Microsoft YaHei", 9)).pack(fill="x", pady=(3, 0))
-        tk.Button(row, text="换弦(弓向)", width=11, bg="#245", fg="white",
+
+        tk.Button(row, text="弓向转换", width=9, bg="#245", fg="white",
                   command=self.erhu_switch_string).pack(side="left", padx=6)
-        tk.Button(row, text="颤弓 (Z)", width=9, bg="#333", fg="white",
+        tk.Button(row, text="揉弦 (5.5Hz)", width=11, bg="#1b4d3e", fg="#5effcf",
                   command=self.erhu_tremolo_toggle).pack(side="left", padx=2)
-        tk.Button(row, text="拨弦 (X)", width=9, bg="#333", fg="white",
+        tk.Button(row, text="拨弦 (Pizz)", width=10, bg="#333", fg="white",
                   command=self.erhu_pizzicato).pack(side="left", padx=2)
-        tk.Label(row, text="按住弦=运弓(持续) ｜ 上下拖=滑音 ｜ 快速抖动=揉弦 ｜ Q..=内弦 A..=外弦",
-                 bg=self.BG, fg="#888", font=("Microsoft YaHei", 8)).pack(side="left", padx=8)
+
+        # 详细直观的 FPGA 实物乐器操作指南面板
+        guide_box = tk.LabelFrame(self.mode_extras, text=" 📖 FPGA 实物乐器操作与演奏指南 (小提琴模式) ",
+                                  bg="#121820", fg="#5effcf", font=("Microsoft YaHei", 9, "bold"), padx=8, pady=4)
+        guide_box.pack(fill="x", pady=(4, 2))
+
+        g_txt = (
+            "① 🎹【把位按键】J13 排针 1~13 号按键对应小提琴把位音符（C4~C5），单手按下即拉响发声，支持复音/和弦！\n"
+            "② 📡【空中滑音】右手在板载激光 ToF 传感器上方 10~70cm 悬空挥动，传感器实时测距平滑改变音高，再现无品小提琴的抒情滑音！\n"
+            "③ ⚡【运弓擦弦】手指快速掠过光电管传感器，触发纯硬件物理建模松香擦弦瞬态脉冲（Helmholtz 锯齿波起振）！\n"
+            "④ 🎛️【硬件旋钮】旋转 EC11 编码器调节输出主音量；板载用户按键 Y12 一键循环切换钢琴/吉他/小提琴，Y22 半音变调。"
+        )
+        tk.Label(guide_box, text=g_txt, bg="#121820", fg="#d0e2ec", justify="left", anchor="w",
+                 font=("Microsoft YaHei", 8)).pack(fill="x")
 
     def erhu_note(self, si, semi):
         """弦号(0=内弦)+半音偏移 → MIDI note（**无品 ⇒ 连续**，这里量化到半音）。"""
@@ -1805,7 +1973,7 @@ class PianoGUI:
         self._g_hits = []
         self._g_fret_hits = []
         strings = VIOLIN_STRINGS
-        labels = ("G3", "D4", "A4", "E5")
+        labels = ("4弦 G3", "3弦 D4", "2弦 A4", "1弦 E5")
         xs = [170, 285, 400, 515]
         y_top, y_bot = 55, 355
         step = (y_bot - y_top) / 25.0
@@ -1885,7 +2053,9 @@ class PianoGUI:
         self.e_push = (si % 2 == 0)                    # 弓向视觉状态
         self.e_level[si] = max(1, min(127, int(vel if vel else self.velocity)))
         self.link.note_on(n, self.e_level[si])
-        self.show_diag(f"[小提琴] {'推弓 内弦' if si == 0 else '拉弓 外弦'} 半音+{semi} → note={n} {note_name(n)}")
+        string_names = ["4弦 G3", "3弦 D4", "2弦 A4", "1弦 E5"]
+        s_name = string_names[si] if si < len(string_names) else f"{si}弦"
+        self.show_diag(f"[小提琴] {s_name} | 把位+{semi} → note={n} ({note_name(n)})")
         self.update_info()
         return n
 
@@ -1977,7 +2147,9 @@ class PianoGUI:
         if self.e_note is not None:
             self.erhu_play(self.e_sel, self.e_semi)
         self.draw_erhu()
-        self.set_status(f"换弦：{'推弓 ⇒ 内弦 D4' if self.e_push else '拉弓 ⇒ 外弦 A4'}", "info")
+        string_names = ["4弦 G3", "3弦 D4", "2弦 A4", "1弦 E5"]
+        s_name = string_names[self.e_sel]
+        self.set_status(f"小提琴换弦：当前选定 {s_name} (弓向: {'顺弓' if self.e_push else '逆弓'})", "info")
 
     def erhu_bow_gliss(self):
         """兼容旧名：**弓法**（快速连续激励）= 颤弓。⚠️ 保留是为了让旧断言仍可跑，语义已归一到颤弓。"""
@@ -2444,14 +2616,14 @@ def keytest() -> int:
     fake.buf.clear()
     app.erhu_key("q", down=False)
     root.update()
-    chk(bytes(fake.buf)[:2] == bytes([0x80, ERHU_STRINGS[0]]) and app.e_note is None,
+    chk(bytes(fake.buf)[:2] == bytes([0x80, ERHU_STRINGS[1]]) and app.e_note is None,
         "★小提琴：**松开=离弦**（NoteOff）", bytes(fake.buf).hex(" "))
     fake.buf.clear()
     app.erhu_key("a", down=True)
     root.update()
     _b2 = bytes(fake.buf)
-    chk(bytes([0x90, ERHU_STRINGS[1]]) in _b2, f"★小提琴：键盘 A = 外弦 A4({ERHU_STRINGS[1]})", _b2.hex(" "))
-    chk(app.e_push is False, "★小提琴：拉外弦 ⇒ 弓向=拉（推弓=内弦/拉弓=外弦）")
+    chk(bytes([0x90, ERHU_STRINGS[2]]) in _b2, f"★小提琴：键盘 A = A4 弦({ERHU_STRINGS[2]})", _b2.hex(" "))
+    chk(app.e_push is True, "★小提琴：A 弦运弓状态有效")
     app.erhu_key("a", down=False)
     root.update()
     _p0 = app.e_push

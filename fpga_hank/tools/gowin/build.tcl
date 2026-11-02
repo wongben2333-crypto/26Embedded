@@ -98,7 +98,7 @@ proc collect_v {dir} {
 }
 
 set V_FILES {}
-foreach sub {common synth audio effects io} {
+foreach sub {common synth audio effects io ui} {
     foreach f [collect_v [file join $RTL_DIR $sub]] {
         lappend V_FILES $f
     }
@@ -148,6 +148,7 @@ set_option -output_base_name $PRJ_NAME
 # ?? -verilog_std ?????? v1995 | v2001 | sysv2017?SUG1220-2.1??
 #    ? sysv2009 ?? "unknown verilog language value" ??????
 set_option -verilog_std    sysv2017
+set_option -include_path   [file join $RTL_DIR ui]
 set_option -show_all_warn  1
 
 # Explicit User Code (approved 2026-10-05): turns User Code from a per-build

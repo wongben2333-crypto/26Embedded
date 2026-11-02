@@ -273,7 +273,7 @@ endmodule
 // -----------------------------------------------------------------------------
 module piano_vel_lut (
     input  wire [6:0]  vel,
-    input  wire [1:0]  inst,          // 0=钢琴 1=吉他 2=小提琴
+    input  wire [1:0]  inst,          // 0=钢琴 1=电吉他 2=古筝
     output reg  [16:0] gain_q16,
     output reg  [2:0]  lp_sh
 );
@@ -664,6 +664,134 @@ module piano_vel_lut (
             10'd381: begin gain_q16 = 17'd64090; lp_sh = 3'd1; end
             10'd382: begin gain_q16 = 17'd64811; lp_sh = 3'd1; end
             10'd383: begin gain_q16 = 17'd65536; lp_sh = 3'd1; end
+            10'd384: begin gain_q16 = 17'd7864; lp_sh = 3'd3; end
+            10'd385: begin gain_q16 = 17'd7889; lp_sh = 3'd3; end
+            10'd386: begin gain_q16 = 17'd7940; lp_sh = 3'd3; end
+            10'd387: begin gain_q16 = 17'd8008; lp_sh = 3'd3; end
+            10'd388: begin gain_q16 = 17'd8092; lp_sh = 3'd3; end
+            10'd389: begin gain_q16 = 17'd8190; lp_sh = 3'd3; end
+            10'd390: begin gain_q16 = 17'd8301; lp_sh = 3'd3; end
+            10'd391: begin gain_q16 = 17'd8423; lp_sh = 3'd3; end
+            10'd392: begin gain_q16 = 17'd8556; lp_sh = 3'd3; end
+            10'd393: begin gain_q16 = 17'd8699; lp_sh = 3'd3; end
+            10'd394: begin gain_q16 = 17'd8853; lp_sh = 3'd3; end
+            10'd395: begin gain_q16 = 17'd9015; lp_sh = 3'd3; end
+            10'd396: begin gain_q16 = 17'd9187; lp_sh = 3'd3; end
+            10'd397: begin gain_q16 = 17'd9368; lp_sh = 3'd3; end
+            10'd398: begin gain_q16 = 17'd9557; lp_sh = 3'd3; end
+            10'd399: begin gain_q16 = 17'd9755; lp_sh = 3'd3; end
+            10'd400: begin gain_q16 = 17'd9961; lp_sh = 3'd3; end
+            10'd401: begin gain_q16 = 17'd10174; lp_sh = 3'd3; end
+            10'd402: begin gain_q16 = 17'd10395; lp_sh = 3'd3; end
+            10'd403: begin gain_q16 = 17'd10624; lp_sh = 3'd3; end
+            10'd404: begin gain_q16 = 17'd10860; lp_sh = 3'd3; end
+            10'd405: begin gain_q16 = 17'd11103; lp_sh = 3'd3; end
+            10'd406: begin gain_q16 = 17'd11354; lp_sh = 3'd3; end
+            10'd407: begin gain_q16 = 17'd11611; lp_sh = 3'd3; end
+            10'd408: begin gain_q16 = 17'd11875; lp_sh = 3'd3; end
+            10'd409: begin gain_q16 = 17'd12146; lp_sh = 3'd3; end
+            10'd410: begin gain_q16 = 17'd12423; lp_sh = 3'd3; end
+            10'd411: begin gain_q16 = 17'd12707; lp_sh = 3'd3; end
+            10'd412: begin gain_q16 = 17'd12997; lp_sh = 3'd3; end
+            10'd413: begin gain_q16 = 17'd13293; lp_sh = 3'd3; end
+            10'd414: begin gain_q16 = 17'd13596; lp_sh = 3'd3; end
+            10'd415: begin gain_q16 = 17'd13905; lp_sh = 3'd3; end
+            10'd416: begin gain_q16 = 17'd14219; lp_sh = 3'd3; end
+            10'd417: begin gain_q16 = 17'd14540; lp_sh = 3'd3; end
+            10'd418: begin gain_q16 = 17'd14867; lp_sh = 3'd3; end
+            10'd419: begin gain_q16 = 17'd15199; lp_sh = 3'd3; end
+            10'd420: begin gain_q16 = 17'd15537; lp_sh = 3'd3; end
+            10'd421: begin gain_q16 = 17'd15881; lp_sh = 3'd3; end
+            10'd422: begin gain_q16 = 17'd16231; lp_sh = 3'd3; end
+            10'd423: begin gain_q16 = 17'd16586; lp_sh = 3'd3; end
+            10'd424: begin gain_q16 = 17'd16946; lp_sh = 3'd3; end
+            10'd425: begin gain_q16 = 17'd17312; lp_sh = 3'd3; end
+            10'd426: begin gain_q16 = 17'd17684; lp_sh = 3'd3; end
+            10'd427: begin gain_q16 = 17'd18060; lp_sh = 3'd3; end
+            10'd428: begin gain_q16 = 17'd18442; lp_sh = 3'd3; end
+            10'd429: begin gain_q16 = 17'd18830; lp_sh = 3'd3; end
+            10'd430: begin gain_q16 = 17'd19222; lp_sh = 3'd3; end
+            10'd431: begin gain_q16 = 17'd19620; lp_sh = 3'd3; end
+            10'd432: begin gain_q16 = 17'd20022; lp_sh = 3'd3; end
+            10'd433: begin gain_q16 = 17'd20430; lp_sh = 3'd3; end
+            10'd434: begin gain_q16 = 17'd20843; lp_sh = 3'd3; end
+            10'd435: begin gain_q16 = 17'd21261; lp_sh = 3'd3; end
+            10'd436: begin gain_q16 = 17'd21683; lp_sh = 3'd3; end
+            10'd437: begin gain_q16 = 17'd22111; lp_sh = 3'd3; end
+            10'd438: begin gain_q16 = 17'd22544; lp_sh = 3'd3; end
+            10'd439: begin gain_q16 = 17'd22981; lp_sh = 3'd3; end
+            10'd440: begin gain_q16 = 17'd23423; lp_sh = 3'd3; end
+            10'd441: begin gain_q16 = 17'd23870; lp_sh = 3'd3; end
+            10'd442: begin gain_q16 = 17'd24322; lp_sh = 3'd3; end
+            10'd443: begin gain_q16 = 17'd24778; lp_sh = 3'd3; end
+            10'd444: begin gain_q16 = 17'd25239; lp_sh = 3'd3; end
+            10'd445: begin gain_q16 = 17'd25705; lp_sh = 3'd3; end
+            10'd446: begin gain_q16 = 17'd26175; lp_sh = 3'd3; end
+            10'd447: begin gain_q16 = 17'd26650; lp_sh = 3'd3; end
+            10'd448: begin gain_q16 = 17'd27129; lp_sh = 3'd2; end
+            10'd449: begin gain_q16 = 17'd27613; lp_sh = 3'd2; end
+            10'd450: begin gain_q16 = 17'd28101; lp_sh = 3'd2; end
+            10'd451: begin gain_q16 = 17'd28594; lp_sh = 3'd2; end
+            10'd452: begin gain_q16 = 17'd29091; lp_sh = 3'd2; end
+            10'd453: begin gain_q16 = 17'd29593; lp_sh = 3'd2; end
+            10'd454: begin gain_q16 = 17'd30099; lp_sh = 3'd2; end
+            10'd455: begin gain_q16 = 17'd30610; lp_sh = 3'd2; end
+            10'd456: begin gain_q16 = 17'd31124; lp_sh = 3'd2; end
+            10'd457: begin gain_q16 = 17'd31643; lp_sh = 3'd2; end
+            10'd458: begin gain_q16 = 17'd32167; lp_sh = 3'd2; end
+            10'd459: begin gain_q16 = 17'd32694; lp_sh = 3'd2; end
+            10'd460: begin gain_q16 = 17'd33226; lp_sh = 3'd2; end
+            10'd461: begin gain_q16 = 17'd33762; lp_sh = 3'd2; end
+            10'd462: begin gain_q16 = 17'd34302; lp_sh = 3'd2; end
+            10'd463: begin gain_q16 = 17'd34847; lp_sh = 3'd2; end
+            10'd464: begin gain_q16 = 17'd35395; lp_sh = 3'd2; end
+            10'd465: begin gain_q16 = 17'd35948; lp_sh = 3'd2; end
+            10'd466: begin gain_q16 = 17'd36505; lp_sh = 3'd2; end
+            10'd467: begin gain_q16 = 17'd37066; lp_sh = 3'd2; end
+            10'd468: begin gain_q16 = 17'd37631; lp_sh = 3'd2; end
+            10'd469: begin gain_q16 = 17'd38200; lp_sh = 3'd2; end
+            10'd470: begin gain_q16 = 17'd38773; lp_sh = 3'd2; end
+            10'd471: begin gain_q16 = 17'd39350; lp_sh = 3'd2; end
+            10'd472: begin gain_q16 = 17'd39931; lp_sh = 3'd2; end
+            10'd473: begin gain_q16 = 17'd40516; lp_sh = 3'd2; end
+            10'd474: begin gain_q16 = 17'd41105; lp_sh = 3'd2; end
+            10'd475: begin gain_q16 = 17'd41698; lp_sh = 3'd2; end
+            10'd476: begin gain_q16 = 17'd42294; lp_sh = 3'd2; end
+            10'd477: begin gain_q16 = 17'd42895; lp_sh = 3'd2; end
+            10'd478: begin gain_q16 = 17'd43500; lp_sh = 3'd2; end
+            10'd479: begin gain_q16 = 17'd44108; lp_sh = 3'd2; end
+            10'd480: begin gain_q16 = 17'd44721; lp_sh = 3'd2; end
+            10'd481: begin gain_q16 = 17'd45337; lp_sh = 3'd2; end
+            10'd482: begin gain_q16 = 17'd45957; lp_sh = 3'd2; end
+            10'd483: begin gain_q16 = 17'd46581; lp_sh = 3'd2; end
+            10'd484: begin gain_q16 = 17'd47208; lp_sh = 3'd1; end
+            10'd485: begin gain_q16 = 17'd47840; lp_sh = 3'd1; end
+            10'd486: begin gain_q16 = 17'd48475; lp_sh = 3'd1; end
+            10'd487: begin gain_q16 = 17'd49114; lp_sh = 3'd1; end
+            10'd488: begin gain_q16 = 17'd49756; lp_sh = 3'd1; end
+            10'd489: begin gain_q16 = 17'd50403; lp_sh = 3'd1; end
+            10'd490: begin gain_q16 = 17'd51053; lp_sh = 3'd1; end
+            10'd491: begin gain_q16 = 17'd51706; lp_sh = 3'd1; end
+            10'd492: begin gain_q16 = 17'd52364; lp_sh = 3'd1; end
+            10'd493: begin gain_q16 = 17'd53025; lp_sh = 3'd1; end
+            10'd494: begin gain_q16 = 17'd53690; lp_sh = 3'd1; end
+            10'd495: begin gain_q16 = 17'd54358; lp_sh = 3'd1; end
+            10'd496: begin gain_q16 = 17'd55030; lp_sh = 3'd1; end
+            10'd497: begin gain_q16 = 17'd55706; lp_sh = 3'd1; end
+            10'd498: begin gain_q16 = 17'd56385; lp_sh = 3'd1; end
+            10'd499: begin gain_q16 = 17'd57068; lp_sh = 3'd1; end
+            10'd500: begin gain_q16 = 17'd57754; lp_sh = 3'd1; end
+            10'd501: begin gain_q16 = 17'd58444; lp_sh = 3'd1; end
+            10'd502: begin gain_q16 = 17'd59137; lp_sh = 3'd1; end
+            10'd503: begin gain_q16 = 17'd59834; lp_sh = 3'd1; end
+            10'd504: begin gain_q16 = 17'd60535; lp_sh = 3'd1; end
+            10'd505: begin gain_q16 = 17'd61239; lp_sh = 3'd1; end
+            10'd506: begin gain_q16 = 17'd61946; lp_sh = 3'd1; end
+            10'd507: begin gain_q16 = 17'd62657; lp_sh = 3'd1; end
+            10'd508: begin gain_q16 = 17'd63372; lp_sh = 3'd1; end
+            10'd509: begin gain_q16 = 17'd64090; lp_sh = 3'd1; end
+            10'd510: begin gain_q16 = 17'd64811; lp_sh = 3'd1; end
+            10'd511: begin gain_q16 = 17'd65536; lp_sh = 3'd1; end
             default: begin gain_q16 = 17'd7864; lp_sh = 3'd3; end
         endcase
     end
@@ -682,7 +810,7 @@ endmodule
 module piano_partial_lut (
     input  wire [2:0]  n,
     input  wire [2:0]  band,
-    input  wire [1:0]  inst,          // 0=钢琴 1=吉他 2=小提琴
+    input  wire [1:0]  inst,          // 0=钢琴 1=电吉他 2=古筝
     output reg  [16:0] amp_q16,
     output reg  [15:0] k_q12,
     output reg  [4:0]  s_ring,
@@ -697,99 +825,126 @@ module piano_partial_lut (
     //        乐器的衰减差异改由 ksh_ofs（piano_inst_lut）表达。
     always @(*) begin
         case ({inst, band, n})
-            8'd0: begin amp_q16 = 17'd27594; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd13; st2 = 5'd14; end
-            8'd1: begin amp_q16 = 17'd8278; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd10; st2 = 5'd11; end
-            8'd2: begin amp_q16 = 17'd3311; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd8; st2 = 5'd9; end
-            8'd3: begin amp_q16 = 17'd1380; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd7; st2 = 5'd8; end
-            8'd4: begin amp_q16 = 17'd552; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd6; st2 = 5'd7; end
-            8'd5: begin amp_q16 = 17'd276; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd5; st2 = 5'd6; end
-            // 钢琴中高音区：锤击亮度逐步增加，并加入随音区增大的弦刚度拉伸。
-            8'd8: begin amp_q16 = 17'd24000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd12; st2 = 5'd13; end
-            8'd9: begin amp_q16 = 17'd9000; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd9; st2 = 5'd10; end
-            8'd10: begin amp_q16 = 17'd4000; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd8; st2 = 5'd9; end
-            8'd11: begin amp_q16 = 17'd1900; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd7; st2 = 5'd8; end
-            8'd12: begin amp_q16 = 17'd700; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd6; st2 = 5'd7; end
-            8'd13: begin amp_q16 = 17'd300; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd5; st2 = 5'd6; end
-            8'd16: begin amp_q16 = 17'd21000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd11; st2 = 5'd12; end
-            8'd17: begin amp_q16 = 17'd9800; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd8; st2 = 5'd9; end
-            8'd18: begin amp_q16 = 17'd5000; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd7; st2 = 5'd8; end
-            8'd19: begin amp_q16 = 17'd2400; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd6; st2 = 5'd7; end
-            8'd20: begin amp_q16 = 17'd900; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd5; st2 = 5'd6; end
-            8'd21: begin amp_q16 = 17'd400; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd4; st2 = 5'd5; end
-            8'd24: begin amp_q16 = 17'd18000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd10; st2 = 5'd11; end
-            8'd25: begin amp_q16 = 17'd10500; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd8; st2 = 5'd9; end
-            8'd26: begin amp_q16 = 17'd6000; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd6; st2 = 5'd7; end
-            8'd27: begin amp_q16 = 17'd3000; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd5; st2 = 5'd6; end
-            8'd28: begin amp_q16 = 17'd1200; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd4; st2 = 5'd5; end
-            8'd29: begin amp_q16 = 17'd500; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd3; st2 = 5'd4; end
-            8'd32: begin amp_q16 = 17'd15000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd9; st2 = 5'd10; end
-            8'd33: begin amp_q16 = 17'd11000; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd7; st2 = 5'd8; end
-            8'd34: begin amp_q16 = 17'd7000; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd5; st2 = 5'd6; end
-            8'd35: begin amp_q16 = 17'd3600; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd4; st2 = 5'd5; end
-            8'd36: begin amp_q16 = 17'd1500; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd3; st2 = 5'd4; end
-            8'd37: begin amp_q16 = 17'd650; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd2; st2 = 5'd3; end
-            8'd64: begin amp_q16 = 17'd8685; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd15; st2 = 5'd16; end
-            8'd65: begin amp_q16 = 17'd6709; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd12; st2 = 5'd13; end
-            8'd66: begin amp_q16 = 17'd5451; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
-            8'd67: begin amp_q16 = 17'd4409; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd9; st2 = 5'd10; end
-            8'd68: begin amp_q16 = 17'd3468; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd8; st2 = 5'd9; end
-            8'd69: begin amp_q16 = 17'd2603; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
-            // 吉他：低次谐波占主导，随音高升高才逐步增加亮度；高次谐波衰减更快。
-            8'd72: begin amp_q16 = 17'd14000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
-            8'd73: begin amp_q16 = 17'd8200; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
-            8'd74: begin amp_q16 = 17'd5000; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
-            8'd75: begin amp_q16 = 17'd2600; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
-            8'd76: begin amp_q16 = 17'd1200; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
-            8'd77: begin amp_q16 = 17'd450; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
-            8'd80: begin amp_q16 = 17'd12500; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
-            8'd81: begin amp_q16 = 17'd8500; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
-            8'd82: begin amp_q16 = 17'd5600; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
-            8'd83: begin amp_q16 = 17'd3000; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
-            8'd84: begin amp_q16 = 17'd1450; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
-            8'd85: begin amp_q16 = 17'd550; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
-            8'd88: begin amp_q16 = 17'd11000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd13; st2 = 5'd14; end
-            8'd89: begin amp_q16 = 17'd9000; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd10; st2 = 5'd11; end
-            8'd90: begin amp_q16 = 17'd6200; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd8; st2 = 5'd9; end
-            8'd91: begin amp_q16 = 17'd3400; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd7; st2 = 5'd8; end
-            8'd92: begin amp_q16 = 17'd1700; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd6; st2 = 5'd7; end
-            8'd93: begin amp_q16 = 17'd700; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd5; st2 = 5'd6; end
-            8'd96: begin amp_q16 = 17'd9500; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd12; st2 = 5'd13; end
-            8'd97: begin amp_q16 = 17'd9500; k_q12 = 16'd3686; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd9; st2 = 5'd10; end
-            8'd98: begin amp_q16 = 17'd7000; k_q12 = 16'd8192; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd7; st2 = 5'd8; end
-            8'd99: begin amp_q16 = 17'd4000; k_q12 = 16'd14336; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd6; st2 = 5'd7; end
-            8'd100: begin amp_q16 = 17'd2100; k_q12 = 16'd22528; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd5; st2 = 5'd6; end
-            8'd101: begin amp_q16 = 17'd850; k_q12 = 16'd32768; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd4; st2 = 5'd5; end
-            // 小提琴：保留基波，2~4 次谐波逐渐衰减，避免基波过低造成尖薄电子音。
-            8'd128: begin amp_q16 = 17'd9000; k_q12 = 16'd0;     s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
-            8'd129: begin amp_q16 = 17'd10000; k_q12 = 16'd2949;  s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
-            8'd130: begin amp_q16 = 17'd6500; k_q12 = 16'd6554;  s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
-            8'd131: begin amp_q16 = 17'd3500; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
-            8'd132: begin amp_q16 = 17'd1300; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
-            8'd133: begin amp_q16 = 17'd500; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
-            8'd136: begin amp_q16 = 17'd8200; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
-            8'd137: begin amp_q16 = 17'd10500; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
-            8'd138: begin amp_q16 = 17'd7500; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
-            8'd139: begin amp_q16 = 17'd4000; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
-            8'd140: begin amp_q16 = 17'd1600; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
-            8'd141: begin amp_q16 = 17'd600; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
-            8'd144: begin amp_q16 = 17'd7400; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
-            8'd145: begin amp_q16 = 17'd10000; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
-            8'd146: begin amp_q16 = 17'd8200; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
-            8'd147: begin amp_q16 = 17'd4500; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
-            8'd148: begin amp_q16 = 17'd1900; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
-            8'd149: begin amp_q16 = 17'd700; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
-            8'd152: begin amp_q16 = 17'd6500; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
-            8'd153: begin amp_q16 = 17'd9500; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
-            8'd154: begin amp_q16 = 17'd8500; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
-            8'd155: begin amp_q16 = 17'd4800; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
-            8'd156: begin amp_q16 = 17'd2200; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
-            8'd157: begin amp_q16 = 17'd800; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
-            8'd160: begin amp_q16 = 17'd5600; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
-            8'd161: begin amp_q16 = 17'd9000; k_q12 = 16'd2949; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
-            8'd162: begin amp_q16 = 17'd8500; k_q12 = 16'd6554; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
-            8'd163: begin amp_q16 = 17'd5000; k_q12 = 16'd11469; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
-            8'd164: begin amp_q16 = 17'd2400; k_q12 = 16'd18022; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
-            8'd165: begin amp_q16 = 17'd900; k_q12 = 16'd26214; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
+            8'd0: begin amp_q16 = 17'd20500; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd13; st1 = 5'd13; st2 = 5'd18; end
+            8'd1: begin amp_q16 = 17'd11800; k_q12 = 16'd3200; s_ring = 5'd16; s_damp = 5'd12; st1 = 5'd10; st2 = 5'd15; end
+            8'd2: begin amp_q16 = 17'd6800; k_q12 = 16'd6800; s_ring = 5'd15; s_damp = 5'd11; st1 = 5'd9; st2 = 5'd10; end
+            8'd3: begin amp_q16 = 17'd3600; k_q12 = 16'd11000; s_ring = 5'd14; s_damp = 5'd10; st1 = 5'd7; st2 = 5'd13; end
+            8'd4: begin amp_q16 = 17'd1800; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd9; st1 = 5'd6; st2 = 5'd31; end
+            8'd5: begin amp_q16 = 17'd900; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd6; st2 = 5'd7; end
+            8'd8: begin amp_q16 = 17'd23500; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd13; st1 = 5'd13; st2 = 5'd15; end
+            8'd9: begin amp_q16 = 17'd10200; k_q12 = 16'd3200; s_ring = 5'd16; s_damp = 5'd12; st1 = 5'd10; st2 = 5'd12; end
+            8'd10: begin amp_q16 = 17'd5000; k_q12 = 16'd6800; s_ring = 5'd15; s_damp = 5'd11; st1 = 5'd8; st2 = 5'd11; end
+            8'd11: begin amp_q16 = 17'd2400; k_q12 = 16'd11000; s_ring = 5'd14; s_damp = 5'd10; st1 = 5'd7; st2 = 5'd9; end
+            8'd12: begin amp_q16 = 17'd1100; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd9; st1 = 5'd6; st2 = 5'd8; end
+            8'd13: begin amp_q16 = 17'd520; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd5; st2 = 5'd8; end
+            8'd16: begin amp_q16 = 17'd26500; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd13; st1 = 5'd13; st2 = 5'd14; end
+            8'd17: begin amp_q16 = 17'd8600; k_q12 = 16'd3200; s_ring = 5'd16; s_damp = 5'd12; st1 = 5'd10; st2 = 5'd11; end
+            8'd18: begin amp_q16 = 17'd3600; k_q12 = 16'd6800; s_ring = 5'd15; s_damp = 5'd11; st1 = 5'd8; st2 = 5'd9; end
+            8'd19: begin amp_q16 = 17'd1500; k_q12 = 16'd11000; s_ring = 5'd14; s_damp = 5'd10; st1 = 5'd7; st2 = 5'd8; end
+            8'd20: begin amp_q16 = 17'd600; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd9; st1 = 5'd6; st2 = 5'd7; end
+            8'd21: begin amp_q16 = 17'd280; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd5; st2 = 5'd6; end
+            8'd24: begin amp_q16 = 17'd28500; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd13; st1 = 5'd12; st2 = 5'd15; end
+            8'd25: begin amp_q16 = 17'd6800; k_q12 = 16'd3200; s_ring = 5'd16; s_damp = 5'd12; st1 = 5'd9; st2 = 5'd12; end
+            8'd26: begin amp_q16 = 17'd2200; k_q12 = 16'd6800; s_ring = 5'd15; s_damp = 5'd11; st1 = 5'd7; st2 = 5'd31; end
+            8'd27: begin amp_q16 = 17'd750; k_q12 = 16'd11000; s_ring = 5'd14; s_damp = 5'd10; st1 = 5'd6; st2 = 5'd9; end
+            8'd28: begin amp_q16 = 17'd250; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd9; st1 = 5'd5; st2 = 5'd8; end
+            8'd29: begin amp_q16 = 17'd90; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd4; st2 = 5'd31; end
+            8'd32: begin amp_q16 = 17'd30500; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd13; st1 = 5'd12; st2 = 5'd13; end
+            8'd33: begin amp_q16 = 17'd4800; k_q12 = 16'd3200; s_ring = 5'd16; s_damp = 5'd12; st1 = 5'd9; st2 = 5'd10; end
+            8'd34: begin amp_q16 = 17'd1100; k_q12 = 16'd6800; s_ring = 5'd15; s_damp = 5'd11; st1 = 5'd7; st2 = 5'd9; end
+            8'd35: begin amp_q16 = 17'd280; k_q12 = 16'd11000; s_ring = 5'd14; s_damp = 5'd10; st1 = 5'd6; st2 = 5'd7; end
+            8'd36: begin amp_q16 = 17'd70; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd9; st1 = 5'd5; st2 = 5'd6; end
+            8'd37: begin amp_q16 = 17'd0; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd4; st2 = 5'd6; end
+            8'd64: begin amp_q16 = 17'd17000; k_q12 = 16'd0; s_ring = 5'd16; s_damp = 5'd11; st1 = 5'd15; st2 = 5'd17; end
+            8'd65: begin amp_q16 = 17'd16000; k_q12 = 16'd3686; s_ring = 5'd15; s_damp = 5'd10; st1 = 5'd12; st2 = 5'd14; end
+            8'd66: begin amp_q16 = 17'd12500; k_q12 = 16'd7200; s_ring = 5'd14; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd13; end
+            8'd67: begin amp_q16 = 17'd6500; k_q12 = 16'd11500; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd9; st2 = 5'd11; end
+            8'd68: begin amp_q16 = 17'd3200; k_q12 = 16'd15000; s_ring = 5'd10; s_damp = 5'd7; st1 = 5'd8; st2 = 5'd10; end
+            8'd69: begin amp_q16 = 17'd1400; k_q12 = 16'd18000; s_ring = 5'd9; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd10; end
+            8'd72: begin amp_q16 = 17'd18000; k_q12 = 16'd0; s_ring = 5'd16; s_damp = 5'd11; st1 = 5'd15; st2 = 5'd16; end
+            8'd73: begin amp_q16 = 17'd16000; k_q12 = 16'd3686; s_ring = 5'd15; s_damp = 5'd10; st1 = 5'd12; st2 = 5'd13; end
+            8'd74: begin amp_q16 = 17'd12000; k_q12 = 16'd7200; s_ring = 5'd14; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
+            8'd75: begin amp_q16 = 17'd6000; k_q12 = 16'd11500; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd9; st2 = 5'd10; end
+            8'd76: begin amp_q16 = 17'd2800; k_q12 = 16'd15000; s_ring = 5'd10; s_damp = 5'd7; st1 = 5'd8; st2 = 5'd9; end
+            8'd77: begin amp_q16 = 17'd1200; k_q12 = 16'd18000; s_ring = 5'd9; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
+            8'd80: begin amp_q16 = 17'd19000; k_q12 = 16'd0; s_ring = 5'd16; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd31; end
+            8'd81: begin amp_q16 = 17'd15500; k_q12 = 16'd3686; s_ring = 5'd15; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd31; end
+            8'd82: begin amp_q16 = 17'd11500; k_q12 = 16'd7200; s_ring = 5'd14; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
+            8'd83: begin amp_q16 = 17'd5000; k_q12 = 16'd11500; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd31; end
+            8'd84: begin amp_q16 = 17'd2200; k_q12 = 16'd15000; s_ring = 5'd10; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd31; end
+            8'd85: begin amp_q16 = 17'd900; k_q12 = 16'd18000; s_ring = 5'd9; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
+            8'd88: begin amp_q16 = 17'd22000; k_q12 = 16'd0; s_ring = 5'd16; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd16; end
+            8'd89: begin amp_q16 = 17'd13000; k_q12 = 16'd3686; s_ring = 5'd15; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd13; end
+            8'd90: begin amp_q16 = 17'd8500; k_q12 = 16'd7200; s_ring = 5'd14; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd12; end
+            8'd91: begin amp_q16 = 17'd3500; k_q12 = 16'd11500; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd10; end
+            8'd92: begin amp_q16 = 17'd1400; k_q12 = 16'd15000; s_ring = 5'd10; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd9; end
+            8'd93: begin amp_q16 = 17'd500; k_q12 = 16'd18000; s_ring = 5'd9; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd9; end
+            8'd96: begin amp_q16 = 17'd25000; k_q12 = 16'd0; s_ring = 5'd16; s_damp = 5'd11; st1 = 5'd13; st2 = 5'd31; end
+            8'd97: begin amp_q16 = 17'd10000; k_q12 = 16'd3686; s_ring = 5'd15; s_damp = 5'd10; st1 = 5'd10; st2 = 5'd31; end
+            8'd98: begin amp_q16 = 17'd5000; k_q12 = 16'd7200; s_ring = 5'd14; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd10; end
+            8'd99: begin amp_q16 = 17'd1800; k_q12 = 16'd11500; s_ring = 5'd12; s_damp = 5'd8; st1 = 5'd7; st2 = 5'd31; end
+            8'd100: begin amp_q16 = 17'd600; k_q12 = 16'd15000; s_ring = 5'd10; s_damp = 5'd7; st1 = 5'd6; st2 = 5'd31; end
+            8'd101: begin amp_q16 = 17'd200; k_q12 = 16'd18000; s_ring = 5'd9; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd7; end
+            8'd128: begin amp_q16 = 17'd18000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd15; st2 = 5'd16; end
+            8'd129: begin amp_q16 = 17'd15000; k_q12 = 16'd4000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd12; st2 = 5'd13; end
+            8'd130: begin amp_q16 = 17'd12000; k_q12 = 16'd8000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
+            8'd131: begin amp_q16 = 17'd9500; k_q12 = 16'd12000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd9; st2 = 5'd10; end
+            8'd132: begin amp_q16 = 17'd8000; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd8; st2 = 5'd9; end
+            8'd133: begin amp_q16 = 17'd6500; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
+            8'd136: begin amp_q16 = 17'd19000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd31; end
+            8'd137: begin amp_q16 = 17'd14500; k_q12 = 16'd4000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd31; end
+            8'd138: begin amp_q16 = 17'd11500; k_q12 = 16'd8000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
+            8'd139: begin amp_q16 = 17'd9000; k_q12 = 16'd12000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd31; end
+            8'd140: begin amp_q16 = 17'd7500; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd31; end
+            8'd141: begin amp_q16 = 17'd6000; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
+            8'd144: begin amp_q16 = 17'd20000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd31; end
+            8'd145: begin amp_q16 = 17'd14000; k_q12 = 16'd4000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd31; end
+            8'd146: begin amp_q16 = 17'd11000; k_q12 = 16'd8000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
+            8'd147: begin amp_q16 = 17'd8500; k_q12 = 16'd12000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd31; end
+            8'd148: begin amp_q16 = 17'd7000; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd31; end
+            8'd149: begin amp_q16 = 17'd5500; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
+            8'd152: begin amp_q16 = 17'd21000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd16; end
+            8'd153: begin amp_q16 = 17'd13000; k_q12 = 16'd4000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd13; end
+            8'd154: begin amp_q16 = 17'd10000; k_q12 = 16'd8000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd14; end
+            8'd155: begin amp_q16 = 17'd7500; k_q12 = 16'd12000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd10; end
+            8'd156: begin amp_q16 = 17'd6000; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd9; end
+            8'd157: begin amp_q16 = 17'd4500; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd11; end
+            8'd160: begin amp_q16 = 17'd23000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd15; end
+            8'd161: begin amp_q16 = 17'd11500; k_q12 = 16'd4000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd12; end
+            8'd162: begin amp_q16 = 17'd8500; k_q12 = 16'd8000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd11; end
+            8'd163: begin amp_q16 = 17'd6000; k_q12 = 16'd12000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd9; end
+            8'd164: begin amp_q16 = 17'd4000; k_q12 = 16'd16000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd8; end
+            8'd165: begin amp_q16 = 17'd2500; k_q12 = 16'd20000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd8; end
+            8'd192: begin amp_q16 = 17'd22000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd15; st2 = 5'd17; end
+            8'd193: begin amp_q16 = 17'd6000; k_q12 = 16'd2000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd12; st2 = 5'd14; end
+            8'd194: begin amp_q16 = 17'd14000; k_q12 = 16'd5000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd13; end
+            8'd195: begin amp_q16 = 17'd3000; k_q12 = 16'd7000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd9; st2 = 5'd11; end
+            8'd196: begin amp_q16 = 17'd7000; k_q12 = 16'd10000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd8; st2 = 5'd10; end
+            8'd197: begin amp_q16 = 17'd1500; k_q12 = 16'd12000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd10; end
+            8'd200: begin amp_q16 = 17'd23000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd15; st2 = 5'd17; end
+            8'd201: begin amp_q16 = 17'd5500; k_q12 = 16'd2000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd12; st2 = 5'd14; end
+            8'd202: begin amp_q16 = 17'd13000; k_q12 = 16'd5000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd13; end
+            8'd203: begin amp_q16 = 17'd2800; k_q12 = 16'd7000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd9; st2 = 5'd11; end
+            8'd204: begin amp_q16 = 17'd6000; k_q12 = 16'd10000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd8; st2 = 5'd10; end
+            8'd205: begin amp_q16 = 17'd1200; k_q12 = 16'd12000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd10; end
+            8'd208: begin amp_q16 = 17'd24000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd15; st2 = 5'd16; end
+            8'd209: begin amp_q16 = 17'd5000; k_q12 = 16'd2000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd12; st2 = 5'd13; end
+            8'd210: begin amp_q16 = 17'd12000; k_q12 = 16'd5000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
+            8'd211: begin amp_q16 = 17'd2500; k_q12 = 16'd7000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd9; st2 = 5'd10; end
+            8'd212: begin amp_q16 = 17'd5000; k_q12 = 16'd10000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd8; st2 = 5'd9; end
+            8'd213: begin amp_q16 = 17'd1000; k_q12 = 16'd12000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
+            8'd216: begin amp_q16 = 17'd25000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd31; end
+            8'd217: begin amp_q16 = 17'd4500; k_q12 = 16'd2000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd31; end
+            8'd218: begin amp_q16 = 17'd10000; k_q12 = 16'd5000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd10; st2 = 5'd11; end
+            8'd219: begin amp_q16 = 17'd2000; k_q12 = 16'd7000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd31; end
+            8'd220: begin amp_q16 = 17'd3800; k_q12 = 16'd10000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd31; end
+            8'd221: begin amp_q16 = 17'd600; k_q12 = 16'd12000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd7; st2 = 5'd8; end
+            8'd224: begin amp_q16 = 17'd27000; k_q12 = 16'd0; s_ring = 5'd17; s_damp = 5'd11; st1 = 5'd14; st2 = 5'd16; end
+            8'd225: begin amp_q16 = 17'd3500; k_q12 = 16'd2000; s_ring = 5'd16; s_damp = 5'd10; st1 = 5'd11; st2 = 5'd13; end
+            8'd226: begin amp_q16 = 17'd7000; k_q12 = 16'd5000; s_ring = 5'd15; s_damp = 5'd9; st1 = 5'd9; st2 = 5'd14; end
+            8'd227: begin amp_q16 = 17'd1200; k_q12 = 16'd7000; s_ring = 5'd14; s_damp = 5'd8; st1 = 5'd8; st2 = 5'd10; end
+            8'd228: begin amp_q16 = 17'd2000; k_q12 = 16'd10000; s_ring = 5'd13; s_damp = 5'd7; st1 = 5'd7; st2 = 5'd9; end
+            8'd229: begin amp_q16 = 17'd200; k_q12 = 16'd12000; s_ring = 5'd12; s_damp = 5'd6; st1 = 5'd6; st2 = 5'd11; end
             default: begin
                 amp_q16 = 17'd0; k_q12 = 16'd0;
                 s_ring = 5'd18; s_damp = 5'd13; st1 = 5'd31; st2 = 5'd31;
@@ -803,7 +958,7 @@ endmodule
 //  piano_inst_lut —— 乐器级参数（2026-10-06 多乐器）
 //    ham_gain_q16 : 激励（琴槌/拨片/指甲）的初始能量。钢琴 = 原来的 HAM_GAIN_Q16 = 19661
 //    ksh_ofs      : 包络更新速率的乐器偏移（2 bit 编码：0→−1, 1→0, 2→+1）
-    //                   ⇒ 小提琴 +1（弓弦延音更长）、吉他 −1（本体短，延音靠音箱）
+//                   ⇒ 古筝 +1（木共鸣箱衰减更长）、吉他 −1（本体短，延音靠音箱）
 //  ⚠️ 钢琴行必须与原值逐位相同（回归要求）
 // -----------------------------------------------------------------------------
 module piano_inst_lut (
@@ -817,6 +972,7 @@ module piano_inst_lut (
             2'd0: begin ham_gain_q16 = 17'd19661; ksh_ofs_enc = 2'd1; end // piano
             2'd1: begin ham_gain_q16 = 17'd24000; ksh_ofs_enc = 2'd0; end // guitar
             2'd2: begin ham_gain_q16 = 17'd12000; ksh_ofs_enc = 2'd1; end // violin
+            2'd3: begin ham_gain_q16 = 17'd14000; ksh_ofs_enc = 2'd2; end // erhu
             default: begin ham_gain_q16 = 17'd19661; ksh_ofs_enc = 2'd1; end
         endcase
     end

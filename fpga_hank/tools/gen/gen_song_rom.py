@@ -196,107 +196,311 @@ FADED_CHORUS = [
 #  ★★ 机器生成区（END）★★
 # ============================================================================
 
-# ---- 1. 欢乐颂 Ode to Joy（Beethoven, PD）-----------------------------------
-ODE_TO_JOY = [
-    ("E4", 1), ("E4", 1), ("F4", 1), ("G4", 1),
-    ("G4", 1), ("F4", 1), ("E4", 1), ("D4", 1),
-    ("C4", 1), ("C4", 1), ("D4", 1), ("E4", 1),
-    ("E4", 1.5), ("D4", 0.5), ("D4", 2),
+def N(note, beats, vel: int = MELODY_VEL):
+    """单音符（支持自定义力度 vel 1..127，用于乐句强弱呼吸感）"""
+    return (note, B(beats), vel)
 
-    ("E4", 1), ("E4", 1), ("F4", 1), ("G4", 1),
-    ("G4", 1), ("F4", 1), ("E4", 1), ("D4", 1),
-    ("C4", 1), ("C4", 1), ("D4", 1), ("E4", 1),
-    ("D4", 1.5), ("C4", 0.5), ("C4", 2),
 
-    ("D4", 1), ("D4", 1), ("E4", 1), ("C4", 1),
-    ("D4", 1), ("E4", 0.5), ("F4", 0.5), ("E4", 1), ("C4", 1),
-    ("D4", 1), ("E4", 0.5), ("F4", 0.5), ("E4", 1), ("D4", 1),
-    ("C4", 1), ("D4", 1), ("G3", 2),
+def CHORD(accomp_notes, melody_note, beats, vel: int = 104, accomp_vel: int = 68, strum_beats: str = "0.002"):
+    """多声部同时和弦 / 吉他扫弦辅助函数：
+    - accomp_notes: 伴奏和弦音列表（如左手低音+五度 ["G#2", "D#3"] 或吉他低三弦 ["E3", "B3", "E4"]）
+    - melody_note : 主旋律音（如 "D#4"）
+    - beats       : 整个和弦+旋律所占的总拍数（主音保持响满剩余拍数，伴奏音在 song_player 中与主音同步叠加发声）
+    - strum_beats :
+        · 钢琴/小提琴双音用 "0.002" (约 1 ms 极速连发，听感为完全同时落键的饱满和弦)
+        · 吉他扫弦用 "0.035" (约 17 ms 逐弦扫过，模拟真实拨片/手指扫弦颗粒感，所有弦同时延音)
+    """
+    sb = B(strum_beats)
+    total_b = B(beats)
+    n_acc = len(accomp_notes)
+    rem_b = total_b - sb * n_acc
+    assert rem_b > 0, f"CHORD total beats {beats} too short for {n_acc} accomp notes"
+    seq = []
+    for an in accomp_notes:
+        seq.append((an, sb, accomp_vel))
+    seq.append((melody_note, rem_b, vel))
+    return seq
 
-    ("E4", 1), ("E4", 1), ("F4", 1), ("G4", 1),
-    ("G4", 1), ("F4", 1), ("E4", 1), ("D4", 1),
-    ("C4", 1), ("C4", 1), ("D4", 1), ("E4", 1),
-    ("D4", 1.5), ("C4", 0.5), ("C4", 2),
-]
 
-# ---- 2. 小星星 Twinkle Twinkle Little Star（法国旋律 1761, PD）--------------
-TWINKLE = [
-    ("C4", 1), ("C4", 1), ("G4", 1), ("G4", 1), ("A4", 1), ("A4", 1), ("G4", 2),
-    ("F4", 1), ("F4", 1), ("E4", 1), ("E4", 1), ("D4", 1), ("D4", 1), ("C4", 2),
-    ("G4", 1), ("G4", 1), ("F4", 1), ("F4", 1), ("E4", 1), ("E4", 1), ("D4", 2),
-    ("G4", 1), ("G4", 1), ("F4", 1), ("F4", 1), ("E4", 1), ("E4", 1), ("D4", 2),
-    ("C4", 1), ("C4", 1), ("G4", 1), ("G4", 1), ("A4", 1), ("A4", 1), ("G4", 2),
-    ("F4", 1), ("F4", 1), ("E4", 1), ("E4", 1), ("D4", 1), ("D4", 1), ("C4", 2),
-]
+def flatten_notes(raw_list):
+    """展开含 CHORD(...) 子列表或二元组/三元组的乐谱序列"""
+    flat = []
+    for item in raw_list:
+        if isinstance(item, list):
+            for sub in item:
+                flat.append(sub)
+        elif isinstance(item, tuple):
+            if len(item) == 2:
+                flat.append((item[0], item[1], MELODY_VEL))
+            elif len(item) == 3:
+                flat.append(item)
+            else:
+                raise ValueError(f"Invalid note tuple: {item}")
+        else:
+            raise ValueError(f"Invalid note item: {item}")
+    return flat
 
-# ---- 3. 铃儿响叮当 Jingle Bells（J.L. Pierpont 1857, PD）--------------------
-#  只取最广为人知的副歌（chorus）8 小节，重复两遍。
-JINGLE_BELLS = [
-    ("E4", 1), ("E4", 1), ("E4", 2),
-    ("E4", 1), ("E4", 1), ("E4", 2),
-    ("E4", 1), ("G4", 1), ("C4", 1), ("D4", 1),
-    ("E4", 4),
-    ("F4", 1), ("F4", 1), ("F4", 1), ("F4", 1),
-    ("F4", 1), ("E4", 1), ("E4", 1), ("E4", 1),
-    ("E4", 1), ("D4", 1), ("D4", 1), ("E4", 1),
-    ("D4", 2), ("G4", 2),
 
-    ("E4", 1), ("E4", 1), ("E4", 2),
-    ("E4", 1), ("E4", 1), ("E4", 2),
-    ("E4", 1), ("G4", 1), ("C4", 1), ("D4", 1),
-    ("E4", 4),
-    ("F4", 1), ("F4", 1), ("F4", 1), ("F4", 1),
-    ("F4", 1), ("E4", 1), ("E4", 1), ("E4", 1),
-    ("E4", 1), ("D4", 1), ("D4", 1), ("E4", 1),
-    ("D4", 2), ("G4", 2),
-]
+# ---- 1. 欢乐颂 Ode to Joy（Beethoven, PD；多声部交响和声编配版）--------------
+ODE_TO_JOY = flatten_notes([
+    # A1 句：温暖中强 (mf) 双声部/三声部柱式和弦护航
+    CHORD(["C3", "G3"], "E4", 1, vel=98, accomp_vel=68),
+    N("E4", 1, 94),
+    N("F4", 1, 98),
+    CHORD(["G2", "B3"], "G4", 1, vel=104, accomp_vel=70),
+    CHORD(["G2", "B3"], "G4", 1, vel=102, accomp_vel=68),
+    N("F4", 1, 96),
+    CHORD(["C3", "G3"], "E4", 1, vel=94, accomp_vel=66),
+    N("D4", 1, 90),
+    CHORD(["C3", "E3"], "C4", 1, vel=96, accomp_vel=68),
+    N("C4", 1, 92),
+    N("D4", 1, 96),
+    CHORD(["C3", "G3"], "E4", 1, vel=100, accomp_vel=68),
+    CHORD(["G2", "B3"], "E4", 1.5, vel=102, accomp_vel=70),
+    N("D4", 0.5, 86),
+    CHORD(["G2", "G3", "B3"], "D4", 2, vel=96, accomp_vel=66),
 
-# ---- 4. 致爱丽丝 Für Elise（Beethoven, PD；A 段主题）------------------------
-#  原曲是右手旋律 + 左手琶音交替的钢琴曲。演示模式是单音 note 总线，
-#  所以这里只取**右手主题旋律线**（左手伴奏不在本 ROM 内）。
-#  时值以四分音符为 1 拍：十六分 = 0.25，八分 = 0.5。
-FUR_ELISE = [    ("E5", 0.25), ("D#5", 0.25), ("E5", 0.25), ("D#5", 0.25),
-    ("E5", 0.25), ("B4", 0.25), ("D5", 0.25), ("C5", 0.25),
-    ("A4", 0.75), ("C4", 0.25), ("E4", 0.25), ("A4", 0.25),
-    ("B4", 0.75), ("E4", 0.25), ("G#4", 0.25), ("B4", 0.25),
-    ("C5", 0.75), ("E4", 0.25), ("E5", 0.25), ("D#5", 0.25),
+    # A2 句：渐强推进 (f)
+    CHORD(["C3", "G3"], "E4", 1, vel=102, accomp_vel=72),
+    N("E4", 1, 98),
+    N("F4", 1, 102),
+    CHORD(["G2", "B3"], "G4", 1, vel=108, accomp_vel=74),
+    CHORD(["G2", "B3"], "G4", 1, vel=106, accomp_vel=72),
+    N("F4", 1, 100),
+    CHORD(["C3", "G3"], "E4", 1, vel=98, accomp_vel=70),
+    N("D4", 1, 94),
+    CHORD(["A2", "E3"], "C4", 1, vel=98, accomp_vel=70),
+    N("C4", 1, 94),
+    CHORD(["G2", "F3"], "D4", 1, vel=100, accomp_vel=70),
+    N("E4", 1, 102),
+    CHORD(["G2", "F3", "B3"], "D4", 1.5, vel=100, accomp_vel=68),
+    N("C4", 0.5, 88),
+    CHORD(["C3", "E3", "G3"], "C4", 2, vel=104, accomp_vel=74),
 
-    ("E5", 0.25), ("D#5", 0.25), ("E5", 0.25), ("D#5", 0.25),
-    ("E5", 0.25), ("B4", 0.25), ("D5", 0.25), ("C5", 0.25),
-    ("A4", 0.75), ("C4", 0.25), ("E4", 0.25), ("A4", 0.25),
-    ("B4", 0.75), ("E4", 0.25), ("C5", 0.25), ("B4", 0.25),
-    ("A4", 0.75),
-]
+    # B 句：柔美抒情对位 (mp -> cresc.)
+    CHORD(["G2", "B3"], "D4", 1, vel=86, accomp_vel=60),
+    N("D4", 1, 84),
+    CHORD(["C3", "G3"], "E4", 1, vel=90, accomp_vel=62),
+    N("C4", 1, 84),
+    CHORD(["G2", "B3"], "D4", 1, vel=92, accomp_vel=64),
+    N("E4", 0.5, 96),
+    N("F4", 0.5, 100),
+    CHORD(["C3", "G3"], "E4", 1, vel=94, accomp_vel=64),
+    N("C4", 1, 86),
+    CHORD(["G#2", "E3"], "D4", 1, vel=96, accomp_vel=66),
+    N("E4", 0.5, 100),
+    N("F4", 0.5, 104),
+    CHORD(["A2", "E3"], "E4", 1, vel=98, accomp_vel=68),
+    N("D4", 1, 94),
+    CHORD(["D3", "F#3"], "C4", 1, vel=96, accomp_vel=68),
+    N("D4", 1, 100),
+    CHORD(["G2", "D3", "B3"], "G3", 2, vel=106, accomp_vel=74),
 
-# ---- 我落泪情绪零碎（副歌 m.29–31）-----------------------------------------
+    # A3 再现句：辉煌全奏 (ff)
+    CHORD(["C3", "G3", "C4"], "E4", 1, vel=112, accomp_vel=78),
+    N("E4", 1, 108),
+    N("F4", 1, 110),
+    CHORD(["G2", "D3", "B3"], "G4", 1, vel=116, accomp_vel=80),
+    CHORD(["E3", "B3"], "G4", 1, vel=114, accomp_vel=76),
+    N("F4", 1, 108),
+    CHORD(["C3", "G3"], "E4", 1, vel=106, accomp_vel=74),
+    N("D4", 1, 102),
+    CHORD(["A2", "E3"], "C4", 1, vel=106, accomp_vel=74),
+    N("C4", 1, 102),
+    CHORD(["G2", "D3"], "D4", 1, vel=108, accomp_vel=76),
+    N("E4", 1, 110),
+    CHORD(["G2", "F3", "B3"], "D4", 1.5, vel=108, accomp_vel=76),
+    N("C4", 0.5, 96),
+    CHORD(["C2", "C3", "E3", "G3"], "C4", 2, vel=116, accomp_vel=82),
+])
+
+# ---- 2. 小星星 Twinkle Twinkle（1761, PD；吉他扫弦+指弹琶音编配版）----------
+#  采用 strum_beats="0.035" 模拟真实木吉他手指/拨片扫弦（低音弦→中音弦→旋律弦依次相差 17ms 扫过并共同延音）
+TWINKLE = flatten_notes([
+    # A 段：吉他指弹扫弦 + 颗粒感旋律
+    CHORD(["C3", "E3", "G3"], "C4", 1, vel=96, accomp_vel=70, strum_beats="0.035"),
+    N("C4", 1, 88),
+    CHORD(["C3", "E3"], "G4", 1, vel=102, accomp_vel=68, strum_beats="0.035"),
+    N("G4", 1, 94),
+    CHORD(["F2", "C3", "F3"], "A4", 1, vel=106, accomp_vel=72, strum_beats="0.035"),
+    N("A4", 1, 98),
+    CHORD(["C3", "E3", "C4"], "G4", 2, vel=100, accomp_vel=70, strum_beats="0.035"),
+
+    CHORD(["F2", "A3", "C4"], "F4", 1, vel=98, accomp_vel=68, strum_beats="0.035"),
+    N("F4", 1, 90),
+    CHORD(["C3", "G3"], "E4", 1, vel=94, accomp_vel=66, strum_beats="0.035"),
+    N("E4", 1, 88),
+    CHORD(["G2", "F3", "B3"], "D4", 1, vel=92, accomp_vel=66, strum_beats="0.035"),
+    N("D4", 1, 86),
+    CHORD(["C3", "E3", "G3"], "C4", 2, vel=96, accomp_vel=70, strum_beats="0.035"),
+
+    # B 段：分解琶音伴奏 + 旋律歌唱
+    CHORD(["C3", "E4"], "G4", 1, vel=102, accomp_vel=68, strum_beats="0.035"),
+    N("G4", 1, 92),
+    CHORD(["F2", "A3"], "F4", 1, vel=98, accomp_vel=66, strum_beats="0.035"),
+    N("F4", 1, 90),
+    CHORD(["C3", "G3"], "E4", 1, vel=94, accomp_vel=64, strum_beats="0.035"),
+    N("E4", 1, 88),
+    CHORD(["G2", "D3", "B3"], "D4", 2, vel=96, accomp_vel=68, strum_beats="0.035"),
+
+    CHORD(["C3", "E4"], "G4", 1, vel=104, accomp_vel=70, strum_beats="0.035"),
+    N("G4", 1, 94),
+    CHORD(["F2", "A3"], "F4", 1, vel=100, accomp_vel=68, strum_beats="0.035"),
+    N("F4", 1, 92),
+    CHORD(["C3", "G3"], "E4", 1, vel=96, accomp_vel=66, strum_beats="0.035"),
+    N("E4", 1, 88),
+    CHORD(["G2", "D3", "B3"], "D4", 2, vel=94, accomp_vel=68, strum_beats="0.035"),
+
+    # A' 再现段：莫扎特 K.265 风格双音跑动 + 饱满扫弦收尾
+    CHORD(["C3", "E3", "G3"], "C4", 1, vel=98, accomp_vel=70, strum_beats="0.035"),
+    N("E4", 0.5, 90), N("C4", 0.5, 86),
+    CHORD(["E3", "C4"], "G4", 1, vel=104, accomp_vel=70, strum_beats="0.035"),
+    N("E4", 0.5, 92), N("G4", 0.5, 96),
+    CHORD(["F2", "C3", "F3"], "A4", 1, vel=108, accomp_vel=74, strum_beats="0.035"),
+    N("C5", 0.5, 102), N("A4", 0.5, 96),
+    CHORD(["C3", "E3", "C4"], "G4", 2, vel=104, accomp_vel=72, strum_beats="0.035"),
+
+    CHORD(["F2", "A3", "C4"], "F4", 1, vel=100, accomp_vel=70, strum_beats="0.035"),
+    N("A4", 0.5, 94), N("F4", 0.5, 90),
+    CHORD(["C3", "G3", "C4"], "E4", 1, vel=96, accomp_vel=68, strum_beats="0.035"),
+    N("G4", 0.5, 92), N("E4", 0.5, 88),
+    CHORD(["G2", "F3", "B3"], "D4", 1, vel=94, accomp_vel=68, strum_beats="0.035"),
+    N("F4", 0.5, 90), N("D4", 0.5, 86),
+    CHORD(["C2", "G2", "E3", "G3"], "C4", 2, vel=108, accomp_vel=76, strum_beats="0.035"),
+])
+
+# ---- 3. 铃儿响叮当 Jingle Bells（J.L. Pierpont 1857, PD；欢快多声部伴奏版）---
+JINGLE_BELLS = flatten_notes([
+    CHORD(["C3", "G3", "C4"], "E4", 1, vel=102, accomp_vel=70),
+    N("E4", 1, 96),
+    CHORD(["C3", "G3"], "E4", 2, vel=106, accomp_vel=72),
+    CHORD(["C3", "G3", "C4"], "E4", 1, vel=104, accomp_vel=70),
+    N("E4", 1, 98),
+    CHORD(["C3", "G3"], "E4", 2, vel=108, accomp_vel=72),
+    CHORD(["C3", "G3"], "E4", 1, vel=104, accomp_vel=70),
+    N("G4", 1, 110),
+    CHORD(["A2", "E3"], "C4", 1.5, vel=102, accomp_vel=68),
+    N("D4", 0.5, 94),
+    CHORD(["C3", "G3", "C4"], "E4", 4, vel=110, accomp_vel=74),
+
+    CHORD(["F2", "C3", "A3"], "F4", 1, vel=106, accomp_vel=72),
+    N("F4", 1, 100),
+    N("F4", 1.5, 104),
+    N("F4", 0.5, 92),
+    CHORD(["C3", "G3", "C4"], "F4", 1, vel=102, accomp_vel=70),
+    N("E4", 1, 98),
+    N("E4", 1, 96),
+    N("E4", 0.5, 90), N("E4", 0.5, 92),
+    CHORD(["D3", "F#3", "A3"], "E4", 1, vel=102, accomp_vel=70),
+    N("D4", 1, 98),
+    N("D4", 1, 98),
+    N("E4", 1, 102),
+    CHORD(["G2", "D3", "B3"], "D4", 2, vel=104, accomp_vel=72),
+    CHORD(["G2", "B3", "D4"], "G4", 2, vel=114, accomp_vel=78),
+
+    # 第二遍副歌（终止式回到主音 C）
+    CHORD(["C3", "G3", "C4"], "E4", 1, vel=106, accomp_vel=72),
+    N("E4", 1, 100),
+    CHORD(["C3", "G3"], "E4", 2, vel=110, accomp_vel=74),
+    CHORD(["C3", "G3", "C4"], "E4", 1, vel=108, accomp_vel=72),
+    N("E4", 1, 102),
+    CHORD(["C3", "G3"], "E4", 2, vel=112, accomp_vel=74),
+    CHORD(["C3", "G3"], "E4", 1, vel=106, accomp_vel=72),
+    N("G4", 1, 112),
+    CHORD(["A2", "E3"], "C4", 1.5, vel=104, accomp_vel=70),
+    N("D4", 0.5, 96),
+    CHORD(["C3", "G3", "C4"], "E4", 4, vel=112, accomp_vel=76),
+
+    CHORD(["F2", "C3", "A3"], "F4", 1, vel=108, accomp_vel=74),
+    N("F4", 1, 102),
+    N("F4", 1.5, 106),
+    N("F4", 0.5, 96),
+    CHORD(["C3", "G3", "C4"], "F4", 1, vel=106, accomp_vel=72),
+    N("E4", 1, 102),
+    N("E4", 1, 100),
+    N("E4", 0.5, 94), N("E4", 0.5, 96),
+    CHORD(["G2", "D3", "B3"], "G4", 1, vel=112, accomp_vel=76),
+    N("G4", 1, 110),
+    CHORD(["G2", "F3", "B3"], "F4", 1, vel=106, accomp_vel=74),
+    N("D4", 1, 100),
+    CHORD(["C2", "C3", "E3", "G3"], "C4", 4, vel=118, accomp_vel=82),
+])
+
+# ---- 4. 致爱丽丝 Für Elise（Beethoven, PD；左手真实分解琶音 + 右手旋律完整编配）
+#  依靠 32 复音引擎与多声部 song_player，完整还原贝多芬原谱左手 A2-E3-A3 与 E2-E3-G#3 低音琶音！
+FUR_ELISE = flatten_notes([
+    # 弱起柔美触键 (p)
+    N("E5", 0.25, 82), N("D#5", 0.25, 78),
+    N("E5", 0.25, 84), N("D#5", 0.25, 80), N("E5", 0.25, 86), N("B4", 0.25, 82), N("D5", 0.25, 88), N("C5", 0.25, 84),
+    # 右手落 A4 同时左手奏响 A2 低音根音，随后左手琶音与右手交织延音
+    CHORD(["A2", "E3"], "A4", 0.50, vel=92, accomp_vel=66), N("A3", 0.25, 64),
+    N("C4", 0.25, 78), N("E4", 0.25, 84), N("A4", 0.25, 92),
+    CHORD(["E2", "E3"], "B4", 0.50, vel=94, accomp_vel=66), N("G#3", 0.25, 64),
+    N("E4", 0.25, 80), N("G#4", 0.25, 86), N("B4", 0.25, 94),
+    CHORD(["A2", "E3"], "C5", 0.50, vel=96, accomp_vel=68), N("A3", 0.25, 66),
+    N("E4", 0.25, 78), N("E5", 0.25, 84), N("D#5", 0.25, 80),
+
+    N("E5", 0.25, 86), N("D#5", 0.25, 82), N("E5", 0.25, 88), N("B4", 0.25, 84), N("D5", 0.25, 90), N("C5", 0.25, 86),
+    CHORD(["A2", "E3"], "A4", 0.50, vel=94, accomp_vel=68), N("A3", 0.25, 66),
+    N("C4", 0.25, 80), N("E4", 0.25, 86), N("A4", 0.25, 94),
+    CHORD(["E2", "E3"], "B4", 0.50, vel=96, accomp_vel=68), N("G#3", 0.25, 66),
+    N("E4", 0.25, 82), N("C5", 0.25, 94), N("B4", 0.25, 88),
+    CHORD(["A2", "E3", "A3"], "A4", 0.75, vel=92, accomp_vel=68),
+
+    # A 段第二部分（转向 C 大调与 G 大调明亮展开，mf）
+    N("B4", 0.25, 88), N("C5", 0.25, 92), N("D5", 0.25, 96),
+    CHORD(["C3", "G3"], "E5", 0.75, vel=104, accomp_vel=72),
+    N("G4", 0.25, 84), N("F5", 0.25, 106), N("E5", 0.25, 100),
+    CHORD(["G2", "G3"], "D5", 0.75, vel=102, accomp_vel=72),
+    N("F4", 0.25, 82), N("E5", 0.25, 102), N("D5", 0.25, 96),
+    CHORD(["A2", "E3"], "C5", 0.75, vel=98, accomp_vel=70),
+    N("E4", 0.25, 80), N("D5", 0.25, 98), N("C5", 0.25, 92),
+    CHORD(["E2", "E3"], "B4", 0.50, vel=94, accomp_vel=68), N("E4", 0.25, 76),
+    N("E5", 0.25, 84), N("D#5", 0.25, 80),
+
+    # 主题再现并温柔收束
+    N("E5", 0.25, 86), N("D#5", 0.25, 82), N("E5", 0.25, 88), N("B4", 0.25, 84), N("D5", 0.25, 90), N("C5", 0.25, 86),
+    CHORD(["A2", "E3"], "A4", 0.50, vel=94, accomp_vel=68), N("A3", 0.25, 66),
+    N("C4", 0.25, 80), N("E4", 0.25, 86), N("A4", 0.25, 94),
+    CHORD(["E2", "E3"], "B4", 0.50, vel=96, accomp_vel=68), N("G#3", 0.25, 66),
+    N("E4", 0.25, 82), N("C5", 0.25, 94), N("B4", 0.25, 88),
+    CHORD(["A2", "E3", "C4"], "A4", 1.25, vel=96, accomp_vel=72),
+])
+
+# ---- 0. 我落泪情绪零碎（副歌 m.29–36 完整 8 小节左手钢琴和弦+右手旋律深情编配版）
 #  ⛔ 版权：受版权保护的流行歌曲；乐谱由【使用者本人】提供（EveryonePiano，编配 JenaV）；
 #     【本队未获授权】（即"未获得任何授权"）。使用者知情决定，风险自担。
-#
-#  ★ 读谱来源：_research/songs/score_wo_luo_lei/page{1,2,3}.jpg（用户提供）
-#  ★ 换算规则：**1=B** ⇒ 1=B3 2=C#4 3=D#4 4=E4 5=F#4 6=G#4 7=A#4
-#      点在上 = +12 半音 ；点在下 = −12 半音 ；无点 = 中音区（此曲按 **B3** 起算）
-#      `-` = 延长一拍 ；下划线一条 = 八分 ；两条 = 十六分 ；附点 = ×1.5
-#  ★ ⚠️ 八度映射（中音区 = B3）**待用户听感确认**：嫌高/低 ⇒ 本表整体 ±12 半音即可
-#  ★ 只取【旋律一行】：谱上右手是"同一旋律的上下八度叠置"（两行数字相同、一行点在上
-#    一行点在下），本队是单声部顺序播放 ⇒ 只取其中一行（本表取**下面那行**）。
-#  ★ 三条交叉验证（详见 WO-LUO-LEI-NOTES.md）：
-#      ① 音节数 ↔ 音符数：`情绪零碎`/`你的世界` 各 4 音节 ↔ 各 4 个八分
-#      ② 拍数：每小节 = 2 拍(3+延长) + 4×0.5 拍 = 正好 4/4
-#      ③ 小节线像素级检测：整页竖线 x=146/633/1111/1588，跨系统对齐
-#  ★ m.29 与 m.30 **旋律完全相同**（两次独立裁图确认）—— 这是该曲的模进手法
-#  ★ m.31 的 `♭7`(`A4`) 判为【倚音】，不占时值
-#      （若占一个八分，该小节会变成 4.5 拍，4/4 装不下 —— 这是判断依据）
-WO_LUO_LEI_CHORUS = [
-    ("D#4", 2.0),                                                # m.29 3 -（无词，延长）
-    ("C#4", 0.5), ("D#4", 0.5), ("E4", 0.5), ("D#4", 0.5),       #      2 3 4 3 = 情绪零碎
-    ("D#4", 2.0),                                                # m.30 3 -（无词，延长）
-    ("C#4", 0.5), ("D#4", 0.5), ("E4", 0.5), ("D#4", 0.5),       #      2 3 4 3 = 你的世界
-    ("D#4", 0.5), ("C#4", 0.5),                                  # m.31 3 2   = 一
-    ("B3",  0.5), ("D#4", 0.5),                                  #      1 3   = 幕
-    ("D#4", 0.5), ("G#4", 0.5),                                  #      3 6   = 幕
-    ("G#4", 0.5),                                                #      (♭7)6 = 纷（♭7 作倚音）
-    ("F#4", 0.5),                                                #      5     = 飞
-]
+WO_LUO_LEI_CHORUS = flatten_notes([
+    # m.29: G#m7 和弦打底 ("D#4" 深情长音 + 左手 G#2-D#3-B3 共鸣)
+    CHORD(["G#2", "D#3", "B3"], "D#4", 2.0, vel=100, accomp_vel=68),
+    N("C#4", 0.5, 86), N("D#4", 0.5, 90), N("E4", 0.5, 96), N("D#4", 0.5, 92),  # 情绪零碎
+
+    # m.30: Eadd9 和弦打底 ("D#4" 模进长音 + 左手 E2-B2-G#3 共鸣)
+    CHORD(["E2", "B2", "G#3"], "D#4", 2.0, vel=102, accomp_vel=70),
+    N("C#4", 0.5, 88), N("D#4", 0.5, 92), N("E4", 0.5, 98), N("D#4", 0.5, 94),  # 你的世界
+
+    # m.31: F# -> B 和弦推进（一幕幕纷飞，含 A4 装饰倚音与高潮 G#4）
+    CHORD(["F#2", "C#3", "A#3"], "D#4", 0.5, vel=96, accomp_vel=68),
+    N("C#4", 0.5, 90),
+    CHORD(["B2", "F#3"], "B3", 0.5, vel=94, accomp_vel=68),
+    N("D#4", 0.5, 98),
+    CHORD(["E2", "B2", "G#3"], "D#4", 0.5, vel=102, accomp_vel=70),
+    N("G#4", 0.5, 110),
+    N("A4", 0.125, 96), N("G#4", 0.375, 108),  # 真实还原谱面 (b7)6 装饰倚音滑奏！
+    CHORD(["F#2", "C#3"], "F#4", 0.5, vel=102, accomp_vel=68),
+
+    # m.32–33: 副歌后半句延续（门外的蔷薇 / 带刺伤人的很直接）
+    CHORD(["B2", "F#3", "D#4"], "F#4", 1.5, vel=104, accomp_vel=70),
+    N("D#4", 0.5, 90),
+    CHORD(["D#2", "A#2", "F#3"], "F#4", 0.5, vel=100, accomp_vel=68),
+    N("G#4", 0.5, 106), N("A#4", 0.5, 112), N("B4", 0.5, 114),
+    CHORD(["G#2", "D#3", "B3"], "G#4", 1.5, vel=108, accomp_vel=72),
+    N("D#4", 0.5, 92),
+    CHORD(["E2", "B2", "G#3"], "E4", 0.5, vel=98, accomp_vel=68),
+    N("F#4", 0.5, 102), N("G#4", 0.5, 106), N("E4", 0.5, 96),
+    CHORD(["F#2", "C#3", "A#3"], "F#4", 2.0, vel=104, accomp_vel=70),
+    CHORD(["B1", "B2", "F#3", "D#4"], "B3", 2.0, vel=100, accomp_vel=72),
+])
 
 # =============================================================================
 #  曲目表
@@ -362,14 +566,19 @@ def dur_ticks(beats: Fraction, bpm: int) -> int:
 
 
 def compile_song(notes, bpm):
-    """(音名, 拍) 序列 → [(midi, vel, dur_ticks, 音名), ...]"""
+    """(音名, 拍[, 力度]) 序列 → [(midi, vel, dur_ticks, 音名), ...]"""
     out = []
-    for note, beats in notes:
+    for item in notes:
+        if len(item) == 3:
+            note, beats, item_vel = item
+        else:
+            note, beats = item
+            item_vel = MELODY_VEL
         beats = B(beats)
         assert beats > 0, (note, beats)
         midi = NOTE_REST if note is None else midi_of(note)
         assert midi == NOTE_REST or 0 < midi <= MAX_NOTE, (note, midi)
-        vel = 0 if midi == NOTE_REST else MELODY_VEL
+        vel = 0 if midi == NOTE_REST else int(item_vel)
         out.append((midi, vel, dur_ticks(beats, bpm), note))
     return out
 

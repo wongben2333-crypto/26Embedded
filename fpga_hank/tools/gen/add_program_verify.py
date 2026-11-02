@@ -63,7 +63,7 @@ if ($Mode -eq 'verify') {
     $svfOut = Join-Path $env:TEMP ("gsvf_" + [guid]::NewGuid().ToString('N').Substring(0,8))
     New-Item -ItemType Directory -Force -Path $svfOut | Out-Null
     Push-Location $svfOut
-    $vo = & $CLI --device $Device --fsFile $Fs --operation_index 2 --svfcreate 2>&1 | Out-String
+    $vo = & $CLI --device $Device --fsFile (Get-Item $Fs).FullName --operation_index 2 --svfcreate 2>&1 | Out-String
     Pop-Location
     $vo.Trim() -split "`n" | ForEach-Object { "         $_" }
 

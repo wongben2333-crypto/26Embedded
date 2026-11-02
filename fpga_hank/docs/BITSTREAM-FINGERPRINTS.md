@@ -1,3 +1,30 @@
+# 位流指纹表
+
+> ⭐⭐ **2026-10-08 当前固化版本（板上 Flash 里跑的就是这一份）**
+
+| 项 | 值 |
+|---|---|
+| 文件 | `out/bitstream/MODE1_current.fs`（= `MODE1_H4校准_0违例.fs`）|
+| 大小 | 39,518,465 B |
+| sha256(前16) | `0252733213DB8AB9` |
+| 完整 sha256 | `0252733213DB8AB91F9BC5BC70DEAF409175940F85DA63A486091AC855C1A1E3` |
+| **User Code** | **`0x1A2B0001`**（烧录时板卡回读，可复核）|
+| MODE | **1**（电脑控制 + 运行期演奏形态切换）|
+| SRAM 烧录 | 2026-10-08 12:29 ｜ op 2 ｜ 22.95 s ｜ 退出码 0 |
+| **Flash 固化** | **2026-10-08 12:34 ｜ op 68（thru GAO-Bridge Arora V）｜ 87.43 s ｜ 退出码 0** |
+| 上电行为 | **自动加载** → 默认自由演奏；按 `key2` 进曲目模式自动放歌 |
+
+**⇒ 操作码实测对照（本板 GW5AST-138C，同一份位流）**
+
+| op | 操作 | 结果 |
+|---|---|---|
+| 2 | SRAM Program | ✅ 成功（调试用，掉电即失）|
+| 9 | exFlash Erase,Program,Verify | ✗ `Error: spi flash not found`（退出码 64）|
+| 6 | embFlash Erase,Program,Verify | ✗ `Error: Erase Failed!`（退出码 32）|
+| **68** | ⭐ **exFlash Erase,Program thru GAO-Bridge Arora V** | ✅ **成功 100%** |
+
+---
+
 # 位流指纹表（BITSTREAM FINGERPRINTS）
 
 > **为什么要有这张表**：AGENTS.md §8.1 定的纪律是「**结论必须带版本指纹**」（时间 + `.fs` 名 + `User Code` + 资源占用）。
@@ -69,7 +96,7 @@
 
 ```powershell
 # 每次烧录后，追加一行（示例）
-$fs = "fpga_hank\out\bitstream\MODE1_电脑控制.fs"
+$fs = "fpga_hank\out\bitstream\MODE1_current.fs"   # = MODE1_H4校准_0违例.fs
 $f  = Get-Item $fs
 $h  = (Get-FileHash $fs -Algorithm SHA256).Hash.Substring(0,16)
 "{0} | {1} | {2} | {3} | {4} | <User Code> | <烧录时间> | <真板结果> | <证据强度>" -f `
