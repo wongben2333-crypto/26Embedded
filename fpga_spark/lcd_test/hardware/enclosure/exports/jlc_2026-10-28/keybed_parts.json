@@ -1,0 +1,289 @@
+{
+  "status": "PASS",
+  "source": "parameterized keybed source via checks/export_keybed_parts_source.py",
+  "part_count": 14,
+  "zip": "exports/jlc_2026-10-28/keybed_parts.zip",
+  "parts": {
+    "black_key_01_Cs4": {
+      "file": "black_key_01_Cs4.stl",
+      "triangles": 1524,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1043.624262,
+      "bounds_mm": [
+        [
+          -2.81,
+          -14.5035,
+          0.0
+        ],
+        [
+          2.81,
+          14.5035,
+          6.8
+        ]
+      ],
+      "sha256": "186ee8e651c6be6ec81bf71a3b1c246d5d56858ff42fcc51a34f9e6df20dcfc0"
+    },
+    "black_key_02_Ds4": {
+      "file": "black_key_02_Ds4.stl",
+      "triangles": 1524,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1043.623884,
+      "bounds_mm": [
+        [
+          -2.809999,
+          -14.5035,
+          0.0
+        ],
+        [
+          2.809999,
+          14.5035,
+          6.8
+        ]
+      ],
+      "sha256": "85d4b3c2098a3940284c0aa6771c4a639e164b9526d4849ece4d78c743db7caf"
+    },
+    "black_key_03_Fs4": {
+      "file": "black_key_03_Fs4.stl",
+      "triangles": 1524,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1043.624065,
+      "bounds_mm": [
+        [
+          -2.81,
+          -14.5035,
+          0.0
+        ],
+        [
+          2.81,
+          14.5035,
+          6.8
+        ]
+      ],
+      "sha256": "2eb2f32fb4912bf8ac0070382a6806bfc7165cc1418543017abf2cba90bc12d4"
+    },
+    "black_key_04_Gs4": {
+      "file": "black_key_04_Gs4.stl",
+      "triangles": 1524,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1043.62425,
+      "bounds_mm": [
+        [
+          -2.81,
+          -14.5035,
+          0.0
+        ],
+        [
+          2.81,
+          14.5035,
+          6.8
+        ]
+      ],
+      "sha256": "786fdb6a09bd66ac9e97615e71032fe596c73cdb7d1fb2befdf7b2ca70c8d91b"
+    },
+    "black_key_05_As4": {
+      "file": "black_key_05_As4.stl",
+      "triangles": 1524,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1043.623884,
+      "bounds_mm": [
+        [
+          -2.809999,
+          -14.5035,
+          0.0
+        ],
+        [
+          2.809999,
+          14.5035,
+          6.8
+        ]
+      ],
+      "sha256": "85d4b3c2098a3940284c0aa6771c4a639e164b9526d4849ece4d78c743db7caf"
+    },
+    "keybed_plate": {
+      "file": "keybed_plate.stl",
+      "triangles": 15606,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 8544.844177,
+      "bounds_mm": [
+        [
+          -49.0,
+          -26.7875,
+          0.0
+        ],
+        [
+          49.0,
+          26.7875,
+          5.4
+        ]
+      ],
+      "sha256": "eee27139e92d484f9b2e8c203f6cabc40b7caea642bc99c0574469a8d7f22a7a"
+    },
+    "white_key_01_C4": {
+      "file": "white_key_01_C4.stl",
+      "triangles": 1532,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1964.45442,
+      "bounds_mm": [
+        [
+          -5.25,
+          -23.775,
+          0.0
+        ],
+        [
+          5.25,
+          23.775,
+          4.8
+        ]
+      ],
+      "sha256": "aa7175d47b85a339b629c6c952bbab7ab30eb672535b013c3361fa53ae67c162"
+    },
+    "white_key_02_D4": {
+      "file": "white_key_02_D4.stl",
+      "triangles": 1540,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1597.296232,
+      "bounds_mm": [
+        [
+          -5.25,
+          -23.775,
+          0.0
+        ],
+        [
+          5.25,
+          23.775,
+          4.8
+        ]
+      ],
+      "sha256": "692fa1906dd1891576ba3c19ecc680af78e8c5249d7cd0d6b082b5840afbf515"
+    },
+    "white_key_03_E4": {
+      "file": "white_key_03_E4.stl",
+      "triangles": 1532,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1964.454417,
+      "bounds_mm": [
+        [
+          -5.25,
+          -23.775,
+          0.0
+        ],
+        [
+          5.25,
+          23.775,
+          4.8
+        ]
+      ],
+      "sha256": "4c8c2633327bef9f7f41c93f3aeaa8c01a0dfd3ffb90b7f649fa8ff43f8a0698"
+    },
+    "white_key_04_F4": {
+      "file": "white_key_04_F4.stl",
+      "triangles": 1532,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1964.454511,
+      "bounds_mm": [
+        [
+          -5.25,
+          -23.775,
+          0.0
+        ],
+        [
+          5.25,
+          23.775,
+          4.8
+        ]
+      ],
+      "sha256": "bdd5dc49d46f2a6dfa5229d845691911c3e3a4d899b548ad168b6a01943a311d"
+    },
+    "white_key_05_G4": {
+      "file": "white_key_05_G4.stl",
+      "triangles": 1540,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1597.296459,
+      "bounds_mm": [
+        [
+          -5.25,
+          -23.775,
+          0.0
+        ],
+        [
+          5.25,
+          23.775,
+          4.8
+        ]
+      ],
+      "sha256": "4fba01ebaf141f09a5aa2fbb3658259de22c1fa2296ebc0db079722d97ba6e15"
+    },
+    "white_key_06_A4": {
+      "file": "white_key_06_A4.stl",
+      "triangles": 1540,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1597.296363,
+      "bounds_mm": [
+        [
+          -5.25,
+          -23.775,
+          0.0
+        ],
+        [
+          5.25,
+          23.775,
+          4.8
+        ]
+      ],
+      "sha256": "ceab2b15fc0a08b4ae0398f54a86811cc17e33d2db8705c1c103963e128a6104"
+    },
+    "white_key_07_B4": {
+      "file": "white_key_07_B4.stl",
+      "triangles": 1532,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 1964.454418,
+      "bounds_mm": [
+        [
+          -5.25,
+          -23.775,
+          0.0
+        ],
+        [
+          5.25,
+          23.775,
+          4.8
+        ]
+      ],
+      "sha256": "4d49c8db17ea74565f2779da75b55537b7a3a81558a854f31494f25770511655"
+    },
+    "white_key_08_C5": {
+      "file": "white_key_08_C5.stl",
+      "triangles": 1524,
+      "watertight": true,
+      "winding_consistent": true,
+      "volume_mm3": 2331.612606,
+      "bounds_mm": [
+        [
+          -5.25,
+          -23.775,
+          0.0
+        ],
+        [
+          5.25,
+          23.775,
+          4.8
+        ]
+      ],
+      "sha256": "ed5cee08a0b43a889393be34361b579b9af63bb7f788a276027eb26efbe2929e"
+    }
+  },
+  "orientation": "Each part was rotated so its functional height is +Z, centered in XY, and placed at Z=0."
+}

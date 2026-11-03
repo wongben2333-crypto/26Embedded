@@ -41,3 +41,9 @@ fpga_hank/_tools/
 *.wav
 
 **/old_working.fs
+
+**/eda_proj/
+**/out/
+**/*.wlf
+**/modelsim.ini
+**/transcript

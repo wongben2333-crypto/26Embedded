@@ -134,18 +134,25 @@ module song_player #(
     output reg         off_valid,     // note-off 脉冲
     output reg  [6:0]  off_note,
 
-    // ---- 状态输出（给 LED 与调试）----
-    output wire        playing,       // 正在播放
-    output wire        paused,        // ★ 暂停中（note_idx/dur_cnt 已冻结、当前音已释放）
-    output wire [3:0]  song_index,    // 当前第几首（0 起）
-    output wire [3:0]  song_count,    // 共几首
-    output wire [7:0]  song_elapsed_sec, // 实时播放已过秒数 (0..59)
-    output wire [7:0]  song_elapsed_min, // 实时播放已过分钟数 (0..59)
-    output wire [7:0]  song_total_sec,   // 当前曲目总秒数
-    output wire [7:0]  song_progress_pct,// 实时播放进度百分比 (0..100)
-    output wire [8:0]  song_note_idx,    // 当前音符序号
-    output wire [5:0]  song_sub_scroll,  // 音符槽内平滑滚动像素 (0..59)
-    output wire [6:0]  song_active_note  // 当前正在发声的音符 (0=无)
+    // ---- 状态输出（给 LED、LCD UI Page 3 与演奏表情总线）----
+    output wire        playing,           // 正在播放
+    output wire        paused,            // ★ 暂停中（note_idx/dur_cnt 已冻结、当前音已释放）
+    output wire [3:0]  song_index,        // 当前第几首（0 起）
+    output wire [3:0]  song_count,        // 共几首
+    output wire [7:0]  song_elapsed_sec,  // 实时播放已过秒数 (0..59)
+    output wire [7:0]  song_elapsed_min,  // 实时播放已过分钟数 (0..59)
+    output wire [7:0]  song_total_sec,    // 当前曲目总秒数
+    output wire [7:0]  song_progress_pct, // 实时播放进度百分比 (0..100)
+    output wire [8:0]  song_note_idx,     // 当前音符序号
+    output wire [5:0]  song_sub_scroll,   // 音符槽内平滑滚动像素 (0..59)
+    output wire [6:0]  song_active_note,  // 当前正在发声的主旋律音符 (0=无)
+    // ---- 自动演奏技巧表情输出（延音踏板/揉弦/连奏滑音）----
+    output wire        song_sustain,
+    output wire        song_vib_on,
+    output wire [6:0]  song_vib_depth,
+    output wire [6:0]  song_vib_rate,
+    output wire        song_glide_on,
+    output wire [6:0]  song_glide_time
 );
 
     // ------------------------------------------------------------- 状态编码 ----
@@ -157,23 +164,11 @@ module song_player #(
                      S_ALLOFF = 3'd5,   // 发 all-notes-off 扫描（128 拍）
                      S_PAUSE  = 3'd6;   // ★ 暂停（位置冻结；当前音已释放）
 
-    // 休止符编码。⚠️ 注意：7'h7F 在 off 总线上【不再】代表"全部松开"——
-    // 全关是用 128 拍扫描表达的（见文件头）。这里的 7'h7F 只是 song_rom 里
-    // "这个地址是休止符、不发 note-on"的标记，两者语义无关。
-    localparam [6:0] NOTE_REST = 7'h7F;
-
-    // all-notes-off 扫描：off_note 依次 = 0..127，共 128 拍
-    // （与 midi_rx.v 解析 CC123 的产出方式一致，下游只需一套语义）
+    localparam [6:0] NOTE_REST   = 7'h7F;
     localparam [6:0] ALLOFF_LAST = 7'd127;
 
-    // GAP_TICKS=0 时按 CLK_HZ 折算 2.62 ms：50e6/195312 = 256 tick
-    // （tick = 512 clk ⇒ 256×512/50e6 = 2.62 ms）。用 CLK_HZ 而不是写死 256，
-    // 这样换时钟频率时回退值跟着变 —— 参数不是摆设。
     localparam integer GAP_DEF = CLK_HZ / 195312;
     localparam integer GAP_RAW = (GAP_TICKS > 0) ? GAP_TICKS : GAP_DEF;
-    // ⚠️ 用 sized localparam 承接，不写 `GAP_RAW[20:0]`：对 integer 参数做位选
-    //    在 ModelSim 上能过，但属于依赖工具宽容度的写法；本模块要交给 Lead 综合，
-    //    主动避开任何可能被综合器挑剔的构造。
     localparam [20:0]  GAP_RAW_C = GAP_RAW;
     localparam [20:0]  GAP_C     = (GAP_RAW < 1) ? 21'd1 : GAP_RAW_C;
 
@@ -184,13 +179,16 @@ module song_player #(
     reg [8:0]  note_idx;        // 当前/下一个音符的 ROM 序号
     reg [19:0] dur_cnt;         // 槽内已过的 sample_tick 数
     reg [19:0] cur_dur;         // 本音符槽长（sample_tick）
-    reg [6:0]  active_note;     // 正在响的音（用于 off）
-    reg        has_active;      // 1 = 有音正在响、还没发过 off
+    reg [6:0]  active_note;     // 正在响的主音（用于 off 与五线谱显示）
+    reg        has_active;      // 1 = 有主音正在响、还没发过 off
+    // ★ 多声部和弦/吉他扫弦伴奏缓存（最多同时保持 4 个伴奏和弦音与主旋律叠加共鸣）
+    reg [6:0]  chord_notes [0:3];
+    reg [2:0]  chord_cnt;
     reg        key_play_d, key_next_d;
-    reg        key_pause_d, run_en_d;   // ★ 新增
-    reg        paused_r;                // ★ 1 = 暂停中
-    reg [6:0]  active_vel;              // ★ 正在响的音的力度（恢复时要重发 note-on）
-    reg        pause_had_note;          // ★ 暂停时那一刻"是否有音在响"（休止符上暂停 ⇒ 恢复也不发 note-on）
+    reg        key_pause_d, run_en_d;
+    reg        paused_r;
+    reg [6:0]  active_vel;
+    reg        pause_had_note;
     reg [6:0]  alloff_cnt;      // all-notes-off 扫描计数 0..127
     reg [16:0] sec_tick_cnt;    // 97656.25 Hz 节拍计数 (0..97655)
     reg [7:0]  cur_sec;         // 当前秒数 (0..59)
@@ -200,7 +198,6 @@ module song_player #(
     wire [34:0] rom_dout;
     wire [3:0]  rom_n_songs;
 
-    // ★ addr 用【组合】的 note_idx：与 wave_rom.v 的读法一致（同步 ROM 读）。
     song_rom u_rom (
         .clk     (clk),
         .song    (song_index_r),
@@ -215,134 +212,145 @@ module song_player #(
     wire [19:0] r_dur  = rom_dout[19:0];
 
     // ------------------------------------------------------------- 对外输出 ----
-    // song_count 直接透传 ROM 的 n_songs ⇒ 生成器改了歌数，这里自动跟上，
-    // 不存在"两处硬编码不同步"的可能。
     assign playing    = playing_r;
     assign paused     = paused_r;
     assign song_index = song_index_r;
     assign song_count = rom_n_songs;
 
-    reg [7:0]  total_sec_r;
+    reg [7:0]   total_sec_r;
     reg [7:0]  total_notes_r;
-    reg [14:0] inv_notes_q12;
+    reg [16:0] inv_notes_q16;
     always @(*) begin
         case (song_index_r)
-            4'd0: begin total_sec_r = 8'd11; total_notes_r = 8'd18; inv_notes_q12 = 15'd22756; end // 我落泪情绪零碎
-            4'd1: begin total_sec_r = 8'd38; total_notes_r = 8'd62; inv_notes_q12 = 15'd6607;  end // 欢乐颂
-            4'd2: begin total_sec_r = 8'd24; total_notes_r = 8'd42; inv_notes_q12 = 15'd9753;  end // 小星星
-            4'd3: begin total_sec_r = 8'd27; total_notes_r = 8'd50; inv_notes_q12 = 15'd8192;  end // 铃儿响叮当
-            4'd4: begin total_sec_r = 8'd6;  total_notes_r = 8'd37; inv_notes_q12 = 15'd11071; end // 致爱丽丝
-            default: begin total_sec_r = 8'd30; total_notes_r = 8'd40; inv_notes_q12 = 15'd10240; end
+            4'd0: begin total_sec_r = 8'd22; total_notes_r = 8'd68;  inv_notes_q16 = 17'd96377; end // 我落泪情绪零碎 (多声部版)
+            4'd1: begin total_sec_r = 8'd38; total_notes_r = 8'd135; inv_notes_q16 = 17'd48546; end // 欢乐颂 (交响合唱版)
+            4'd2: begin total_sec_r = 8'd24; total_notes_r = 8'd112; inv_notes_q16 = 17'd58515; end // 小星星 (吉他扫弦指弹版)
+            4'd3: begin total_sec_r = 8'd27; total_notes_r = 8'd116; inv_notes_q16 = 17'd56497; end // 铃儿响叮当 (多声部伴奏版)
+            4'd4: begin total_sec_r = 8'd12; total_notes_r = 8'd104; inv_notes_q16 = 17'd63016; end // 致爱丽丝 (双手琶音完整版)
+            default: begin total_sec_r = 8'd30; total_notes_r = 8'd100; inv_notes_q16 = 17'd65536; end
         endcase
     end
 
     wire [8:0]  cur_note_idx_w = (note_idx > 9'd0) ? (note_idx - 9'd1) : 9'd0;
-    wire [23:0] pct_q12 = cur_note_idx_w * inv_notes_q12;
-    wire [7:0]  pct_w   = (cur_note_idx_w >= total_notes_r) ? 8'd100 : pct_q12[19:12];
+    wire [25:0] pct_mult = cur_note_idx_w * inv_notes_q16;
+    wire [7:0]  pct_w = (cur_note_idx_w >= {1'b0, total_notes_r}) ? 8'd100 : pct_mult[23:16];
 
-    wire [11:0] dur_top = dur_cnt[19:8];
-    wire [11:0] cur_top = (cur_dur[19:8] == 12'd0) ? 12'd1 : cur_dur[19:8];
-    wire [17:0] scroll_num = dur_top * 6'd60;
-
-    // Register outputs and incrementally track sub_scroll without combinational division
     reg [7:0]  song_progress_pct_r;
     reg [8:0]  song_note_idx_r;
     reg [5:0]  song_sub_scroll_r;
-    wire [17:0] next_scroll_thr = (song_sub_scroll_r + 6'd1) * cur_top;
+    reg [20:0] scroll_acc;
 
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            song_progress_pct_r <= 8'd0;
-            song_note_idx_r     <= 9'd0;
-            song_sub_scroll_r   <= 6'd0;
-        end else begin
-            song_progress_pct_r <= pct_w;
-            song_note_idx_r     <= cur_note_idx_w;
-            if ((state != S_WAIT) || (dur_cnt == 20'd0))
-                song_sub_scroll_r <= 6'd0;
-            else if ((song_sub_scroll_r < 6'd59) && (scroll_num >= next_scroll_thr))
-                song_sub_scroll_r <= song_sub_scroll_r + 6'd1;
-        end
-    end
-
-    assign song_elapsed_sec = cur_sec;
-    assign song_elapsed_min = cur_min;
-    assign song_total_sec   = total_sec_r;
-    assign song_progress_pct= song_progress_pct_r;
-    assign song_note_idx    = song_note_idx_r;
-    assign song_sub_scroll  = song_sub_scroll_r;
-    assign song_active_note = has_active ? active_note : 7'd0;
+    assign song_elapsed_sec  = cur_sec;
+    assign song_elapsed_min  = cur_min;
+    assign song_total_sec    = total_sec_r;
+    assign song_progress_pct = song_progress_pct_r;
+    assign song_note_idx     = song_note_idx_r;
+    assign song_sub_scroll   = (state == S_WAIT) ? song_sub_scroll_r : 6'd0;
+    assign song_active_note  = has_active ? active_note : 7'd0;
 
     // ------------------------------------------------------------- 按键边沿 ----
-    // key_play / key_next 是【顶层已同步去抖后的电平】。本模块只取上升沿：
-    // 机械按键会被按住很久，电平驱动会导致反复切换（见文件头决策 (1)）。
     always @(posedge clk) begin
         key_play_d  <= key_play;
         key_next_d  <= key_next;
-        key_pause_d <= key_pause;      // ★
-        run_en_d    <= run_en;         // ★
+        key_pause_d <= key_pause;
+        run_en_d    <= run_en;
     end
     wire play_press  = key_play  & ~key_play_d;
     wire next_press  = key_next  & ~key_next_d;
-    wire pause_press = key_pause & ~key_pause_d;   // ★ 暂停/恢复切换
-    wire run_rise    = run_en    & ~run_en_d;      // ★ 0→1：进入曲目模式 ⇒ 自动从头播放
+    wire pause_press = key_pause & ~key_pause_d;
+    wire run_rise    = run_en    & ~run_en_d;
 
-    // ------------------------------------------------------- 槽长组合比较 ----
-    // cur_dur 至少按 1 处理：ROM 里 dur 恒 ≥1（生成器已断言），这里是防御性的。
+    // ------------------------------------------------------- 槽长与和弦层判定 ----
     wire [19:0] cur_dur_s = (cur_dur == 20'd0) ? 20'd1 : cur_dur;
-    // off 应在槽末【之前】GAP 发出；GAP 比槽还长时退化为"第 1 个 tick 就 off"
+    // ★ 当音符时值 <= 2500 tick (25.6 ms) 时，判定为【多声部和弦伴奏音 / 吉他扫弦弦音】：
+    //   不提前发 off，直接保持发声并装入 chord_notes，与随后的主旋律音共同延音！
+    wire        is_chord_layer = (cur_dur_s <= 20'd2500);
     wire [20:0] off_at = (cur_dur_s > GAP_C) ? ({1'b0, cur_dur_s} - GAP_C) : 21'd1;
-    // 下一拍的计数值（用 21 bit 承接，避免 cur_dur 取满时回绕）
     wire [20:0] dn = {1'b0, dur_cnt} + 21'd1;
+
+    // 自动演奏技巧输出：
+    // 1. 延音踏板：在每个和弦乐句内部保持踩下，仅在主音槽末断句换气窗口抬起清音
+    assign song_sustain    = playing_r && ((state != S_WAIT) || is_chord_layer || (dn < off_at));
+    // 2. 自动揉弦：主旋律在起弓 80 ms 后自然绽放揉弦，短音微揉，长音深情吟唱
+    wire        vib_delay_ok = (dur_cnt >= 20'd8000);
+    assign song_vib_on     = playing_r && (cur_dur_s >= 20'd10000) && vib_delay_ok;
+    assign song_vib_depth  = (cur_dur_s >= 20'd50000) ? 7'd36 :
+                             (cur_dur_s >= 20'd25000) ? 7'd26 : 7'd16;
+    assign song_vib_rate   = 7'd55; // 5.5 Hz 自然揉弦速率
+    // 3. 曲目模式禁用全局滑音（防止多声部和弦伴奏被滑音偷声部）
+    assign song_glide_on   = 1'b0;
+    assign song_glide_time = 7'd0;
 
     // ------------------------------------------------------------------ FSM ----
     always @(posedge clk) begin
         if (!rst_n) begin
-            state        <= S_IDLE;
-            playing_r    <= 1'b0;
-            song_index_r <= 4'd0;
-            note_idx     <= 9'd0;
-            dur_cnt      <= 20'd0;
-            cur_dur      <= 20'd0;
-            active_note  <= 7'd0;
-            active_vel   <= 7'd0;          // ★
-            has_active   <= 1'b0;
-            paused_r     <= 1'b0;          // ★
-            pause_had_note <= 1'b0;        // ★
-            alloff_cnt   <= 7'd0;
-            sec_tick_cnt <= 17'd0;
-            cur_sec      <= 8'd0;
-            cur_min      <= 8'd0;
-            on_valid     <= 1'b0;
-            on_note      <= 7'd0;
-            on_vel       <= 7'd0;
-            off_valid    <= 1'b0;
-            off_note     <= 7'd0;
+            state          <= S_IDLE;
+            playing_r      <= 1'b0;
+            song_index_r   <= 4'd0;
+            note_idx       <= 9'd0;
+            dur_cnt        <= 20'd0;
+            cur_dur        <= 20'd0;
+            active_note    <= 7'd0;
+            active_vel     <= 7'd0;
+            has_active     <= 1'b0;
+            chord_notes[0] <= 7'd0;
+            chord_notes[1] <= 7'd0;
+            chord_notes[2] <= 7'd0;
+            chord_notes[3] <= 7'd0;
+            chord_cnt      <= 3'd0;
+            paused_r       <= 1'b0;
+            pause_had_note <= 1'b0;
+            alloff_cnt     <= 7'd0;
+            sec_tick_cnt        <= 17'd0;
+            cur_sec             <= 8'd0;
+            cur_min             <= 8'd0;
+            song_progress_pct_r <= 8'd0;
+            song_note_idx_r     <= 9'd0;
+            song_sub_scroll_r   <= 6'd0;
+            scroll_acc          <= 21'd0;
+            on_valid            <= 1'b0;
+            on_note             <= 7'd0;
+            on_vel              <= 7'd0;
+            off_valid           <= 1'b0;
+            off_note            <= 7'd0;
         end else begin
-            // 两个脉冲默认拉低，需要时在下面某一拍置 1 —— 保证严格 1 拍宽。
             on_valid  <= 1'b0;
             off_valid <= 1'b0;
+            song_progress_pct_r <= pct_w;
+            song_note_idx_r     <= cur_note_idx_w;
 
-            // ★★★ 全局最高优先级（2026-10-06 新增）：运行期模式使能 run_en ★★★
-            //   run_en = 0（离开曲目模式）⇒ 强制停止，且**只发起一次**：
-            //     发起后必须让 S_OFF → S_ALLOFF **自然走完** 128 拍全关扫描，
-            //     否则扫描会被反复打断、总线上留下半套 all-off（比不停更危险）。
-            //     所以这里的条件里显式排除 S_OFF / S_ALLOFF / S_IDLE。
+            // 实时播放秒表计数
+            if (state == S_IDLE) begin
+                sec_tick_cnt <= 17'd0;
+                cur_sec      <= 8'd0;
+                cur_min      <= 8'd0;
+            end else if (playing_r && sample_tick) begin
+                if (sec_tick_cnt >= 17'd97655) begin
+                    sec_tick_cnt <= 17'd0;
+                    if (cur_sec >= 8'd59) begin
+                        cur_sec <= 8'd0;
+                        if (cur_min < 8'd59) cur_min <= cur_min + 8'd1;
+                    end else begin
+                        cur_sec <= cur_sec + 8'd1;
+                    end
+                end else begin
+                    sec_tick_cnt <= sec_tick_cnt + 17'd1;
+                end
+            end
+
+            // ★★★ 全局最高优先级：运行期模式使能 run_en ★★★
             if (!run_en && (state != S_IDLE) && (state != S_OFF) && (state != S_ALLOFF)) begin
                 playing_r <= 1'b0;
                 paused_r  <= 1'b0;
                 state     <= S_OFF;
             end
-            // run_en 0→1 = 进入曲目模式 ⇒ **自动从头播放**（⇒ top.v 不必在外面造脉冲）
             else if (run_rise && (state == S_IDLE)) begin
                 playing_r  <= 1'b1;
                 paused_r   <= 1'b0;
                 note_idx   <= 9'd0;
                 dur_cnt    <= 20'd0;
                 has_active <= 1'b0;
-                sec_tick_cnt <= 17'd0;
-                cur_sec    <= 8'd0;
-                cur_min    <= 8'd0;
+                chord_cnt  <= 3'd0;
                 state      <= S_LOAD;
             end
             else begin
@@ -351,17 +359,13 @@ module song_player #(
             // ------------------------------------------------------- 停止 ----
             S_IDLE: begin
                 if (play_press) begin
-                    // 按键1 上升沿 = 从第 1 个音符开始播
                     playing_r  <= 1'b1;
                     note_idx   <= 9'd0;
                     dur_cnt    <= 20'd0;
-                    has_active <= 1'b0;          // 停止时已经全 off 过
-                    sec_tick_cnt <= 17'd0;
-                    cur_sec    <= 8'd0;
-                    cur_min    <= 8'd0;
+                    has_active <= 1'b0;
+                    chord_cnt  <= 3'd0;
                     state      <= S_LOAD;
                 end
-                // key_next 在这里【故意】不响应：切歌只在播放时有效
             end
 
             // ------------------------------------------- 等 ROM（1 拍）----
@@ -372,18 +376,19 @@ module song_player #(
             // ------------------------------------- 锁存音符 + 发 note-on ----
             S_LATCH: begin
                 if (r_end) begin
-                    // 曲末 → 单曲循环
-                    note_idx <= 9'd0;
+                    note_idx     <= 9'd0;
                     sec_tick_cnt <= 17'd0;
-                    cur_sec  <= 8'd0;
-                    cur_min  <= 8'd0;
-                    state    <= S_LOAD;
+                    cur_sec      <= 8'd0;
+                    cur_min      <= 8'd0;
+                    chord_cnt    <= 3'd0;
+                    state        <= S_OFF;
                 end else begin
-                    note_idx <= note_idx + 9'd1;   // 预取下一个音符
-                    dur_cnt  <= 20'd0;
-                    cur_dur  <= r_dur;
+                    note_idx          <= note_idx + 9'd1;
+                    dur_cnt           <= 20'd0;
+                    cur_dur           <= r_dur;
+                    scroll_acc        <= 21'd0;
+                    song_sub_scroll_r <= 6'd0;
                     if (r_note == NOTE_REST) begin
-                        // 休止符：只占时值，不发任何命令
                         has_active <= 1'b0;
                         state      <= S_WAIT;
                     end else begin
@@ -391,7 +396,7 @@ module song_player #(
                         on_note     <= r_note;
                         on_vel      <= r_vel;
                         active_note <= r_note;
-                        active_vel  <= r_vel;      // ★ 恢复时要重发 note-on，力度也要留住
+                        active_vel  <= r_vel;
                         has_active  <= 1'b1;
                         state       <= S_WAIT;
                     end
@@ -400,49 +405,42 @@ module song_player #(
 
             // ------------------------------------------------- 数槽长 ----
             S_WAIT: begin
-                // ★ 优先级：停止 > 切歌 > 正常计数
-                //   两个键同拍按下时选"停止"——停止是更安全的结果（不会留下
-                //   一个没人管的播放状态）。
                 if (play_press) begin
-                    playing_r <= 1'b0;                 // 立刻反映到 playing/LED
-                    state     <= S_OFF;                // 逐音 off 后再走 128 拍全关扫描
+                    playing_r <= 1'b0;
+                    state     <= S_OFF;
                 end else if (pause_press) begin
-                    // ★ 暂停：**先释放当前音**（否则暂停后那个音会一直挂着响），
-                    //   **但 note_idx / dur_cnt【一个都不动】** ⇒ 位置被冻结，
-                    //   恢复时从冻结的 dur_cnt 接着数 ⇒ "接着放，不是从头"。
                     if (has_active) begin
                         off_valid  <= 1'b1;
                         off_note   <= active_note;
                         has_active <= 1'b0;
                     end
-                    pause_had_note <= has_active;      // 记下"暂停这一刻是否有音"
+                    pause_had_note <= has_active;
                     playing_r      <= 1'b0;
                     paused_r       <= 1'b1;
                     state          <= S_PAUSE;
                 end else if (next_press) begin
-                    // 按键2：切下一首（放完最后一首回到第一首）
                     song_index_r <= (song_index_r + 4'd1 >= rom_n_songs)
                                     ? 4'd0 : (song_index_r + 4'd1);
-                    note_idx  <= 9'd0;                 // 新曲从第 1 个音符放
-                    dur_cnt   <= 20'd0;
+                    note_idx     <= 9'd0;
+                    dur_cnt      <= 20'd0;
                     sec_tick_cnt <= 17'd0;
-                    cur_sec   <= 8'd0;
-                    cur_min   <= 8'd0;
-                    state     <= has_active ? S_OFF : S_LOAD;
+                    cur_sec      <= 8'd0;
+                    cur_min      <= 8'd0;
+                    chord_cnt    <= 3'd0;
+                    // 切歌时走 S_OFF -> S_ALLOFF 清空上一首可能残留的和弦伴奏音，然后自动进 S_LOAD
+                    state        <= S_OFF;
                 end else if (sample_tick) begin
                     dur_cnt <= dn[19:0];
-                    if (sec_tick_cnt >= 17'd97655) begin
-                        sec_tick_cnt <= 17'd0;
-                        if (cur_sec >= 8'd59) begin
-                            cur_sec <= 8'd0;
-                            cur_min <= cur_min + 8'd1;
-                        end else begin
-                            cur_sec <= cur_sec + 8'd1;
-                        end
+                    if (scroll_acc + 21'd60 >= {1'b0, cur_dur_s}) begin
+                        scroll_acc <= scroll_acc + 21'd60 - {1'b0, cur_dur_s};
+                        if (song_sub_scroll_r < 6'd59)
+                            song_sub_scroll_r <= song_sub_scroll_r + 6'd1;
                     end else begin
-                        sec_tick_cnt <= sec_tick_cnt + 17'd1;
+                        scroll_acc <= scroll_acc + 21'd60;
                     end
-                    // 槽末之前先静音，给下一个音符留出断句的缝
+                    // 每个音符（含和弦分解短音与主旋律长音）均在自身 off_at 处发出 off_valid：
+                    // · 钢琴/吉他模式下 song_sustain=1，短和弦音自动进入引擎 v_sus_pend 延音，并在主音槽末随踏板抬起一并释放；
+                    // · 小提琴模式下 sustain=0，短音即刻松弓，彻底杜绝多音持续拉弓轰鸣与漏关死音！
                     if (has_active && (dn >= off_at)) begin
                         off_valid  <= 1'b1;
                         off_note   <= active_note;
@@ -462,74 +460,45 @@ module song_player #(
                     off_note   <= active_note;
                     has_active <= 1'b0;
                 end
+                chord_cnt  <= 3'd0;
                 alloff_cnt <= 7'd0;
-                // 停止流程要继续发 all-notes-off 扫描；切歌流程直接去取新曲的音符
-                state <= playing_r ? S_LOAD : S_ALLOFF;
+                state      <= S_ALLOFF;
             end
 
             // ------------------------- all-notes-off 扫描（128 拍 0..127）----
-            // ★ 语义与 midi_rx.v 解析 CC123 时的产出**完全一致**：连续 128 拍
-            //   off_valid，off_note 依次 0,1,…,127。下游 top.v 只实现一套即可。
-            //   （本模块第一版曾用单拍 off_note=7'h7F 当广播码，已废弃 ——
-            //     同一条总线上两种方言必然出事。）
-            //   每拍一个音符，128 拍共 2.56 µs，相对顶层去抖窗口 2.621 ms 可忽略。
             S_ALLOFF: begin
                 off_valid <= 1'b1;
                 off_note  <= alloff_cnt;
                 if (alloff_cnt == ALLOFF_LAST) begin
                     alloff_cnt <= 7'd0;
-                    state      <= S_IDLE;
+                    state      <= playing_r ? S_LOAD : S_IDLE;
                 end else begin
                     alloff_cnt <= alloff_cnt + 7'd1;
                 end
             end
 
             // ------------------------------------------- 暂停（位置冻结）----
-            //  进入本状态时：当前音**已释放**、note_idx 与 dur_cnt **都已冻结**
-            //  ⇒ 这里只等"恢复"或"停止"。
-            //  · pause_press ⇒ 恢复：重发当前音的 note-on，**从冻结的 dur_cnt 继续**
-            //                  （这就是用户要的"暂停/恢复：能接着放，不是从头"）
-            //  · play_press  ⇒ 停止（与其它状态一致：key_play 仍是"播放/停止"开关，
-            //                  语义未改 ⇒ 不影响原有 48 条断言）
-            //  · next_press  ⇒ **刻意不响应**：暂停中切歌会让"恢复哪个音"变得含糊
             S_PAUSE: begin
                 if (pause_press) begin
                     paused_r  <= 1'b0;
                     playing_r <= 1'b1;
                     if (pause_had_note) begin
                         on_valid   <= 1'b1;
-                        on_note    <= active_note;   // 用锁存下来的音，不是 ROM 的预取音
+                        on_note    <= active_note;
                         on_vel     <= active_vel;
                         has_active <= 1'b1;
                     end
-                    // ⚠️ dur_cnt【不写】⇒ 保持冻结值，恢复后接着数 ✓
                     state <= S_WAIT;
                 end else if (play_press) begin
                     paused_r  <= 1'b0;
                     playing_r <= 1'b0;
-                    state     <= S_OFF;              // 走完 128 拍全关后回 S_IDLE
+                    state     <= S_OFF;
                 end
             end
 
             default: state <= S_IDLE;
             endcase
-            end   // ★ 与上面的 `else begin`（run_en / run_rise 全局优先级）配对
-
-            // ⚠️ 已知的"死窗口"：停止流程要经过 S_OFF（1 拍）+ S_ALLOFF（128 拍）
-            //    才回 S_IDLE，这 129 个 clk（2.58 µs @50 MHz）内新按下的 key_play
-            //    会被忽略。人手的按键间隔远大于 2.58 µs，且顶层去抖窗口本身就有
-            //    2.621 ms（是它的 1000 倍），故不构成实际问题；这里写明是防止
-            //    将来有人看到"连点两下只生效一次"却找不到原因。
-            //    （若将来真要消除这个窗口，在 S_ALLOFF 里允许 play_press 抢占、
-            //      把扫描剩余部分丢弃即可——但那样会在总线上留半套扫描，
-            //      反而更危险，故不做。）
-            //
-            // ⚠️ 另一个更小的同类窗口（本模块自己查出来的，不是已知问题）：
-            //    S_LOAD / S_LATCH 这 2 拍里**不检查 key_next** —— 只有 S_WAIT
-            //    才响应切歌。取一个音符固定占 2 clk，而最短的音符槽长是
-            //    12207 tick（致爱丽丝的十六分音符）⇒ 按键恰好落进这 2 拍的概率
-            //    < 0.02%。落空的表现只是"这一下没切"，再按一次即可。
-            //    刻意不修：为消除它要再加一套 latch，复杂度高于收益。
+            end
         end
     end
 

@@ -56,7 +56,7 @@ module cab_biquad (
     // 相 1
     always @(posedge clk) begin
         if (!rst_n) begin
-            x1 <= 16'sd0; x2 <= 16'sd0; y1 <= 16'sd0; y2 <= 16'sd0; xr <= 16'sd0;
+            x1 <= 16'sd0; x2 <= 16'sd0; y1 <= 16'sd0; y2 <= 16'sd0; xr <= 16'sd0; y <= 16'sd0;
             p0 <= 37'sd0; p1 <= 37'sd0; p2 <= 37'sd0; p3 <= 37'sd0; p4 <= 37'sd0;
         end else if (en_p) begin
             xr <= x;
@@ -65,6 +65,13 @@ module cab_biquad (
             p2 <= x2 * c_b2;
             p3 <= y1 * c_a1;
             p4 <= y2 * c_a2;
+        end
+        if (rst_n && en_q) begin
+            y  <= yn;
+            y1 <= yn;
+            y2 <= y1;
+            x1 <= xr;
+            x2 <= x1;
         end
     end
 
@@ -76,18 +83,6 @@ module cab_biquad (
     // 四舍五入（F9）：+ 半个 LSB 再算术右移 18
     wire signed [40:0] acc_r = acc + 41'sd131072;      // 1<<17
     wire signed [15:0] yn    = sat16(acc_r >>> 18);
-
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            y <= 16'sd0;
-        end else if (en_q) begin
-            y  <= yn;
-            y1 <= yn;        // 注意：y1 取**本拍算出的新值**（DF-I 的 y[n-1] 是上一采样）
-            y2 <= y1;
-            x1 <= xr;
-            x2 <= x1;
-        end
-    end
 
 endmodule
 

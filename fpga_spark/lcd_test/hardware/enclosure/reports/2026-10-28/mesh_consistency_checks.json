@@ -1,0 +1,46 @@
+{
+  "status": "PASS",
+  "failures": [],
+  "parts": {
+    "bottom_shell": {
+      "stl_triangles": 41608,
+      "3mf_triangles": 41608,
+      "max_bound_delta_mm": 0.0,
+      "step_stl_max_bound_delta_mm": 4.49e-07,
+      "step_3mf_max_bound_delta_mm": 4.49e-07,
+      "step_volume_mm3": 67011.356574,
+      "stl_volume_mm3": 67008.323929,
+      "3mf_volume_mm3": 67008.323929,
+      "volume_relative_delta": 0.0,
+      "step_stl_volume_relative_delta": 4.5255686453709684e-05,
+      "step_3mf_volume_relative_delta": 4.5255686453709684e-05
+    },
+    "top_shell": {
+      "stl_triangles": 14292,
+      "3mf_triangles": 14292,
+      "max_bound_delta_mm": 0.0,
+      "step_stl_max_bound_delta_mm": 5.49e-07,
+      "step_3mf_max_bound_delta_mm": 5.49e-07,
+      "step_volume_mm3": 39017.004658,
+      "stl_volume_mm3": 39016.498765,
+      "3mf_volume_mm3": 39016.498765,
+      "volume_relative_delta": 0.0,
+      "step_stl_volume_relative_delta": 1.2965967271594933e-05,
+      "step_3mf_volume_relative_delta": 1.2965967271594933e-05
+    },
+    "keybed": {
+      "stl_triangles": 23750,
+      "3mf_triangles": 23750,
+      "max_bound_delta_mm": 0.0,
+      "step_stl_max_bound_delta_mm": 7.63e-07,
+      "step_3mf_max_bound_delta_mm": 7.63e-07,
+      "step_volume_mm3": 28744.080605,
+      "stl_volume_mm3": 28743.871791,
+      "3mf_volume_mm3": 28743.871791,
+      "volume_relative_delta": 2.5313074268610096e-16,
+      "step_stl_volume_relative_delta": 7.264571601156295e-06,
+      "step_3mf_volume_relative_delta": 7.264571600903166e-06
+    }
+  },
+  "method": "Exact STEP volume/bounds were compared with STL and 3MF after exporting both meshes from that STEP with identical tolerances."
+}

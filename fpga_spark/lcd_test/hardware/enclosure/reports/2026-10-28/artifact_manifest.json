@@ -1,0 +1,66 @@
+﻿{
+    "batch":  "2026-10-28 hardware-confirmed enclosure export",
+    "generated_at":  "2026-10-28T03:54:48.086+08:00",
+    "files":  [
+                  {
+                      "path":  "STEP/bottom_shell.step",
+                      "bytes":  501576,
+                      "last_write_time":  "2026-10-28T03:52:16.751+08:00",
+                      "sha256":  "00A567ED4F95D0F606D67C6BC9DC8E4EA06E34C9EEA9A28CDD356BE47D5A05D4"
+                  },
+                  {
+                      "path":  "STL/bottom_shell.stl",
+                      "bytes":  2080484,
+                      "last_write_time":  "2026-10-28T03:52:18.263+08:00",
+                      "sha256":  "D98E40C9B7CB0B05B0C5EE86700D0D5325EE15A143A6E79D28E5CD0E6E807B49"
+                  },
+                  {
+                      "path":  "3MF/bottom_shell.3mf",
+                      "bytes":  3827658,
+                      "last_write_time":  "2026-10-28T03:52:19.255+08:00",
+                      "sha256":  "B2DF1BA8FD2DE00271AA1602FE3CA053D37D9CDF0F515AAC78B7338D2823A7BB"
+                  },
+                  {
+                      "path":  "STEP/top_shell.step",
+                      "bytes":  474675,
+                      "last_write_time":  "2026-10-28T03:52:22.222+08:00",
+                      "sha256":  "2F89E38F56C5E732B092BE176E206B61F2C848C5BB1E2C6C177B2F5775395B97"
+                  },
+                  {
+                      "path":  "STL/top_shell.stl",
+                      "bytes":  714684,
+                      "last_write_time":  "2026-10-28T03:52:23.495+08:00",
+                      "sha256":  "D72B0A9D091FBE4A0D483B02AB3C0DBAB01711CE5AB109742AD94E722993BBB4"
+                  },
+                  {
+                      "path":  "3MF/top_shell.3mf",
+                      "bytes":  1318608,
+                      "last_write_time":  "2026-10-28T03:52:24.493+08:00",
+                      "sha256":  "DE89DBAB2198E3C7BACCE07BDBB128D18FAAED956E9D18FC4D1342C3FFD46BC4"
+                  },
+                  {
+                      "path":  "STEP/keybed.step",
+                      "bytes":  1025862,
+                      "last_write_time":  "2026-10-28T03:52:29.282+08:00",
+                      "sha256":  "942E5B30E3373892CC67DCB308AB7CC714B94C6BE77275F1649F461696ADDF7C"
+                  },
+                  {
+                      "path":  "STL/keybed.stl",
+                      "bytes":  1187584,
+                      "last_write_time":  "2026-10-28T03:52:31.721+08:00",
+                      "sha256":  "5C4B762751FB0EA819E230B0179E21CCC39BE201BB210EB3DF216DD127EE3894"
+                  },
+                  {
+                      "path":  "3MF/keybed.3mf",
+                      "bytes":  2040782,
+                      "last_write_time":  "2026-10-28T03:52:32.815+08:00",
+                      "sha256":  "03C70FE74EB5F023A7BBC5B9BECF8681039CB592E6AC66A37C79C2D6705162CE"
+                  },
+                  {
+                      "path":  "STEP/assembly.step",
+                      "bytes":  2791023,
+                      "last_write_time":  "2026-10-28T03:52:40.496+08:00",
+                      "sha256":  "6A565B1742A24D78107C61AEFD6DCA08A7FC56DD258A439D87B83B73497E4472"
+                  }
+              ]
+}

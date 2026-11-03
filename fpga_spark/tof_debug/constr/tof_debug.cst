@@ -1,0 +1,96 @@
+// =============================================================================
+//  tof_debug.cst -- Physical Constraints for Tang Mega 138K ToF Debug Project
+//  Device: GW5AST-LV138PG484AC1/I0 (GW5AST-138C, Device Version C)
+// =============================================================================
+
+// Clock (50 MHz)
+IO_LOC  "clk" V22;
+IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+// Board Buttons (Active low)
+IO_LOC  "key0" AB13;
+IO_PORT "key0" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "key1" Y12;
+IO_PORT "key1" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// Board Status LEDs (Active low)
+IO_LOC  "led[0]" T18;
+IO_PORT "led[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led[1]" R18;
+IO_PORT "led[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led[2]" R17;
+IO_PORT "led[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led[3]" P16;
+IO_PORT "led[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// Diagnostic UART (FT2232H Channel B, 115200 8N1)
+IO_LOC  "uart_tx" U15;
+IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC  "uart_rx" V14;
+IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// -----------------------------------------------------------------------------
+// ToF I2C Ports on J13 (40-Pin Header)
+// -----------------------------------------------------------------------------
+// Bus 1 (J13-24 / J13-25)
+IO_LOC  "scl_tof_1" A18;
+IO_PORT "scl_tof_1" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC  "sda_tof_1" D15;
+IO_PORT "sda_tof_1" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+
+// Bus 2 (J13-29 / J13-30)
+IO_LOC  "scl_tof_2" F14;
+IO_PORT "scl_tof_2" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC  "sda_tof_2" F13;
+IO_PORT "sda_tof_2" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+
+// -----------------------------------------------------------------------------
+// 7-inch LCD (ATK-MD0700 / SSD1963 16-bit 8080 Bus on J14)
+// -----------------------------------------------------------------------------
+IO_LOC  "lcd_dpi_bl" P20;
+IO_PORT "lcd_dpi_bl" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "lcd_cs"  AB21;
+IO_PORT "lcd_cs"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "lcd_rs"  R14;
+IO_PORT "lcd_rs"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "lcd_wr"  AB20;
+IO_PORT "lcd_wr"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "lcd_rd"  AB18;
+IO_PORT "lcd_rd"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "lcd_rst" Y18;
+IO_PORT "lcd_rst" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "lcd_db[0]"  V20;
+IO_LOC  "lcd_db[1]"  U20;
+IO_LOC  "lcd_db[2]"  Y22;
+IO_LOC  "lcd_db[3]"  AA20;
+IO_LOC  "lcd_db[4]"  N15;
+IO_LOC  "lcd_db[5]"  U17;
+IO_LOC  "lcd_db[6]"  P14;
+IO_LOC  "lcd_db[7]"  P15;
+IO_LOC  "lcd_db[8]"  N13;
+IO_LOC  "lcd_db[9]"  N14;
+IO_LOC  "lcd_db[10]" AA21;
+IO_LOC  "lcd_db[11]" P17;
+IO_LOC  "lcd_db[12]" W21;
+IO_LOC  "lcd_db[13]" W22;
+IO_LOC  "lcd_db[14]" V17;
+IO_LOC  "lcd_db[15]" AB22;
+
+IO_PORT "lcd_db[0]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[1]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[2]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[3]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[4]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[5]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[6]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[7]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[8]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[9]"  IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[10]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[11]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[12]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[13]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[14]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "lcd_db[15]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;

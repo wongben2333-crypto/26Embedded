@@ -1,40 +1,36 @@
 # 基于 FPGA 的实时多音色合成电子乐器引擎
 ## 2026年全国大学生嵌入式芯片与系统设计竞赛（FPGA 创新设计赛道 - 高云半导体）
 
-### 一、项目定位与目标
-本项目基于高云 **GW5AT-LV60PG484A (Tang Mega 60K)** 平台，构建一套具备超低延迟（$< 0.3\text{ms}$）、超高复音吞吐量（64独立物理振荡器并发）的纯硬件多音色电子乐器系统。
+### 一、工作区结构与目录指引 (Spark 专属目录)
 
-### 二、目录结构规划
+本工程已完成阶段性重构：原 `lcd_test` 已完整归档封存，现 `lcd_test/` 目录已全面升级为最新的 32 复音 TDM 架构与 7 寸大屏电容触控系统。
+
 ```text
-嵌赛/
-├── docs/                     # 设计文档、赛题指南与答辩资料
-├── rtl/                      # 纯硬件 Verilog/SystemVerilog 源代码
-│   ├── top/                  # 顶层集成模块
-│   ├── interaction/          # 传感器采集、去抖动与表情解析 (Touch/FSR/TOF/Ribbon)
-│   ├── voice_alloc/          # 多复音声部动态调度器 (Voice Allocator & LRU Stealing)
-│   ├── synth_core/           # 实时合成引擎核心
-│   │   ├── dds_wavetable/    # DDS 多波表与减法滤波引擎
-│   │   ├── fm_synth/         # 2-Op/4-Op 调频合成引擎
-│   │   ├── physical_ks/      # Karplus-Strong 拨弦物理建模引擎
-│   │   ├── additive_synth/   # 64路加法谐波合成引擎
-│   │   └── adsr/             # 指数型高精度 ADSR 包络发生器
-│   ├── dsp_fx/               # 纯硬件音频效果器 (Reverb, Delay, Chorus)
-│   ├── audio_out/            # 24-bit 48kHz I2S 发送控制器与饱和混音器
-│   ├── visual/               # HDMI 720P 显控驱动与硬件 FFT 实时频谱仪
-│   └── comm/                 # 蓝牙 UART 通信与脱机乐谱流控制器
-├── sim/                      # 仿真测试激励与 Python 验证脚本
-├── tools/                    # 波表数据生成脚本 (Python Wavetable Gen)
-└── constraints/              # 物理管脚约束文件 (.cst) 与时序约束 (.sdc)
+fpga_spark/
+├── lcd_test/                 # 【主工程】升级后的 32 复音 TDM 合成器与 7 寸大屏触控系统
+│   ├── lcd_test_j14.gprj     # Gowin EDA 图形界面工程文件 (双击打开)
+│   ├── burn_lcd_j14.py       # 一键烧录位流至板载 SRAM
+│   ├── build_j14.py          # 一键自动综合与布局布线 (gw_sh)
+│   ├── rtl/                  # Verilog 纯硬件源码 (top, synth, audio, effects, ui, io)
+│   ├── constraints/          # 物理引脚约束与 50MHz 时钟约束 (lcd_test_j14.cst / sdc)
+│   ├── host/                 # 上位机 Python 控制台 (piano_gui.py)
+│   ├── bitstream/            # 已验证最新位流 (lcd_test_j14.fs, 39.3MB)
+│   └── tools/                # 编译与测试工具链
+│
+├── archive/                  # 【历史工程归档】原 Spark lcd_test 封存包
+│   ├── ARCHIVE_MANIFEST.md   # 归档清单与详细说明
+│   ├── fpga_spark_lcd_test_backup_20261102.zip # 完整压缩备份 (~91 MB)
+│   └── lcd_test_spark_v1_backup/               # 解压镜像目录 (含全部源码/约束/位流/文档)
+│
+├── P34-P40转接板/            # 7寸屏转接板 PCB 原理图与制造包
+└── docs/                     # 硬件设计与引脚核对文档
 ```
 
-### 三、关键技术指标一览
-* **主控芯片**：高云 GW5AT-LV60PG484A (Tang Mega 60K)
-* **主音频采样率**：$48\text{kHz}$，24-bit 立体声输出
-* **音频 DAC**：PCM5102A (I2S 接口)
-* **物理复音数**：32 复音 $\times$ 双振荡器 = 64 独立物理振荡器
-* **端到端响应延迟**：$< 0.3\text{ms}$（实测示波器抓取）
-* **合成算法支持**：DDS 波表、FM 调频、Karplus-Strong 物理建模拨弦、64 路加法合成
-* **效果器集成**：Schroeder 混响、乒乓延迟、立体声合唱
-* **视听显示**：板载 HDMI 720P 实时波形示波器 + 64-bin 硬件 FFT 频谱柱状图 + 李萨如图形 + WS2812 瀑布指引灯
-
-详细系统架构全案请查阅详细设计方案。
+### 二、核心系统特性
+* **主控平台**：高云 GW5AST-LV138PG484AC1/I0 (Tang Mega 138K Dock，兼容 GW5AT-60B 核心逻辑)
+* **合成架构**：32 复音 $\times$ 6 泛音 = 192 独立物理振荡器，单正弦 ROM 4 级流水线时分复用
+* **音频指标**：97.656 kHz 物理采样率、PT8211 16-bit 双声道高清无杂音输出
+* **乐器音色库**：大钢琴 (Grand Piano)、原声吉他 (Acoustic Guitar)、小提琴 (Violin，渐进揉弦+滑音连奏)、二胡 (Erhu)
+* **纯硬件效果器链**：Freeverb 混响、立体声合唱 (Chorus)、乒乓延迟 (Delay)、过载失真与 4x12 箱体模拟
+* **7 寸 800×480 大屏 UI**：纯硬件 16×16 中文字符点阵引擎、多页面实时显示（状态看板、乐谱瀑布流、3.0s 双缓冲示波器、32 通道硬件 FFT 频谱仪、李萨如图）
+* **电容触摸键盘**：Goodix GT911 / FocalTech FT5206 硬件 I2C 轮询驱动，支持琴键点按、滑音连奏与选项卡触控

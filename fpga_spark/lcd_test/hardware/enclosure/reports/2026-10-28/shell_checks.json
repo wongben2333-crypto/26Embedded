@@ -1,0 +1,333 @@
+{
+  "status": "PASS",
+  "failures": [],
+  "shells": {
+    "bottom_shell_part": {
+      "solids": 1,
+      "volume_mm3": 67011.357,
+      "bbox_mm": [
+        130.0,
+        109.0,
+        22.124
+      ],
+      "free_edges": 0,
+      "topology_issues": 0
+    },
+    "top_shell_part": {
+      "solids": 1,
+      "volume_mm3": 39017.005,
+      "bbox_mm": [
+        140.0,
+        109.0,
+        8.876
+      ],
+      "free_edges": 0,
+      "topology_issues": 0
+    }
+  },
+  "assembly": {
+    "leaf_count": 100,
+    "top_overall_height_mm": 27.0,
+    "main_top_plane_z_mm": 26.2,
+    "j13_service_cap_top_z_mm": 27.0,
+    "j13_cable_recess_top_z_mm": 25.6,
+    "j13_service_cap_roof_mm": 1.4,
+    "black_key_top_z_mm": 26.2,
+    "tof_surface_flush_with_black_keys": true,
+    "tof_outer_y_mm": 54.5,
+    "shell_rear_edge_y_mm": 54.5,
+    "bottom_rear_edge_y_mm": 54.5,
+    "shell_reaches_tof_outermost_edge": true,
+    "bottom_shell_reaches_tof_outermost_edge": true,
+    "bottom_footprint_mm": [
+      130.0,
+      109.0
+    ],
+    "top_footprint_mm": [
+      140.0,
+      109.0
+    ],
+    "shell_screw_pattern_xy_mm": [
+      58.0,
+      25.0
+    ],
+    "keyboard_opening_mm": [
+      97.0,
+      49.5
+    ],
+    "keybed_plate_front_rear_y_mm": [
+      -26.800000000000004,
+      26.775
+    ],
+    "keybed_opening_underlap_each_side_mm": 0.5,
+    "minimum_keycap_to_opening_edge_mm": 0.975,
+    "pcb_top_z_mm": 14.4,
+    "pcb_front_cantilever_mm": 8.2,
+    "keybed_front_edge_y_mm": -26.8,
+    "pcb_front_edge_y_mm": -35.0,
+    "j13_center_y_mm": 32.104,
+    "j13_pcb_rear_edge_margin_mm": -1.559,
+    "rear_ffc_opening_mm": [
+      56.8,
+      12.0
+    ],
+    "preterminated_idc_plug_envelope_mm": [
+      55.4,
+      6.1,
+      10.7
+    ],
+    "preterminated_idc_pass_overlap_mm3": 0.0,
+    "cable_side_idc_to_top_overlap_mm3": 0.0,
+    "minimum_switch_body_to_pcb_gap_mm": 0.0,
+    "switch_total_height_mm": 5.0,
+    "switch_travel_mm": 2.0,
+    "switch_pocket_mm": [
+      9.2,
+      8.3
+    ],
+    "minimum_switch_to_keybed_clearance_mm": 0.15,
+    "pad_relief_probe_overlap_mm3": {
+      "switch_white_1:body": 0.0,
+      "switch_white_2:body": 0.0,
+      "switch_white_3:body": 0.0,
+      "switch_white_4:body": 0.0,
+      "switch_white_5:body": 0.0,
+      "switch_white_6:body": 0.0,
+      "switch_white_7:body": 0.0,
+      "switch_white_8:body": 0.0,
+      "switch_black_after_white_1:body": 0.0,
+      "switch_black_after_white_2:body": 0.0,
+      "switch_black_after_white_4:body": 0.0,
+      "switch_black_after_white_5:body": 0.0,
+      "switch_black_after_white_6:body": 0.0
+    },
+    "full_travel_cap_to_keybed_mm": 1.0,
+    "pcb_to_bottom_min_distance_mm": 0.0,
+    "tof_axis_collisions": {
+      "tof_left:detection_axis": [],
+      "tof_right:detection_axis": []
+    },
+    "tof_axis_direction_errors_deg": {
+      "tof_left:detection_axis": 0.0,
+      "tof_right:detection_axis": 0.0
+    },
+    "tof_centre_separation_mm": 90.0,
+    "tof_module_envelope_mm": [
+      31.0,
+      15.0,
+      6.2
+    ],
+    "tof_seat_thickness_mm": 1.5,
+    "tof_light_well_depth_mm": 18.5,
+    "tof_side_clearance_each_mm": 0.3,
+    "tof_aperture_each_mm": [
+      29.0,
+      13.0
+    ],
+    "tof_aperture_probe_overlap_mm3": {
+      "tof_left": 0.0,
+      "tof_right": 0.0
+    },
+    "tof_inner_cable_window_each_mm": [
+      12.0,
+      3.6
+    ],
+    "tof_narrow_face_margin_mm": {
+      "width_direction": 1.5,
+      "thickness_direction": 1.3
+    },
+    "tof_inner_cable_probe_overlap_mm3": {
+      "tof_left": 0.0,
+      "tof_right": 0.0
+    },
+    "tof_mount_split_z_mm": 22.124,
+    "tof_lower_mount_on_top_shell_overlap_mm3": {
+      "tof_left": 0.0,
+      "tof_right": 0.0
+    },
+    "tof_lower_mount_on_bottom_shell_volume_mm3": {
+      "tof_left": 1213.6856,
+      "tof_right": 1213.6856
+    },
+    "tof_seat_probe_volume_mm3": {
+      "tof_left": 260.0,
+      "tof_right": 260.0
+    },
+    "photo_cable": {
+      "wire_count": 12,
+      "wire_diameter_mm": 3.5,
+      "wire_bundle_area_mm2": 115.454,
+      "power_wire_count": 2,
+      "power_wire_diameter_mm": 3.5,
+      "power_wire_area_mm2": 19.242,
+      "combined_bundle_area_mm2": 134.696,
+      "opening_mm2": 748.0,
+      "opening_to_bundle_area_ratio": 6.479,
+      "opening_to_combined_bundle_ratio": 5.553
+    },
+    "cable_exit_probe_overlap_mm3": {
+      "fpga_j13": 0.0,
+      "photo_6ch": 0.0,
+      "encoder_4ch": 0.0,
+      "rear_aux_left": 0.0,
+      "rear_aux_right": 0.0
+    },
+    "cable_clamp_probe_overlap_mm3": {
+      "fpga_j13:left_bottom": 0.0,
+      "fpga_j13:right_bottom": 0.0,
+      "photo_6ch:left": 0.0,
+      "photo_6ch:right": 0.0,
+      "encoder_4ch:left": 0.0,
+      "encoder_4ch:right": 0.0
+    },
+    "rear_side_cable_openings": {
+      "rear_aux_left": {
+        "face": "left",
+        "center_y_mm": 29.5,
+        "center_z_mm": 12.0,
+        "size_mm": [
+          12.0,
+          8.0
+        ]
+      },
+      "rear_aux_right": {
+        "face": "right",
+        "center_y_mm": 29.5,
+        "center_z_mm": 12.0,
+        "size_mm": [
+          12.0,
+          8.0
+        ]
+      }
+    },
+    "top_bottom_seam_distance_mm": 0.0,
+    "board_dxf": {
+      "extents_mm": [
+        100.0,
+        70.0
+      ],
+      "mount_holes": [
+        [
+          -44.0,
+          -28.0
+        ],
+        [
+          -44.0,
+          28.0
+        ],
+        [
+          44.0,
+          -28.0
+        ],
+        [
+          44.0,
+          28.0
+        ]
+      ],
+      "validation_findings": 0
+    },
+    "keybed_locators": {
+      "L1": {
+        "position": [
+          -25.0,
+          -25.7
+        ],
+        "post_solid_probe_volume_mm3": 4.2108,
+        "post_tip_z_mm": 19.0,
+        "engagement_mm": 0.876,
+        "socket_floor_clearance_mm": 0.374,
+        "socket_void_overlap_mm3": 0.0,
+        "keybed_lid_intersection_mm3": 0.0
+      },
+      "L2": {
+        "position": [
+          25.0,
+          -25.7
+        ],
+        "post_solid_probe_volume_mm3": 4.2108,
+        "post_tip_z_mm": 19.0,
+        "engagement_mm": 0.876,
+        "socket_floor_clearance_mm": 0.374,
+        "socket_void_overlap_mm3": 0.0,
+        "keybed_lid_intersection_mm3": 0.0
+      },
+      "L3": {
+        "position": [
+          -35.0,
+          25.7
+        ],
+        "post_solid_probe_volume_mm3": 4.2108,
+        "post_tip_z_mm": 19.0,
+        "engagement_mm": 0.876,
+        "socket_floor_clearance_mm": 0.374,
+        "socket_void_overlap_mm3": 0.0,
+        "keybed_lid_intersection_mm3": 0.0
+      },
+      "L4": {
+        "position": [
+          35.0,
+          25.7
+        ],
+        "post_solid_probe_volume_mm3": 4.2108,
+        "post_tip_z_mm": 19.0,
+        "engagement_mm": 0.876,
+        "socket_floor_clearance_mm": 0.374,
+        "socket_void_overlap_mm3": 0.0,
+        "keybed_lid_intersection_mm3": 0.0
+      }
+    },
+    "locator_boss_to_keycap_clearance_mm": {
+      "L1": 0.625,
+      "L2": 0.625,
+      "L3": 0.625,
+      "L4": 0.625
+    },
+    "downward_header_clearance": {
+      "H2": {
+        "body": {
+          "bottom_shell": 0.0,
+          "top_shell": 0.0,
+          "keybed": 0.0
+        },
+        "body_min_clearance_mm": 0.4,
+        "pins_to_bottom_mm3": 0.0,
+        "pins_min_clearance_mm": 0.9916
+      },
+      "H4": {
+        "body": {
+          "bottom_shell": 0.0,
+          "top_shell": 0.0,
+          "keybed": 0.0
+        },
+        "body_min_clearance_mm": 0.4,
+        "pins_to_bottom_mm3": 0.0,
+        "pins_min_clearance_mm": 1.0301
+      },
+      "H3": {
+        "body": {
+          "bottom_shell": 0.0,
+          "top_shell": 0.0,
+          "keybed": 0.0
+        },
+        "body_min_clearance_mm": 0.4,
+        "pins_to_bottom_mm3": 0.0,
+        "pins_min_clearance_mm": 0.5411
+      },
+      "H14": {
+        "body": {
+          "bottom_shell": 0.0,
+          "top_shell": 0.0,
+          "keybed": 0.0
+        },
+        "body_min_clearance_mm": 0.4,
+        "pins_to_bottom_mm3": 0.0,
+        "pins_min_clearance_mm": 0.3316
+      }
+    }
+  },
+  "unresolved": [
+    "The purchased 40P IDC plug and any optional strain relief must be checked against the published 55.4 x 6.1 x 10.7 mm envelope.",
+    "The final 40P IDC clamp and bend-radius control hardware is not yet specified.",
+    "The four keybed locator posts constrain X/Y only; final lid installation force and print tolerance still require physical confirmation."
+  ]
+}

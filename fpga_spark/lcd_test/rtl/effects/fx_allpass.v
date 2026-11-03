@@ -54,7 +54,7 @@ module fx_allpass #(
     // 乘积全宽形成后再移位（本项目反复踩过"先截断再移位"的坑）
     wire signed [24:0] fb_f  = d_rd * $signed({1'b0, fb_q8});
     wire signed [16:0] fb_s  = fb_f >>> 8;
-    wire signed [17:0] wr_f  = {{2{x[15]}}, x} + {fb_s[16], fb_s};
+    wire signed [17:0] wr_f  = {x[15], x} + {{1'b0, fb_s[16]}, fb_s};
     wire signed [15:0] wr_n  = sat16(wr_f);
 
     // ★ 注意 -x 的溢出：x = -32768 时 -x = +32768 超出 16 bit 有符号范围，

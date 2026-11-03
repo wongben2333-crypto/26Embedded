@@ -48,6 +48,13 @@ module guitar_fx (
         else        ph_sr <= {ph_sr[NPH-2:0], sample_tick};
     end
 
+    // [FIX] Latch fx_in on sample_tick so all 10 phases process the exact sample_tick value
+    reg signed [15:0] x_samp;
+    always @(posedge clk) begin
+        if (!rst_n)           x_samp <= 16'sd0;
+        else if (sample_tick) x_samp <= fx_in;
+    end
+
     wire [3:0] dph = ph_sr[3:0];           // 失真级 4 相
     wire [5:0] cph = ph_sr[9:4];           // 箱体级 6 相
 
@@ -59,14 +66,10 @@ module guitar_fx (
         .clk(clk), .rst_n(rst_n),
         .en_a(dph[0]), .en_b(dph[1]), .en_c(dph[2]), .en_d(dph[3]),
         .mode(dist_mode), .drive(drive), .tone(tone), .level(level),
-        .x(fx_in), .y(dist_out)
+        .x(x_samp), .y(dist_out)
     );
 
-    // ---------------------------------------------------------- 链内选择 ----
-    // clean 档：不经失真，直接把干声送进箱体。
-    // ⚠️ 代价：干声比 dist_out 早 4 clk（= 40 ns = 0.0004 个采样）——
-    //    远小于一个采样点，听不出来；如实记在这里，不假装没有。
-    wire signed [15:0] chain_in = (fx_sel == 2'd3) ? fx_in : dist_out;
+    wire signed [15:0] chain_in = (fx_sel == 2'd3) ? x_samp : dist_out;
 
     // ==================================================== 箱体级（6 相）=====
     wire signed [15:0] cab_out;

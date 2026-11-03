@@ -35,10 +35,11 @@
 `default_nettype none
 
 module fx_chorus #(
-    parameter integer AW      = 11,
-    parameter integer DEPTH   = 2048,
-    parameter integer BASE    = 1024,      // 中心延迟（采样点）≈ 10.5 ms
-    parameter integer LFO_INC = 137        // 2^24 累加器步长 ⇒ 0.797 Hz
+    parameter integer AW          = 11,
+    parameter integer DEPTH       = 2048,
+    parameter integer BASE        = 1024,      // 中心延迟（采样点）≈ 10.5 ms
+    parameter integer LFO_INC     = 137,       // 2^24 累加器步长 ⇒ 0.797 Hz
+    parameter [23:0]  LFO_PH_INIT = 24'd0      // LFO 初始相位 (立体声正交扩展: 右声道置 24'h40_0000)
 )(
     input  wire               clk,
     input  wire               rst_n,
@@ -78,7 +79,9 @@ module fx_chorus #(
     wire [7:0]         wet_q8 = {param, 1'b0};                 // param << 1
     wire signed [24:0] wet_f  = d_rd * $signed({1'b0, wet_q8});
     wire signed [16:0] wet_s  = wet_f >>> 8;
-    wire signed [17:0] y_f    = {{2{x[15]}}, x} + {wet_s[16], wet_s};
+    wire signed [17:0] dry_ext = $signed({{2{x[15]}}, x});
+    wire signed [17:0] wet_ext = $signed({wet_s[16], wet_s});
+    wire signed [17:0] y_f     = dry_ext + wet_ext;
     wire signed [15:0] y_n    = sat16(y_f);
 
     function signed [15:0] sat16;
@@ -95,7 +98,7 @@ module fx_chorus #(
         if (!rst_n) begin
             wr_ptr <= {AW{1'b0}};
             d_rd   <= 16'sd0;
-            lfo_ph <= 24'd0;
+            lfo_ph <= LFO_PH_INIT;
             dly_r  <= BASE_C[AW-1:0];
             y      <= 16'sd0;
             tick_d <= 1'b0;
