@@ -101,7 +101,7 @@ module top #(
     // ------ 电容触摸屏接口 (FT5206 / FT5426 I2C on J14) ------
     inout  wire        tp_scl,     // AA18 (J14-29) I2C SCL
     inout  wire        tp_sda,     // AA19 (J14-28) I2C SDA
-    input  wire        tp_int,     // Y19 (J14-31) 触摸中断（低有效）
+    inout  wire        tp_int,     // Y19 (J14-31) 触摸中断/复位地址选择（双向）
     output wire        tp_rst_n    // W17 (J14-9) 触摸复位（低有效）
 );
 
@@ -373,6 +373,11 @@ module top #(
     //  CC20 -> 乐器选择：0=钢琴 1=吉他 3=小提琴（协议值 3 映射到内部音色槽 2）
     //  CC21 -> 挂电量（吉他效果器强度）0..127
     //  ⚠️ midi_rx 只做传输层（原样透传 0..127），语义在这里定 —— 见 AGENTS.md §4.1
+    wire        h_on_valid, h_off_valid, h_glide_on, h_vib_on;
+    wire [1:0]  h_on_inst;
+    wire [6:0]  h_on_note,  h_on_vel,  h_off_note;
+    wire [6:0]  h_glide_time, h_vib_depth, h_volume;
+    wire        h_page_next, h_page_prev;
     reg  [1:0] inst_sel    = 2'd0;      // ★ 上电默认钢琴（防 X）
     reg  [6:0] drive_amt   = 7'd0;
     reg  [6:0] bow_force_amt = 7'd64;
@@ -392,7 +397,9 @@ module top #(
         end else begin
             if ((MODE != 2) && !run_song && kp_press)
                 fx_sel_cc <= fx_sel_cc + 2'd1; // 板载/外接按键循环切换 旁路/延迟/合唱/混响
-            if (touch_timbre_pulse && !run_song)
+            if (source_physical && h_on_valid)
+                inst_sel <= h_on_inst;
+            else if (touch_timbre_pulse && !run_song)
                 inst_sel <= (inst_sel >= 2'd3) ? 2'd0 : (inst_sel + 2'd1);
             if (touch_fx_pulse)
                 fx_sel_cc <= fx_sel_cc + 2'd1;
@@ -412,14 +419,9 @@ module top #(
             end
         end
     end
-    assign inst_sel_w = inst_sel;
 
-    // ================= S5：硬件乐器输入管理（MODE=3 新增）=================
-    //  13 键 + 6路光电拨弦(E2..E4) + ToF#1 + EC11#1 → 串行化音符事件（≥16 clk 间距，
-    //  引擎装载 FSM 实测需 14 clk）+ EC11 音量（与 7寸屏触摸音量条 & MIDI CC7 双向同步）。
-    wire        h_on_valid, h_off_valid, h_glide_on;
-    wire [6:0]  h_on_note,  h_on_vel,  h_off_note;
-    wire [6:0]  h_glide_time, h_volume;
+    // 硬件按键(钢琴=0)/光电(吉他=1)/ToF(小提琴=2)触发当拍立即切换音色，零拍延迟对齐 bus_on_valid_r
+    assign inst_sel_w = (source_physical && h_on_valid) ? h_on_inst : inst_sel;
     wire [12:0] h_key_state;
     wire [5:0]  h_photo_state;
     wire [15:0] h_tof_dist;
@@ -460,11 +462,16 @@ module top #(
         .ev_on_valid  (h_on_valid),
         .ev_on_note   (h_on_note),
         .ev_on_vel    (h_on_vel),
+        .ev_on_inst   (h_on_inst),
         .ev_off_valid (h_off_valid),
         .ev_off_note  (h_off_note),
         .ev_glide_on  (h_glide_on),
         .ev_glide_time(h_glide_time),
+        .ev_vib_on    (h_vib_on),
+        .ev_vib_depth (h_vib_depth),
         .volume       (h_volume),
+        .ev_page_next (h_page_next),
+        .ev_page_prev (h_page_prev),
         .key_state    (h_key_state),
         .photo_state  (h_photo_state),
         .tof_dist     (h_tof_dist),
@@ -523,12 +530,14 @@ module top #(
     assign bus_off_valid  = bus_off_valid_r;
     assign bus_off_note   = bus_off_note_r;
     assign bus_cc_valid   = (MODE == 2) ? 1'b0  : (run_song ? 1'b0         : m_cc_valid);
-    assign bus_glide_on   = (MODE == 2) ? 1'b0  : (run_song ? s_glide_on   : m_glide_on);
-    assign bus_glide_time = (MODE == 2) ? 7'd0  : (run_song ? s_glide_time : m_glide_time);
-    // 放歌模式：长音揉弦给弦乐（小提琴与二胡）
-    assign bus_vib_on     = (MODE == 2) ? 1'b0  : (run_song ? (s_vib_on && (inst_sel_eff_r >= 2'd2)) : m_vib_on);
-    assign bus_vib_depth  = (MODE == 2) ? 7'd0  : (run_song ? s_vib_depth  : m_vib_depth);
-    assign bus_vib_rate   = (MODE == 2) ? 7'd50 : (run_song ? s_vib_rate   : m_vib_rate);
+    wire hw_glide_act = (MODE == 3) && h_glide_on;
+    wire hw_vib_act   = (MODE == 3) && h_vib_on;
+    assign bus_glide_on   = (MODE == 2) ? 1'b0  : (hw_glide_act ? 1'b1         : (run_song ? s_glide_on   : m_glide_on));
+    assign bus_glide_time = (MODE == 2) ? 7'd0  : (hw_glide_act ? h_glide_time : (run_song ? s_glide_time : m_glide_time));
+    // 放歌模式或自由演奏：EC2 颤音编码器开启时实时调制；曲目模式弦乐默认带揉弦
+    assign bus_vib_on     = (MODE == 2) ? 1'b0  : (hw_vib_act   ? 1'b1         : (run_song ? (s_vib_on && (inst_sel_eff_r >= 2'd2)) : m_vib_on));
+    assign bus_vib_depth  = (MODE == 2) ? 7'd0  : (hw_vib_act   ? h_vib_depth  : (run_song ? s_vib_depth  : m_vib_depth));
+    assign bus_vib_rate   = (MODE == 2) ? 7'd50 : (hw_vib_act   ? 7'd64        : (run_song ? s_vib_rate   : m_vib_rate));
     // 仅钢琴支持延音踏板（吉他/提琴/二胡有各自的物理运弓/衰减机理，不受延音踏板控制）：
     assign bus_sustain    = (MODE == 2) ? 1'b0  :
                             (inst_sel_eff_r != 2'd0) ? 1'b0 :
@@ -940,7 +949,8 @@ module top #(
             .cc_val           (m_cc_val),
             .uart_rx_valid    (uart_valid),
             .uart_rx_byte     (uart_data),
-            .page_next_pulse  (1'b0),
+            .page_next_pulse  (h_page_next),
+            .page_prev_pulse  (h_page_prev),
             .song_index       (s_song_index[2:0]),
             .song_playing     (s_playing),
             .song_progress_pct(song_progress_pct),
@@ -993,6 +1003,7 @@ module top #(
         assign lcd_init_ok = 1'b0;
         assign tp_scl      = 1'bz;
         assign tp_sda      = 1'bz;
+        assign tp_int      = 1'bz;
         assign tp_rst_n    = 1'b1;
         assign touch_on_valid     = 1'b0;
         assign touch_on_note      = 7'd0;

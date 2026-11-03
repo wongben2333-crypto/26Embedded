@@ -2,21 +2,6 @@
 // piano_engine_tdm32.v — 32-Voice x 6-Partial (192 Independent Oscillators)
 //                        Time-Division Multiplexed (TDM) Additive/Modal Engine
 // Target: Gowin Arora V GW5AST-LV138PG484AC1/I0 (Tang Mega 138K Dock)
-// Drop-in Replacement for `piano_engine` (100% Port- & LUT-Compatible with
-// `top.v` and `piano_rom.v`: `piano_inst_lut`, `piano_note_lut`, `piano_vel_lut`,
-// `piano_vib_lut`, `piano_glide_lut`, `piano_partial_lut`, `piano_sin_rom`).
-//
-// Competition Topic 2 Score Metric Alignment:
-//   - N_VOICES = 32 x N_PART = 6 => 192 simultaneously active audible
-//     independent oscillators @ Fs = 97,656.25 Hz (50 MHz / 512 clocks).
-//   - Core metric: 192 * 97,656.25 = 1.875 x 10^7 osc*Hz.
-//   - Each oscillator (idx = {v[4:0], j[2:0]} in 0..191) has:
-//       1. Independent 32-bit Phase Accumulator (`mem_ph[0:255]`, SDPB BSRAM)
-//       2. Independent 32-bit Frequency Increment (`mem_inc[0:255]`, SDPB BSRAM)
-//       3. Independent 32-bit Exponential/Bowed Envelope (`mem_env[0:255]`, SDPB BSRAM)
-//   - Strictly adheres to Gowin Arora V SDPB inference rules (`WRITE_MODE = 0` safe):
-//       * Synchronous Read (Stage S0->S1) + Synchronous Write (Stage S3),
-//         3-clock pipeline separation (`raddr != waddr`), zero async read.
 // =============================================================================
 `default_nettype none
 
@@ -43,7 +28,7 @@ module piano_engine_tdm32 #(
     input  wire [6:0]  vib_depth,
     input  wire [6:0]  vib_rate,
     input  wire        sustain,
-    input  wire [1:0]  inst_sel,      // 0=钢琴, 1=吉他, 2/3=小提琴（同一音色槽）
+    input  wire [1:0]  inst_sel,      // 0=钢琴, 1=吉他, 2/3=小提琴（与 on_valid 同拍对齐）
     input  wire [6:0]  bow_speed,     // CC21 弓速
 
     // ---- 输出 ----
@@ -56,13 +41,9 @@ module piano_engine_tdm32 #(
     localparam signed [27:0] KNEE = 28'sd24576;
 
     // ------------------------------------------------------- 1. 查表实例 ----
-    wire [1:0] inst_ok_c = inst_sel; // 0=钢琴, 1=吉他, 2=小提琴, 3=民族二胡
-    reg  [1:0] inst_ok;
-    always @(posedge clk) begin
-        if (!rst_n) inst_ok <= 2'd0;
-        else        inst_ok <= inst_ok_c;
-    end
-    wire is_bowed = (inst_ok == 2'd2) || (inst_ok == 2'd3);
+    // inst_sel 在 top.v 已与 on_valid 同拍寄存对齐，此处直接使用以确保音符触发当拍查表零滞后
+    wire [1:0] inst_ok  = inst_sel; // 0=钢琴, 1=吉他, 2=小提琴, 3=民族二胡
+    wire       is_bowed = (inst_ok == 2'd2) || (inst_ok == 2'd3);
 
     wire [16:0] inst_ham_gain;
     wire [1:0]  inst_ksh_enc;
@@ -102,12 +83,12 @@ module piano_engine_tdm32 #(
         .recip (glide_recip_bus)
     );
 
-    // ---- 前置声明（标准 Verilog 要求先声明后使用；ModelSim 不容忍前向引用）----
+    // ---- 前置声明 ----
     wire       note_on;
     reg        last_valid;
     reg        ld_busy;
 
-    // ---- 真实进入相位累加器的表情状态（含小提琴渐进揉弦 + 连奏自动滑音） ----
+    // ---- 真实进入相位累加器的表情状态（含小提琴渐进揉弦 + 连奏自动滑音 + 编码器实时滑音/颤音） ----
     reg [31:0] vib_phase;
     reg [6:0]  vib_depth_r;
     reg        vib_on_r;
@@ -121,21 +102,17 @@ module piano_engine_tdm32 #(
     wire signed [16:0] vib_tri = vib_phase[31]
         ? (17'sd32767 - ({9'd0, vib_phase[30:23]} <<< 8))
         : (-17'sd32768 + ({9'd0, vib_phase[30:23]} <<< 8));
-    // vib_tri(Q15) × depth(0..127) -> Q15 fractional frequency offset.
+    // vib_tri(Q15) × depth(0..127) -> >>>11 使得编码器满量程 depth=127 达 ±1 半音清晰颤音，小提琴默认 depth=10 约 ±8 cent
     wire signed [24:0] vib_prod = vib_tri * $signed({1'b0, vib_depth_r});
-    // ★ 2026-10-31 修正深度标定：原 >>>7 时 depth=18 → ±14% 频偏（≈±2.3 半音，严重跑调）。
-    //   改为 >>>12：depth 0..127 → ±0..±3.1%（≈±0..±53 cent），depth=18 → ±0.44%（≈±7.6 cent），
-    //   与 piano_engine.v 文件头"depth 127 ≈ ±49.6 cent"的协议约定一致。
-    wire signed [24:0] vib_frac = vib_prod >>> 12;
+    wire signed [24:0] vib_frac = vib_prod >>> 11;
 
     wire signed [32:0] glide_diff = $signed({1'b0, glide_tgt_f0})
                                    - $signed({1'b0, glide_cur_f0});
     wire signed [48:0] glide_step_full = glide_diff * $signed({1'b0, glide_recip_r});
     wire signed [32:0] glide_step = glide_step_full >>> 24;
 
-    // 弦乐默认揉弦目标深度 18 (约 ±7 cent @ 5.6 Hz)，起音后渐入；外部 MIDI CC 可覆盖更大深度
     wire [6:0] tgt_vib_depth = vib_on ? vib_depth :
-                               is_bowed ? 7'd18 : 7'd0;
+                               is_bowed ? 7'd10 : 7'd0;
     wire       eff_vib_on    = vib_on || is_bowed;
 
     always @(posedge clk) begin
@@ -154,7 +131,6 @@ module piano_engine_tdm32 #(
         end else begin
             if (note_on && !ld_busy) begin
                 last_f0_word  <= f0_bus;
-                // 新音起音瞬间揉弦归零（真实小提琴起弓先稳音再渐入揉弦）
                 vib_swell_cnt <= 7'd0;
                 vib_tick_div  <= 8'd0;
                 if (glide_on && last_valid && glide_time != 7'd0) begin
@@ -180,7 +156,8 @@ module piano_engine_tdm32 #(
                         else if (vib_swell_cnt > tgt_vib_depth)
                             vib_swell_cnt <= tgt_vib_depth;
                     end
-                    vib_depth_r <= is_bowed ? vib_swell_cnt : tgt_vib_depth;
+                    // 编码器/CC 显式开启颤音 (vib_on=1) 时立即按目标深度响应，小提琴默认自带渐入揉弦
+                    vib_depth_r <= vib_on ? tgt_vib_depth : (is_bowed ? vib_swell_cnt : 7'd0);
                 end else begin
                     vib_depth_r <= 7'd0;
                 end
@@ -214,6 +191,7 @@ module piano_engine_tdm32 #(
     reg [N_VOICES-1:0] v_gate;
     reg [N_VOICES-1:0] v_sus_pend;
     reg [N_VOICES-1:0] v_act_r;
+    reg [N_VOICES-1:0] v_bowed; // 逐声部独立记录是否为拉弦声部(小提琴)，支持钢琴/吉他/小提琴多乐器同时混奏
     reg [6:0]          v_note [0:N_VOICES-1];
     reg [16:0]         v_velg [0:N_VOICES-1];
     assign active = v_act_r;
@@ -245,7 +223,6 @@ module piano_engine_tdm32 #(
 
     reg [SEL_W-1:0] rr;
     reg [SEL_W-1:0] last_voice;
-    // last_valid 已在文件前部前置声明
 
     wire [31:0] m_same32 = v_gate & nm32;
     wire [31:0] m_idle32 = ~v_act_r;
@@ -263,12 +240,6 @@ module piano_engine_tdm32 #(
                                  (|m_rel32)               ? s3_32      : rr;
 
     // ----------------------------------------- 4. Gowin SDPB BSRAM 状态阵列 ----
-    // 256 x 32 bit: 高 5 位 = 声部号 (0..31)，低 3 位 = 泛音号 (0..5)
-    // mem_sr 扩展为 28 bit (仍占同一块 18Kbit BSRAM):
-    //   [27:12] = 该泛音分量的目标幅度 target_amp (用于小提琴逐泛音按真实频谱比例持续运弓)
-    //   [11:10] = 2'b0
-    //   [9:5]   = s_ring_eff (含音高衰减偏移 k(note))
-    //   [4:0]   = s_damp_eff
     (* ram_style = "block" *) reg [31:0] mem_ph  [0:255];
     (* ram_style = "block" *) reg [31:0] mem_env [0:255];
     (* ram_style = "block" *) reg [31:0] mem_inc [0:255];
@@ -288,8 +259,10 @@ module piano_engine_tdm32 #(
     localparam [1:0] L_IDLE = 2'd0, L_CALC = 2'd1, L_MUL = 2'd2, L_DONE = 2'd3;
     reg [1:0]       ld_st;
     reg [2:0]       ld_idx;
-    // ld_busy 已在文件前部前置声明
     reg [SEL_W-1:0] ld_sel;
+    reg [1:0]       ld_inst;
+    reg             ld_is_bowed;
+    reg             ld_is_glide;
     reg [31:0]      ld_f0;
     reg [31:0]      ld_beat;
     reg [6:0]       ld_note;
@@ -306,7 +279,6 @@ module piano_engine_tdm32 #(
     reg [27:0]      ld_wr_sr;
     reg [31:0]      ld_wr_ph;
 
-    // 五段音区：低音的基波/低次谐波更重，高音逐步增加亮度和弦刚度。
     wire [2:0] band_ld = (on_note >= 7'd84) ? 3'd4 :
                          (on_note >= 7'd72) ? 3'd3 :
                          (on_note >= 7'd60) ? 3'd2 :
@@ -323,7 +295,7 @@ module piano_engine_tdm32 #(
     piano_partial_lut u_ld_lut (
         .n       (ld_idx),
         .band    (band_ld_eff),
-        .inst    (inst_ok),
+        .inst    (ld_inst),
         .amp_q16 (pl_amp),
         .k_q12   (pl_k),
         .s_ring  (pl_sr),
@@ -332,7 +304,6 @@ module piano_engine_tdm32 #(
         .st2     (pl_st2)
     );
 
-    // 音高相关衰减偏移：低音(<F#3)延音加长 +1 档，高音(>=F#5)衰减加快 -1 档
     wire [4:0] pl_sr_pitch = (ld_note < 7'd54 && pl_sr < 5'd18) ? (pl_sr + 5'd1) :
                              (ld_note >= 7'd78 && pl_sr > 5'd9) ? (pl_sr - 5'd1) : pl_sr;
 
@@ -342,7 +313,6 @@ module piano_engine_tdm32 #(
     wire [15:0] kvel_q12  = kvel_prod[21:7];
     wire [32:0] ld_bmul   = ld_gq * ld_kq;
     wire [18:0] ld_envsum = {2'b0, ld_gq} + ld_bmul[30:12];
-    // 严格饱和至 16-bit Q16 最大值 65535 (16'hFFFF)，防止 65536 (17'h1_0000) 截断低 16 位归零
     wire [15:0] ld_env_clamped = (ld_envsum >= 19'd65535) ? 16'd65535 : ld_envsum[15:0];
 
     wire [2:0]  ld_n   = ld_idx + 3'd1;
@@ -353,15 +323,14 @@ module piano_engine_tdm32 #(
                          (ld_n == 3'd4) ? (ld_f0e << 2)              :
                          (ld_n == 3'd5) ? ((ld_f0e << 2) + ld_f0e)   :
                                           ((ld_f0e << 2) + (ld_f0e << 1));
-    // 加入同音多弦失谐拍频 (beat_bus)：奇次与偶次泛音微失谐，赋予三角钢琴/木吉他双弦自然合唱温暖感
-    wire [32:0] ld_beat_ofs = (!is_bowed && ld_idx[0]) ? {1'b0, ld_beat} : 33'd0;
+    wire [32:0] ld_beat_ofs = (!ld_is_bowed && ld_idx[0]) ? {1'b0, ld_beat} : 33'd0;
     wire [32:0] ld_inc_p1 = ld_nf0_r + (ld_f0e >> pl_st1_r) + (ld_f0e >> pl_st2_r) + ld_beat_ofs;
 
-    // ----------------------------------------- 5b. 物理激励瞬态发生器 (琴槌/拨片/弓毛松香擦弦) ----
-    // 16-bit Galois LFSR + 力度自适应双级低通/带通 + 快速指数衰减包络
+    // ----------------------------------------- 5b. 物理激励瞬态发生器 ----
     reg [15:0]        ham_lfsr;
     reg [15:0]        ham_env;
     reg [2:0]         ham_lp_sh;
+    reg [1:0]         ham_inst_r;
     reg signed [15:0] ham_lp1, ham_lp2;
 
     wire ham_fb = ham_lfsr[15] ^ ham_lfsr[13] ^ ham_lfsr[12] ^ ham_lfsr[10];
@@ -370,9 +339,9 @@ module piano_engine_tdm32 #(
     wire signed [16:0] ham_d2  = ham_lp1 - ham_lp2;
     wire signed [15:0] ham_lp1_n = ham_lp1 + (ham_d1 >>> ham_lp_sh);
     wire signed [15:0] ham_lp2_n = ham_lp2 + (ham_d2 >>> ham_lp_sh);
-    // 钢琴取双级低通(毛毡锤击木质闷响)，吉他取带通(清脆拨片/指甲微瞬态)，小提琴取微带通(弓毛松香擦弦微触感)
-    wire signed [15:0] ham_color = (inst_ok == 2'd1) ? (ham_lp1_n - ham_lp2_n) :
-                                   is_bowed ? ((ham_lp1_n - ham_lp2_n) >>> 1) : ham_lp2_n;
+    wire ham_bowed = (ham_inst_r >= 2'd2);
+    wire signed [15:0] ham_color = (ham_inst_r == 2'd1) ? (ham_lp1_n - ham_lp2_n) :
+                                   ham_bowed ? ((ham_lp1_n - ham_lp2_n) >>> 1) : ham_lp2_n;
     wire signed [32:0] ham_prod  = ham_color * $signed({1'b0, ham_env});
     reg  signed [15:0] ham_sig_r;
     always @(posedge clk) begin
@@ -382,32 +351,32 @@ module piano_engine_tdm32 #(
 
     always @(posedge clk) begin
         if (!rst_n) begin
-            ham_lfsr  <= 16'hACE1;
-            ham_env   <= 16'd0;
-            ham_lp_sh <= 3'd2;
-            ham_lp1   <= 16'sd0;
-            ham_lp2   <= 16'sd0;
+            ham_lfsr   <= 16'hACE1;
+            ham_env    <= 16'd0;
+            ham_lp_sh  <= 3'd2;
+            ham_inst_r <= 2'd0;
+            ham_lp1    <= 16'sd0;
+            ham_lp2    <= 16'sd0;
         end else begin
             if (note_on && !ld_busy) begin
-                ham_lp_sh <= vel_lp_bus;
-                // 钢琴柔和毛毡锤击、吉他清脆拨片瞬态、小提琴轻柔起弓擦弦
-                ham_env   <= (inst_ok == 2'd1) ? (vel_gain_bus[16:2] + 16'd2048) :
-                             is_bowed ? (vel_gain_bus[16:3]) :
-                                                 (vel_gain_bus[16:2]);
+                ham_lp_sh  <= vel_lp_bus;
+                ham_inst_r <= inst_ok;
+                ham_env    <= (inst_ok == 2'd1) ? (vel_gain_bus[16:2] + 16'd2048) :
+                              is_bowed ? (vel_gain_bus[16:3]) :
+                                         (vel_gain_bus[16:2]);
             end else if (sample_tick) begin
                 ham_lfsr <= {ham_lfsr[14:0], ham_fb};
                 ham_lp1  <= ham_lp1_n;
                 ham_lp2  <= ham_lp2_n;
                 if (ham_env <= 16'd16) ham_env <= 16'd0;
-                else if (inst_ok == 2'd1) ham_env <= ham_env - (ham_env >> 7); // ~1.3 ms 清脆拨片
-                else if (is_bowed)        ham_env <= ham_env - (ham_env >> 9); // ~5.2 ms 起弓擦弦
-                else                      ham_env <= ham_env - (ham_env >> 8); // ~2.6 ms 琴槌瞬态
+                else if (ham_inst_r == 2'd1) ham_env <= ham_env - (ham_env >> 7);
+                else if (ham_bowed)          ham_env <= ham_env - (ham_env >> 9);
+                else                         ham_env <= ham_env - (ham_env >> 8);
             end
         end
     end
 
     // ----------------------------------------- 6. TDM 4级流水扫描引擎 ---------
-    // 每个 sample_tick (512拍) 扫描 32声部 × 6泛音 = 192 步 (占 196 拍，余 316 拍空闲)
     reg        tdm_run;
     reg [4:0]  s0_v;
     reg [2:0]  s0_j;
@@ -415,7 +384,6 @@ module piano_engine_tdm32 #(
 
     reg [31:0] s1_ph, s1_env, s1_inc;
     reg [27:0] s1_sr_cfg;
-    // 对齐同步正弦 ROM 的第二级数据寄存器；rom_* 与 rom_val 属于同一振荡器。
     reg [31:0] rom_ph, rom_env, rom_inc;
     reg [27:0] rom_sr_cfg;
     always @(posedge clk) begin
@@ -446,21 +414,15 @@ module piano_engine_tdm32 #(
     );
 
     reg [6:0] drv_src_r;
-    reg       drv_on_r;
     always @(posedge clk) begin
-        if (!rst_n) begin
-            drv_src_r <= 7'd64;
-            drv_on_r  <= 1'b0;
-        end else begin
-            drv_src_r <= (bow_speed != 7'd0) ? bow_speed : 7'd64;
-            drv_on_r  <= is_bowed;
-        end
+        if (!rst_n) drv_src_r <= 7'd64;
+        else        drv_src_r <= (bow_speed != 7'd0) ? bow_speed : 7'd64;
     end
 
     wire [4:0]  rom_s_ring = rom_sr_cfg[9:5];
     wire [4:0]  rom_s_damp = rom_sr_cfg[4:0];
     wire        rom_gate   = v_gate[rom_v];
-    // 小提琴逐泛音独立运弓目标包络：严格保持该音区/该泛音的真实声学谐波比例，彻底杜绝32位溢出与高次谐波失衡嗡声
+    wire        rom_bowed  = v_bowed[rom_v];
     wire [31:0] rom_base_tgt = {rom_sr_cfg[27:12], 16'd0};
     wire [31:0] rom_bow_tgt  = (drv_src_r >= 7'd96) ? rom_base_tgt :
                                (drv_src_r >= 7'd48) ? (rom_base_tgt - (rom_base_tgt >> 2)) :
@@ -471,8 +433,7 @@ module piano_engine_tdm32 #(
         if (!rom_gate) begin
             if (rom_env <= (32'd1 << rom_s_damp)) rom_env_next_c = 32'd0;
             else                                  rom_env_next_c = rom_env - (rom_env >> rom_s_damp);
-        end else if (drv_on_r) begin
-            // 指数起弓渐入 (τ ≈ 10.5 ms) 并稳定维持在各泛音的目标幅度
+        end else if (rom_bowed) begin
             if (rom_env < rom_bow_tgt)
                 rom_env_next_c = rom_env + ((rom_bow_tgt - rom_env) >> 10) + 32'd64;
             else
@@ -488,8 +449,6 @@ module piano_engine_tdm32 #(
     reg [31:0]        s2_inc_mod_q, s2_rom_ph_q, s2_env_next;
     wire signed [34:0] s2_pf = $signed(s2_sin) * $signed({1'b0, s2_env_q});
 
-    // 颤音与滑音在这里真正改变每个振荡器的相位增量。
-    // 滑音仅作用于 last_voice，且按泛音阶数 (rom_j+1) 比例缩放，并对 inc_mod_sum 下界钳位防无符号下溢！
     wire signed [48:0] vib_inc_prod = $signed({1'b0, rom_inc}) * vib_frac;
     wire signed [32:0] vib_inc_delta = vib_on_r ? (vib_inc_prod >>> 15) : 33'sd0;
     wire signed [33:0] glide_f0_ofs = $signed({1'b0, glide_cur_f0}) - $signed({1'b0, glide_tgt_f0});
@@ -509,15 +468,17 @@ module piano_engine_tdm32 #(
     reg signed [18:0] s3_prod;
     reg [31:0]        s3_ph_wb, s3_env_wb;
 
-    // BSRAM 写端口：Loader 仅在 `!s2_val` (即下一拍 `s3_val == 0`) 时置位 `ld_wr_en`，零写冲突
     wire        wb_we   = ld_wr_en | s3_val;
+    wire        wb_ph_we= s3_val | (ld_wr_en & ~ld_is_glide);
     wire [7:0]  wb_addr = ld_wr_en ? ld_wr_addr : {s3_v, s3_j};
     wire [31:0] wb_ph   = ld_wr_en ? ld_wr_ph   : s3_ph_wb;
     wire [31:0] wb_env  = ld_wr_en ? ld_wr_env  : s3_env_wb;
 
     always @(posedge clk) begin
-        if (wb_we) begin
+        if (wb_ph_we) begin
             mem_ph[wb_addr]  <= wb_ph;
+        end
+        if (wb_we) begin
             mem_env[wb_addr] <= wb_env;
         end
         if (ld_wr_en) begin
@@ -543,6 +504,7 @@ module piano_engine_tdm32 #(
             v_gate      <= {N_VOICES{1'b0}};
             v_sus_pend  <= {N_VOICES{1'b0}};
             v_act_r     <= {N_VOICES{1'b0}};
+            v_bowed     <= {N_VOICES{1'b0}};
             for (vi = 0; vi < N_VOICES; vi = vi + 1) begin
                 v_note[vi] <= 7'd0;
                 v_velg[vi] <= 17'd0;
@@ -551,6 +513,9 @@ module piano_engine_tdm32 #(
             ld_idx      <= 3'd0;
             ld_busy     <= 1'b0;
             ld_sel      <= {SEL_W{1'b0}};
+            ld_inst     <= 2'd0;
+            ld_is_bowed <= 1'b0;
+            ld_is_glide <= 1'b0;
             ld_f0       <= 32'd0;
             ld_beat     <= 32'd0;
             ld_note     <= 7'd60;
@@ -593,6 +558,7 @@ module piano_engine_tdm32 #(
                 v_velg[alloc_sel]     <= vel_gain_bus;
                 v_gate[alloc_sel]     <= 1'b1;
                 v_act_r[alloc_sel]    <= 1'b1;
+                v_bowed[alloc_sel]    <= is_bowed;
                 v_sus_pend[alloc_sel] <= 1'b0;
                 last_voice            <= alloc_sel;
                 last_valid            <= 1'b1;
@@ -602,8 +568,8 @@ module piano_engine_tdm32 #(
             if (off_any) begin
                 for (vi = 0; vi < N_VOICES; vi = vi + 1) begin
                     if (v_gate[vi] && (v_note[vi] == off_any_note)) begin
-                        if (sustain) v_sus_pend[vi] <= 1'b1;
-                        else         v_gate[vi]     <= 1'b0;
+                        if (sustain && !v_bowed[vi]) v_sus_pend[vi] <= 1'b1;
+                        else                         v_gate[vi]     <= 1'b0;
                     end
                 end
             end
@@ -637,7 +603,6 @@ module piano_engine_tdm32 #(
             end
 
             s1_val <= tdm_run; s1_v <= s0_v; s1_j <= s0_j;
-            // piano_sin_rom 是同步 ROM，输出比 s1_ph 晚一拍；valid/地址也延后一拍。
             rom_val <= s1_val; rom_v <= s1_v; rom_j <= s1_j;
             s2_val <= rom_val; s2_v <= rom_v; s2_j <= rom_j;
             s3_val <= s2_val;  s3_v <= s2_v; s3_j <= s2_j;
@@ -672,20 +637,23 @@ module piano_engine_tdm32 #(
                 end
             end
 
-            // 3. Loader FSM (仅在 !s2_val 空闲窗口写入 BSRAM，避免与 S3 写回冲突)
+            // 3. Loader FSM
             ld_wr_en <= 1'b0;
             case (ld_st)
                 L_IDLE: begin
                     if (note_on && !ld_busy) begin
-                        ld_f0      <= f0_bus;
-                        ld_beat    <= beat_bus;
-                        ld_note    <= on_note;
-                        ld_velgain <= vel_gain_bus;
-                        ld_vel     <= on_vel;
-                        ld_sel     <= alloc_sel;
-                        ld_idx     <= 3'd0;
-                        ld_busy    <= 1'b1;
-                        ld_st      <= L_CALC;
+                        ld_f0       <= f0_bus;
+                        ld_beat     <= beat_bus;
+                        ld_note     <= on_note;
+                        ld_velgain  <= vel_gain_bus;
+                        ld_vel      <= on_vel;
+                        ld_sel      <= alloc_sel;
+                        ld_inst     <= inst_ok;
+                        ld_is_bowed <= is_bowed;
+                        ld_is_glide <= (glide_on && last_valid && glide_time != 7'd0 && v_act_r[alloc_sel]);
+                        ld_idx      <= 3'd0;
+                        ld_busy     <= 1'b1;
+                        ld_st       <= L_CALC;
                     end
                 end
                 L_CALC: begin
@@ -699,15 +667,13 @@ module piano_engine_tdm32 #(
                     ld_st    <= L_MUL;
                 end
                 L_MUL: begin
-                    if (!s2_val) begin // 确保下一拍 s3_val == 0，独享 BSRAM 写端口
+                    if (!s2_val) begin
                         ld_wr_en   <= 1'b1;
                         ld_wr_addr <= {ld_sel, ld_idx};
                         ld_wr_inc  <= ld_inc_p1[31:0];
-                        // 弦乐起弓初始幅度取 25% 柔和接触，随后由运弓包络平滑推升至目标值；钢琴/吉他直接冲击起音
-                        ld_wr_env  <= is_bowed ? {2'b0, ld_env_clamped[15:2], 16'd0}
-                                               : {ld_env_clamped, 16'd0};
+                        ld_wr_env  <= ld_is_bowed ? {2'b0, ld_env_clamped[15:2], 16'd0}
+                                                  : {ld_env_clamped, 16'd0};
                         ld_wr_sr   <= {ld_env_clamped, 2'b0, pl_sr_r, pl_sd_r};
-                        // 泛音从零初相平滑起振，确保琴弦位移从 0 连续起步，彻底根除击弦/拨弦瞬态阶跃杂音与破音
                         ld_wr_ph   <= 32'd0;
                         if (ld_idx == N_PART[2:0] - 3'd1) begin
                             ld_st <= L_DONE;
@@ -739,7 +705,6 @@ module piano_engine_tdm32 #(
         else        act_cnt_q <= act_cnt_c;
     end
 
-    // 动态右移：1..2声部保持原增益，3..6声部 >>>1，7..14声部 >>>2，15..32声部 >>>3，彻底消除多音和弦削波
     wire [1:0] poly_extra_sh = (act_cnt_q <= 6'd2)  ? 2'd0 :
                                (act_cnt_q <= 6'd6)  ? 2'd1 :
                                (act_cnt_q <= 6'd14) ? 2'd2 : 2'd3;
@@ -748,18 +713,14 @@ module piano_engine_tdm32 #(
         if (!rst_n) poly_extra_sh_r <= 2'd0;
         else        poly_extra_sh_r <= poly_extra_sh;
     end
-    wire signed [27:0] norm_old = vsum_q >>> (OUT_SHIFT + poly_extra_sh_r);
     wire signed [27:0] norm_new = vsum_q >>> (OUT_SHIFT + 1 + poly_extra_sh_r);
-    // 钢琴统一采用高裕量衰减 (norm_new)，预留 6 dB 动态余量，杜绝高音/大动态和弦削波失真
     wire signed [27:0] norm_f   = norm_new;
 
-    // ★ 注入起音物理激励瞬态：吉他清脆机械拨弦（1.3 ms），小提琴起弓松香摩擦（5.2 ms），无持续底噪
-    wire signed [15:0] ham_subtle = (inst_ok == 2'd1) ? (ham_sig_r >>> 3) :
-                                    is_bowed          ? (ham_sig_r >>> 4) : 16'sd0;
+    wire signed [15:0] ham_subtle = (ham_inst_r == 2'd1) ? (ham_sig_r >>> 3) :
+                                    ham_bowed            ? (ham_sig_r >>> 4) : 16'sd0;
     wire signed [27:0] norm_sum   = norm_f + {{12{ham_subtle[15]}}, ham_subtle};
 
     wire signed [27:0] mag      = norm_sum[27] ? (-norm_sum) : norm_sum;
-    wire signed [27:0] magl_old = (mag > KNEE) ? (KNEE + ((mag - KNEE) >>> 2)) : mag;
     wire signed [27:0] magl_new = (mag > KNEE) ? (KNEE + ((3 * (mag - KNEE)) >>> 3)) : mag;
     wire signed [27:0] magl     = magl_new;
 

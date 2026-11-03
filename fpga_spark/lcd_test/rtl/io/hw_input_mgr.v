@@ -2,60 +2,25 @@
 //  hw_input_mgr.v -- S5 hardware-instrument input manager (top MODE=3)
 //
 //  Inputs (all verified on this board by the hw_bringup firmwares & PCB v1):
-//      key_raw[12:0]  J13 pins 1..10,13,14,15   pressed = 0 (internal pull-up)
-//      photo_raw[5:0] J13 pins 16..21           blocked = 0 (PC817 / S9012)
-//      ec1a/ec1b      J13 pins 22/23 (D17/A19)  EC11 #1 quadrature
-//      scl_a/sda_a    J13 pins 24/25 (A18/D15)  ToF #1, VB22B @0x52, bus A
-//
-//  Outputs:
-//      ev_*           serialized note events, one per pulse, >=16 clk apart
-//                     (piano_engine load FSM needs 14 clk between note-ons:
-//                     6 partials x (L_CALC+L_MUL) + L_DONE, no input queue)
-//      volume         EC11 volume 0..127 (start VOL_INIT, +/-1 per quadrature
-//                     step = +/-4 per detent), also syncs with ext_vol_valid
-//                     (7-inch LCD touchscreen volume slider & MIDI CC7)
-//      dbg_tx         115200 telemetry on U15:
-//                     K=xxxx P=xx A=xxxx V=xx N=xxxxxx O=xx @xxxxxxxx CR LF
-//                     K key state / P photo state / A ToF mm (FFFF=NACK) /
-//                     V volume / N last event (90/80 note vel hex) / O block
-//                     count (FIFO-full push attempts, must stay 00) / @ ms
-//
-//  Event map (INSTRUMENT-MAPPING.md §3 + PCB v1 6-string optical array):
-//      key i      on/off note 60+i (C4..C5), vel 100
-//      photo[0]   block edge = on note 40 (E2,  82.41 Hz) vel 110, release = off
-//      photo[1]   block edge = on note 45 (A2, 110.00 Hz) vel 110, release = off
-//      photo[2]   block edge = on note 50 (D3, 146.83 Hz) vel 110, release = off
-//      photo[3]   block edge = on note 55 (G3, 196.00 Hz) vel 110, release = off
-//      photo[4]   block edge = on note 59 (B3, 246.94 Hz) vel 110, release = off
-//      photo[5]   block edge = on note 64 (E4, 329.63 Hz) vel 110, release = off
-//      ToF #1     10..70 cm -> note 60..84 (24 mm/step, 24-boundary
-//                 thermometer, zero DSP), +/-20 mm hysteresis, 5-point median;
-//                 enter (3-sample dwell): on; change: off(old)+on(new),
-//                 re-pluck, >=180 ms apart, glide=0 (engine glide steals the
-//                 global last_voice -> never used); leave (>800 mm 200 ms or
-//                 NACK 500 ms): off.  Distance 10->70 cm maps to rising pitch.
-//      priority   photo > key > ToF at the FIFO write port; blocked pushes
-//                 retry (nothing is dropped), O= counts block events.
-//
-//  Structure: single 50 MHz domain, zero BSRAM (FIFO = distributed RAM),
-//  zero DSP (all multiplies are small constant LUT multiplies or shifts),
-//  250 ms power-up mask, 2 ms/8 ms asymmetric debounce on 19 switch inputs.
+//      key_raw[12:0]  J13 pins 1..10,13,14,15   pressed = 0 (internal pull-up) -> Piano (inst 0)
+//      photo_raw[5:0] J13 pins 16..21           blocked = 0 (PC817 / S9012)    -> Guitar (inst 1)
+//      scl_a/sda_a    J13 pins 24/25 (A18/D15)  ToF #1, VB22B @0x52, bus A     -> Violin (inst 2)
+//      scl_b/sda_b    J13 pins 29/30 (F14/F13)  ToF #2, VB22B @0x52, bus B     -> Violin (inst 2)
+//      ec1a/ec1b      J13 pins 22/23 (D17/A19)  EC11 #1 quadrature -> Glide (滑音 0..127)
+//      ec2a/ec2b      J13 pins 26/27 (D14/D16)  EC11 #2 quadrature -> Vibrato (颤音 0..127)
+//      ec3a/ec3b      J13 pins 37/38 (D19/E19)  EC11 #3 quadrature -> Volume (音量 0..127)
+//      ec4a/ec4b      J13 pins 39/40 (C19/C18)  EC11 #4 quadrature -> UI Page Switch (切换屏幕界面)
 // =============================================================================
 `default_nettype none
 
 module hw_input_mgr #(
     parameter integer CLK_HZ    = 50_000_000,
-    parameter integer SCL_HZ    = 10_000,  // full rate restored after moving I2C
-                                           // from J8 (BANK7, shared with I2S) to
-                                           // J13-24/25 (SDRAM0 bank): no audio
-                                           // interference measured at 10 kHz
+    parameter integer SCL_HZ    = 10_000,
     parameter integer DB_ON_MS  = 2,
     parameter integer DB_OFF_MS = 8,
     parameter integer TOF_MS    = 20,     // ToF poll period, ms
     parameter integer MASK_MS   = 250,    // power-up event mask, ms
-    parameter integer QUIET     = 0,      // bisect aid: 0 = I2C+telemetry live,
-                                          //   1 = both frozen, 2 = telemetry frozen
-                                          //   only, 3 = I2C frozen only
+    parameter integer QUIET     = 0,
     parameter [6:0]   VOL_INIT  = 7'd100  // initial volume (100 for sim, 127 for top)
 )(
     input  wire        clk,
@@ -82,12 +47,17 @@ module hw_input_mgr #(
     output reg         ev_on_valid,
     output reg  [6:0]  ev_on_note,
     output reg  [6:0]  ev_on_vel,
+    output reg  [1:0]  ev_on_inst,   // 0=Piano(13键), 1=Guitar(6路光电), 2=Violin(ToF测距)
     output reg         ev_off_valid,
     output reg  [6:0]  ev_off_note,
-    output reg         ev_glide_on,
-    output reg  [6:0]  ev_glide_time,
-    // post-mix volume for top.v gain stage
+    // 4 independent rotary encoder outputs (EC1=Glide, EC2=Vibrato, EC3=Volume, EC4=UI Page)
+    output wire        ev_glide_on,
+    output wire [6:0]  ev_glide_time,
+    output wire        ev_vib_on,
+    output wire [6:0]  ev_vib_depth,
     output wire [6:0]  volume,
+    output reg         ev_page_next,
+    output reg         ev_page_prev,
     // telemetry mirrors
     output wire [12:0] key_state,
     output wire [5:0]  photo_state,
@@ -173,10 +143,11 @@ module hw_input_mgr #(
         end
     end
 
-    // ------------------------------------------------------ EC11 #1 volume --
-    // 2-FF sync, sampled at 1 kHz, single-quadrature-step adjacency only
-    // (same proven decoder as hw_bringup/rtl/inputs_top.v), plus external
-    // volume synchronization from 7-inch LCD touch slider / MIDI CC7.
+    // --------------------------------------------------- 4x EC11 Encoders --
+    // EC1 (J13-22/23): 滑音 (Glide time 0..127 & glide_on)
+    // EC2 (J13-26/27): 颤音 (Vibrato depth 0..127 & vib_on)
+    // EC3 (J13-37/38): 音量调节 (Master Volume 0..127)
+    // EC4 (J13-39/40): 切换屏幕界面 (UI Page Switch next/prev)
     reg ea1, ea2, eb1, eb2;
     reg e2a1, e2a2, e2b1, e2b2;
     reg e3a1, e3a2, e3b1, e3b2;
@@ -196,8 +167,12 @@ module hw_input_mgr #(
     end
 
     reg  [1:0] q1_d, q2_d, q3_d, q4_d;
+    reg  [6:0] glide_r;
+    reg  [6:0] vib_r;
     reg  [6:0] vol_r;
-    reg signed [15:0] enc_dbg;
+    reg  signed [3:0] q4_acc;
+    reg  [31:0] page_last_ms;
+    reg  signed [15:0] enc_dbg;
 
     function signed [1:0] qstep;
         input [1:0] prev;
@@ -217,26 +192,83 @@ module hw_input_mgr #(
     wire [1:0] q2 = {e2a2, e2b2};
     wire [1:0] q3 = {e3a2, e3b2};
     wire [1:0] q4 = {e4a2, e4b2};
-    wire signed [3:0] q_sum = qstep(q1_d, q1) + qstep(q2_d, q2) + qstep(q3_d, q3) + qstep(q4_d, q4);
+
+    wire signed [1:0] s1_step = qstep(q1_d, q1);
+    wire signed [1:0] s2_step = qstep(q2_d, q2);
+    wire signed [1:0] s3_step = qstep(q3_d, q3);
+    wire signed [1:0] s4_step = qstep(q4_d, q4);
+    wire signed [3:0] q_sum   = s1_step + s2_step + s3_step + s4_step;
+    wire signed [3:0] next_q4 = q4_acc + {{2{s4_step[1]}}, s4_step};
 
     always @(posedge clk) begin
         if (!rst_n) begin
             q1_d <= 2'b11; q2_d <= 2'b11; q3_d <= 2'b11; q4_d <= 2'b11;
-            vol_r <= VOL_INIT; enc_dbg <= 16'sd0;
-        end else if (ext_vol_valid) begin
-            vol_r <= ext_vol_val;
-        end else if (tick1ms) begin
-            q1_d <= q1; q2_d <= q2; q3_d <= q3; q4_d <= q4;
-            enc_dbg <= enc_dbg + q_sum;
-            if (q_sum > 0) begin
-                if (vol_r != 7'd127) vol_r <= vol_r + 7'd1;
-            end else if (q_sum < 0) begin
-                if (vol_r != 7'd0)   vol_r <= vol_r - 7'd1;
+            glide_r      <= 7'd0;
+            vib_r        <= 7'd0;
+            vol_r        <= VOL_INIT;
+            q4_acc       <= 4'sd0;
+            page_last_ms <= 32'd0;
+            ev_page_next <= 1'b0;
+            ev_page_prev <= 1'b0;
+            enc_dbg      <= 16'sd0;
+        end else begin
+            ev_page_next <= 1'b0;
+            ev_page_prev <= 1'b0;
+
+            if (ext_vol_valid) begin
+                vol_r <= ext_vol_val;
+            end
+
+            if (tick1ms) begin
+                q1_d <= q1; q2_d <= q2; q3_d <= q3; q4_d <= q4;
+                enc_dbg <= enc_dbg + q_sum;
+
+                // 1. EC1 -> 滑音 (Glide time 0..127, +/-4 per step = +/-16 per detent)
+                if (s1_step > 0) begin
+                    glide_r <= (glide_r >= 7'd123) ? 7'd127 : (glide_r + 7'd4);
+                end else if (s1_step < 0) begin
+                    glide_r <= (glide_r <= 7'd4)   ? 7'd0   : (glide_r - 7'd4);
+                end
+
+                // 2. EC2 -> 颤音 (Vibrato depth 0..127, +/-4 per step = +/-16 per detent)
+                if (s2_step > 0) begin
+                    vib_r <= (vib_r >= 7'd123) ? 7'd127 : (vib_r + 7'd4);
+                end else if (s2_step < 0) begin
+                    vib_r <= (vib_r <= 7'd4)   ? 7'd0   : (vib_r - 7'd4);
+                end
+
+                // 3. EC3 -> 音量调节 (Master Volume 0..127, +/-2 per step = +/-8 per detent)
+                if (!ext_vol_valid) begin
+                    if (s3_step > 0) begin
+                        vol_r <= (vol_r >= 7'd125) ? 7'd127 : (vol_r + 7'd2);
+                    end else if (s3_step < 0) begin
+                        vol_r <= (vol_r <= 7'd2)   ? 7'd0   : (vol_r - 7'd2);
+                    end
+                end
+
+                // 4. EC4 -> 切换屏幕界面 (UI Page Switch with 120ms detent debounce)
+                if ((ms_cnt - page_last_ms) < 32'd120) begin
+                    q4_acc <= 4'sd0;
+                end else if (next_q4 >= 4'sd2) begin
+                    ev_page_next <= 1'b1;
+                    q4_acc       <= 4'sd0;
+                    page_last_ms <= ms_cnt;
+                end else if (next_q4 <= -4'sd2) begin
+                    ev_page_prev <= 1'b1;
+                    q4_acc       <= 4'sd0;
+                    page_last_ms <= ms_cnt;
+                end else begin
+                    q4_acc <= next_q4;
+                end
             end
         end
     end
 
-    assign volume = vol_r;
+    assign ev_glide_time = glide_r;
+    assign ev_glide_on   = (glide_r != 7'd0);
+    assign ev_vib_depth  = vib_r;
+    assign ev_vib_on     = (vib_r != 7'd0);
+    assign volume        = vol_r;
 
     // --------------------------------------------------- i2c master + seq --
     reg        m_go;
@@ -255,9 +287,7 @@ module hw_input_mgr #(
         .scl_oe(i2c_scl_oe), .sda_oe(i2c_sda_oe)
     );
 
-    // SCL push-pull: actively drives High (3.3V) and Low (0V), eliminating dependency on external pull-up resistor.
     assign scl_a = ~i2c_scl_oe;
-    // SDA open-drain: tri-state when high for slave ACK/data
     assign sda_a = i2c_sda_oe ? 1'b0 : 1'bz;
 
     localparam [1:0] C_START = 2'd0, C_WRITE = 2'd1, C_READ = 2'd2, C_STOP = 2'd3;
@@ -309,18 +339,19 @@ module hw_input_mgr #(
     wire tof_smp   = (ps   == P_REP) && !m_busy;    // Bus 1 (SCL1/SDA1) completed read
     wire tof_smp_b = (ps_b == P_REP) && !m_busy_b;  // Bus 2 (SCL2/SDA2) completed read
 
-    // VB22B auto-increment read returns HIGH byte first (measured on this
-    // board 2026-10-23: 909 mm arrived as 03 8D).
+    // VB22B auto-increment read returns HIGH byte first
     wire [15:0] dist_raw   = {d_lo, d_hi};
     wire [11:0] dist12     = (dist_raw > 16'd4095) ? 12'hFFF : dist_raw[11:0];
     wire [15:0] dist_raw_b = {d_lo_b, d_hi_b};
     wire [11:0] dist12_b   = (dist_raw_b > 16'd4095) ? 12'hFFF : dist_raw_b[11:0];
 
-    // Auto-select active ToF bus for telemetry & Theremin pitch (Bus 1 priority, Bus 2 seamless fallback)
-    wire bus_a_active    = (dist_r != 16'hFFFF);
-    assign tof_dist      = bus_a_active ? dist_r      : dist_b_r;
+    // Auto-select ToF bus that has a hand in active playing range (110..700 mm), ignoring <110mm static obstructions
+    wire in_rng_a        = (dist_r   >= 16'd110) && (dist_r   <= 16'd700);
+    wire in_rng_b        = (dist_b_r >= 16'd110) && (dist_b_r <= 16'd700);
+    wire use_bus_b       = in_rng_b && (!in_rng_a || (dist_b_r < dist_r));
+    assign tof_dist      = use_bus_b ? dist_b_r : ((dist_r != 16'hFFFF) ? dist_r : dist_b_r);
     assign tof_ack_cnt   = (ack_cnt_r != 8'd0) ? ack_cnt_r : ack_cnt_b_r;
-    assign tof_nack_cnt  = bus_a_active ? nack_cnt_r  : nack_cnt_b_r;
+    assign tof_nack_cnt  = (dist_r != 16'hFFFF) ? nack_cnt_r : nack_cnt_b_r;
     assign tof_curr_addr = (ack_cnt_r != 8'd0) ? i2c_dev_addr : ((ack_cnt_b_r != 8'd0) ? i2c_dev_addr_b : i2c_dev_addr);
     assign tof_sda_raw   = sda_a & sda_b;
 
@@ -351,7 +382,6 @@ module hw_input_mgr #(
                         nack_r <= 1'b1;
                         ps <= P_STOP;
                         if (nack_cnt_r != 8'hFF) nack_cnt_r <= nack_cnt_r + 8'd1;
-                        // Alternate between 0xA4 (VB22B @0x52) and 0x52 (VL53L0X @0x29) after 8 failed attempts
                         if (nack_streak >= 4'd8) begin
                             nack_streak  <= 4'd0;
                             i2c_dev_addr <= (i2c_dev_addr == 8'hA4) ? 8'h52 : 8'hA4;
@@ -375,19 +405,16 @@ module hw_input_mgr #(
                     if (m_ack_err) begin nack_r <= 1'b1; ps <= P_STOP; end
                     else begin
                         if (ack_cnt_r != 8'hFF) ack_cnt_r <= ack_cnt_r + 8'd1;
-                        // address write done -> issue READ of reg 0x00 (lo)
                         m_cmd <= C_READ; m_ack_bit <= 1'b1;
                         m_go <= 1'b1; ps <= P_RD1;
                     end
                 end
                 P_RD1: if (m_done) begin
-                    // READ#1 done -> reg 0x00 = distance low byte
                     d_lo <= m_rdata;
                     m_cmd <= C_READ; m_ack_bit <= 1'b0;
                     m_go <= 1'b1; ps <= P_RD2;
                 end
                 P_RD2: if (m_done) begin
-                    // READ#2 done -> reg 0x01 = distance high byte
                     d_hi <= m_rdata;
                     ps <= P_STOP;
                 end
@@ -490,17 +517,15 @@ module hw_input_mgr #(
     end
 
     // ------------------------------------------------ ToF median + quantize --
-    // 5-point median of the last 5 valid readings, computed by a 1-swap-per-clk
-    // bubble FSM (the filter only runs at 50 Hz; a combinational 10-compare
-    // chain synthesized as ~40 ns of ripple and broke timing).  Distances are
-    // clamped to 12 bits (0xFFF = "far"), so all compares are 12-bit.
     reg [11:0] f0, f1, f2, f3, f4;
     reg [11:0] med_r;
 
     wire valid_a = tof_smp   && !nack_r;
     wire valid_b = tof_smp_b && !nack_b_r;
-    wire filt_we = valid_a || (valid_b && !bus_a_active);
-    wire [11:0] dist12_sel = valid_a ? dist12 : dist12_b;
+    wire filt_we = use_bus_b ? valid_b : (valid_a || (valid_b && (dist_r == 16'hFFFF)));
+    wire [11:0] raw12_sel  = valid_a ? dist12 : dist12_b;
+    // Treat <100 mm blind-zone/static-obstruction readings as out-of-range (12'hFFF) so they never auto-trigger notes
+    wire [11:0] dist12_sel = (raw12_sel < 12'd100) ? 12'hFFF : raw12_sel;
 
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -513,7 +538,7 @@ module hw_input_mgr #(
 
     // bubble FSM: mst 1 = load window, 2..11 = the 10 compare-swaps, 12 = done
     reg [11:0] s0, s1, s2, s3, s4;
-    reg [11:0] st;                       // swap temp
+    reg [11:0] st;
     reg [3:0]  mst;
     reg        med_d1, med_pulse;
 
@@ -546,11 +571,11 @@ module hw_input_mgr #(
                 end
                 default: mst <= 4'd0;
             endcase
-            med_pulse <= med_d1;   // med_r valid one clk after it is written
+            med_pulse <= med_d1;
         end
     end
 
-    // ToF state (declared before the hysteresis boundary wires use t_note)
+    // ToF state
     localparam [1:0] T_OUT = 2'd0, T_IN = 2'd1;
     reg [1:0]  t_st;
     reg [4:0]  t_note;          // held note index 0..24 (note = 60 + t_note)
@@ -560,10 +585,6 @@ module hw_input_mgr #(
     reg [1:0]  tcnt;
     reg [1:0]  t_dwell;         // consecutive in-range samples before entry (need 3)
     reg [31:0] t_last_on_ms;    // rate limit: >=180 ms between ToF on-events
-    // NOTE: all ToF events use glide=0.  The engine's glide allocation reuses
-    // the GLOBAL last_voice -- if a key voice sounded, a glide ToF on would
-    // steal and retune THAT voice (measured 2026-10-23: harsh wrong pitches).
-    // Re-pluck semantics + 180 ms rate limit instead.
 
     // note index k: count of 24 mm boundaries below med_r (b_i = 100+24*(i+1))
     wire [23:0] th;
@@ -587,13 +608,13 @@ module hw_input_mgr #(
     wire [6:0] tnote_new = 7'd60 + {2'd0, k_th};
 
     // ------------------------------------- pending events + priority arbiter --
-    // photo[0..5] > key[0..12] (lowest index first) > ToF
+    // photo[0..5] (Guitar=1) > key[0..12] (Piano=0) > ToF (Violin=2)
     reg [12:0] kpend_on, kpend_off;
     reg [5:0]  ppend_on, ppend_off;
 
     reg  [3:0] fwp, frp;
     reg  [4:0] fcnt;
-    reg [15:0] fmem [0:15];
+    reg [17:0] fmem [0:15];     // [17:16] = inst (0=Piano, 1=Guitar, 2=Violin), [15:0] = event
 
     wire fifo_room = (fcnt < 5'd16);
 
@@ -644,16 +665,16 @@ module hw_input_mgr #(
         end
     end
 
-    // serializer control wires (declared before FIFO/serializer blocks use them)
+    // serializer control wires
     reg  [4:0]  spc;
     wire        spc_rdy = (spc == 5'd0);
     wire        emit;
-    wire [15:0] ev_dat;
+    wire [17:0] ev_dat;
 
     reg [7:0] n_type;
     reg [6:0] n_note, n_vel;
 
-    // 6-string guitar standard tuning lookup (INSTRUMENT-MAPPING.md §3):
+    // 6-string guitar standard tuning lookup:
     // String 0..5 -> E2(40), A2(45), D3(50), G3(55), B3(59), E4(64)
     function [6:0] photo_note;
         input [2:0] idx;
@@ -670,22 +691,25 @@ module hw_input_mgr #(
         end
     endfunction
 
-    // push data mux (photo > key > ToF)
-    reg [15:0] push_dat;
+    // push data mux with hardware instrument tag:
+    //   p_grant (6-ch optical strings) -> inst = 2'd1 (Guitar / 吉他)
+    //   k_grant (13 mechanical keys)   -> inst = 2'd0 (Piano  / 钢琴)
+    //   t_grant (ToF distance sensor)  -> inst = 2'd2 (Violin / 小提琴)
+    reg [17:0] push_dat;
     always @(*) begin
         if (p_grant) begin
-            push_dat = ppend_on[pidx] ? {1'b0, photo_note(pidx), 7'd110, 1'b0}
-                                      : {1'b1, photo_note(pidx), 7'd0,   1'b0};
+            push_dat = ppend_on[pidx] ? {2'd1, 1'b0, photo_note(pidx), 7'd110, 1'b0}
+                                      : {2'd1, 1'b1, photo_note(pidx), 7'd0,   1'b0};
         end else if (k_grant) begin
             push_dat = kpend_on[kidx]
-                     ? {1'b0, 7'd60 + {3'd0, kidx}, 7'd100, 1'b0}
-                     : {1'b1, 7'd60 + {3'd0, kidx}, 7'd0,   1'b0};
+                     ? {2'd0, 1'b0, 7'd60 + {3'd0, kidx}, 7'd100, 1'b0}
+                     : {2'd0, 1'b1, 7'd60 + {3'd0, kidx}, 7'd0,   1'b0};
         end else begin
-            push_dat = tbuf[0];
+            push_dat = {2'd2, tbuf[0]};
         end
     end
 
-    // FIFO: 16 x 16b distributed RAM, word = {off, note[6:0], vel[6:0], glide}
+    // FIFO: 16 x 18b distributed RAM, word = {inst[1:0], off, note[6:0], vel[6:0], glide}
     always @(posedge clk) begin
         if (!rst_n) begin
             fwp <= 4'd0; frp <= 4'd0; fcnt <= 5'd0;
@@ -703,7 +727,7 @@ module hw_input_mgr #(
         end
     end
 
-    // block counter: a source wanted to push while the FIFO was full
+    // block counter
     wire want_push = (|ppend_on) | (|ppend_off) | (|kpend_on) | (|kpend_off) | (tcnt != 2'd0);
     wire block_now = want_push & ~fifo_room;
     reg  block_d;
@@ -712,28 +736,22 @@ module hw_input_mgr #(
     reg [7:0] ovf_r;
 
     // -------------------------------------------- ToF FSM + buffer (merged) --
-    // Single driver for tbuf/tcnt: arbiter drain first, FSM pushes gated off
-    // on a grant clk (pushes are 20 ms apart, grants last one clk).
     always @(posedge clk) begin
         if (!rst_n) begin
             t_st <= T_OUT; t_note <= 5'd0; t_exit <= 4'd0; t_nackn <= 6'd0;
             tbuf[0] <= 16'd0; tbuf[1] <= 16'd0; tcnt <= 2'd0;
             t_dwell <= 2'd0; t_last_on_ms <= 32'd0;
         end else begin
-            // arbiter drain (highest priority in this block)
             if (t_grant) begin
                 tbuf[0] <= tbuf[1];
                 tcnt <= tcnt - 2'd1;
             end
-            // NACK tracking (any state: reset when either Bus 1 or Bus 2 responds)
             if (valid_a || valid_b) begin
                 t_nackn <= 6'd0;
             end else if (tof_smp && nack_r && (dist_b_r == 16'hFFFF)) begin
                 if (t_nackn != 6'd25) t_nackn <= t_nackn + 6'd1;
             end
-            // event generation, only on clks without a drain
             if (!t_grant) begin
-                // NACK timeout while playing -> treat as "hand left"
                 if (t_st == T_IN && t_nackn >= 6'd25 && tcnt == 2'd0) begin
                     t_st <= T_OUT;
                     tbuf[0] <= {1'b1, tnote_cur, 7'd0, 1'b0};
@@ -741,8 +759,6 @@ module hw_input_mgr #(
                 end else if (med_pulse && !mask) begin
                     case (t_st)
                         T_OUT: begin
-                            // entry dwell: 3 consecutive in-range medians (~60 ms)
-                            // so a hand merely passing through does not trigger
                             if (med_r <= 16'd700 && tcnt == 2'd0) begin
                                 if (t_dwell >= 2'd2) begin
                                     t_note <= k_th;
@@ -769,8 +785,6 @@ module hw_input_mgr #(
                                 end
                             end else if (med_r <= 16'd700) begin
                                 t_exit <= 4'd0;
-                                // re-pluck pitch change, >=180 ms apart (rate limit
-                                // keeps a moving hand from machine-gunning)
                                 if (k_th > t_note && med_r >= {5'd0, up_b}
                                     && tcnt == 2'd0
                                     && (ms_cnt - t_last_on_ms >= 32'd180)) begin
@@ -789,7 +803,6 @@ module hw_input_mgr #(
                                     t_last_on_ms <= ms_cnt;
                                 end
                             end
-                            // 700..800 mm: hysteresis band, hold everything
                         end
                         default: t_st <= T_OUT;
                     endcase
@@ -798,7 +811,6 @@ module hw_input_mgr #(
         end
     end
 
-    // FIFO-full block event (rising edge of the blocked condition)
     assign block_ev = block_now & ~block_d;
     always @(posedge clk) block_d <= block_now;
     always @(posedge clk) begin
@@ -808,17 +820,14 @@ module hw_input_mgr #(
     assign ovf_cnt = ovf_r;
 
     // --------------------------------------------------------- serializer --
-    // >=16 clk between events (engine load FSM needs 14; on AND off both use
-    // the same channel, so one spacing counter rules them all).
     assign ev_dat = fmem[frp];
     assign emit   = (fcnt != 5'd0) & spc_rdy;
 
     always @(posedge clk) begin
         if (!rst_n) begin
             spc <= 5'd0;
-            ev_on_valid <= 1'b0;  ev_on_note <= 7'd0;  ev_on_vel <= 7'd0;
+            ev_on_valid  <= 1'b0; ev_on_note <= 7'd0; ev_on_vel <= 7'd0; ev_on_inst <= 2'd0;
             ev_off_valid <= 1'b0; ev_off_note <= 7'd0;
-            ev_glide_on <= 1'b0;  ev_glide_time <= 7'd0;   // glide unused (S5 fix)
             n_type <= 8'h00; n_note <= 7'd0; n_vel <= 7'd0;
         end else begin
             ev_on_valid  <= 1'b0;
@@ -835,7 +844,7 @@ module hw_input_mgr #(
                     ev_on_valid  <= 1'b1;
                     ev_on_note   <= ev_dat[14:8];
                     ev_on_vel    <= ev_dat[7:1];
-                    ev_glide_on  <= ev_dat[0];
+                    ev_on_inst   <= ev_dat[17:16];
                 end
             end else if (spc != 5'd0) begin
                 spc <= spc - 5'd1;
@@ -865,7 +874,7 @@ module hw_input_mgr #(
             if (tick1ms && (ms_cnt - rpt_ms >= 32'd40) && ((QUIET == 0) || (QUIET == 3))) begin
                 rpt_ms <= ms_cnt;
                 k_cap <= key_state;  p_cap <= photo_state;
-                a_cap <= dist_r;     v_cap <= {1'b0, vol_r};
+                a_cap <= tof_dist;   v_cap <= {1'b0, vol_r};
                 o_cap <= ovf_r;      nt_cap <= n_type;
                 nn_cap <= n_note;    nv_cap <= n_vel;
                 t_cap <= ms_cnt;
@@ -909,9 +918,9 @@ module hw_input_mgr #(
         end
     endfunction
 
-    wire [3:0] a_nib  = 4'd1  - sidx[3:0];     // (17-sidx) mod 16: idx 14..17 -> nib 3..0
+    wire [3:0] a_nib  = 4'd1  - sidx[3:0];
     wire [5:0] a_base = {a_nib, 2'b00};
-    wire [3:0] t_nib  = 4'd14 - sidx[4:0];     // (46-sidx) mod 32: idx 39..46 -> nib 7..0
+    wire [3:0] t_nib  = 4'd14 - sidx[4:0];
     wire [5:0] t_base = {t_nib, 2'b00};
 
     always @(*) begin

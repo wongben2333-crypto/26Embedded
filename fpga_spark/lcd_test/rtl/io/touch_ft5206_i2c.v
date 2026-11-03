@@ -5,15 +5,14 @@
 //    1. 敦泰 FocalTech FT5446 / FT5206 / FT5426 (I2C 地址 0x38, 8位寄存器)
 //    2. 汇顶 Goodix GT911 / GT9271 / GT9147 (I2C 地址 0x14 或 0x5D, 16位寄存器)
 //
-//  关键特性与工业级鲁棒性 (2026-11-02 优化版)：
-//    1. 硬件自适应探测：开机自动扫描并锁定芯片型号 (0x38 -> 0x14 -> 0x5D)。
-//    2. 严格满足 GT911 寄存器读写与缓冲区清零协议：
-//       - 完整读取 0x814E..0x8153 6 字节数据 (主机在字节 0..4 回复 ACK，字节 5 回复 NACK)；
-//       - 读取后自动向 0x814E 写入 0x00 清除标志，确保 GT911 内部扫描引擎永不死锁。
-//    3. 1:1 精确物理坐标映射 (ATK-MD0700 800x480 横屏 DIR_90 / SSD1963 0x36=0x00)：
-//       - GT911 原生 X = raw_x (0..799, 左->右), Y = raw_y (0..479, 上->下)，彻底解决坐标倒置/轴反转；
-//       - FT5446 映射为 X = raw_y, Y = raw_x。
-//    4. 100 Hz 极速扫描 + INT 边沿即刻触发，按键响应延迟 < 10 ms。
+//  关键特性与工业级鲁棒性 (2026-11-03 修复版)：
+//    1. 严格遵循 GT911 编程手册上电复位与 INT 地址选择时序 (RST/INT 协同锁定 0x14 后释放 INT 为高阻输入)
+//       以及探测成功后写入 0x8040 = 0x00 进入坐标读取模式。
+//    2. 修复 GT911 0x814E 缓冲区清零时序：
+//       - 完整读取 0x814E..0x8153 6 字节数据；
+//       - 仅当 0x814E 最高位 buffer_status (gt_tpinfo[7]) == 1 时才向 0x814E 写入 0x00，
+//         避免在 gt_tpinfo[7] == 0 扫描期间强行清零导致 GT911 扫描状态机被周期性打断。
+//    3. 兼容横屏 (800x480) 与竖屏 (480x800) 固件坐标映射，绝不丢弃有效触点。
 // =============================================================================
 `default_nettype none
 
@@ -28,7 +27,7 @@ module touch_ft5206_i2c #(
     // I2C 物理引脚 (接 J14 / ATK-MD0700 P1)
     output wire        tp_scl,      // FPGA 推挽驱动 (Push-Pull, DRIVE=8)
     inout  wire        tp_sda,      // 双向开漏带上拉 (Open-Drain, DRIVE=8)
-    input  wire        tp_int,      // 触摸中断输入 (低有效)
+    inout  wire        tp_int,      // 触摸中断/复位地址选择引脚 (复位期输出，运行期高阻输入)
     output reg         tp_rst_n,    // 触摸复位输出 (低有效)
 
     // 解码输出
@@ -38,7 +37,8 @@ module touch_ft5206_i2c #(
     output reg  [8:0]  touch_y,     // 0..479
     output reg  [2:0]  touch_cnt,   // 触摸点数 (0..5)
     output reg  [1:0]  chip_type,   // 0: 扫描探测中, 1: FT5446(0x38), 2: GT911(0x14), 3: GT911(0x5D)
-    output reg         dbg_ack_ok   // 调试标志：收到有效从机 ACK
+    output reg         dbg_ack_ok,  // 调试标志：收到有效从机 ACK
+    output reg  [7:0]  dbg_tpinfo   // 调试状态：最近一次 0x814E / 0x02 状态字节
 );
 
     // -------------------------------------------------------------------------
@@ -50,32 +50,56 @@ module touch_ft5206_i2c #(
         CHIP_GT911_14 = 2'd2, // 0x14
         CHIP_GT911_5D = 2'd3; // 0x5D
 
-    // 50 MHz 下时序常量：
-    localparam integer RST_HOLD_CLKS  = CLK_HZ / 50;        // 20 ms 复位保持
-    localparam integer BOOT_WAIT_CLKS = CLK_HZ / 12;        // ~83 ms 复位释放等待
+    // 50 MHz 下 GT911 严格上电复位与地址锁定 (0x14) 时序常量：
+    localparam integer RST_T0_CLKS    = 500_000;            // 0..10 ms: RST=0, INT=0
+    localparam integer RST_T1_CLKS    = 750_000;            // 10..15 ms: RST=0, INT=1 (>100us before RST rises -> 0x14)
+    localparam integer RST_T2_CLKS    = 1_250_000;          // 15..25 ms: RST=1, INT=1 (>5ms hold after RST rises)
+    localparam integer RST_T3_CLKS    = 5_000_000;          // 25..100 ms: RST=1, INT=Hi-Z (wait >55ms for GT911 boot)
     localparam integer POLL_INTERVAL  = CLK_HZ / POLL_HZ;   // 10 ms (500,000 拍)
     localparam integer SCAN_RETRY_GAP = CLK_HZ / 20;        // 50 ms 探针重试间隔
 
     // -------------------------------------------------------------------------
-    // 1. 上电复位时序发生器
+    // 1. 上电复位与 GT911 INT 地址配置时序发生器
     // -------------------------------------------------------------------------
     reg [23:0] boot_cnt  = 24'd0;
     reg        boot_done = 1'b0;
+    reg        int_oe    = 1'b1;
+    reg        int_out   = 1'b0;
+
+    assign tp_int = int_oe ? int_out : 1'bz;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             boot_cnt  <= 24'd0;
             tp_rst_n  <= 1'b0;
+            int_oe    <= 1'b1;
+            int_out   <= 1'b0;
             boot_done <= 1'b0;
         end else if (!boot_done) begin
-            if (boot_cnt < RST_HOLD_CLKS) begin
+            if (boot_cnt < RST_T0_CLKS) begin
                 tp_rst_n <= 1'b0;
+                int_oe   <= 1'b1;
+                int_out  <= 1'b0;
                 boot_cnt <= boot_cnt + 24'd1;
-            end else if (boot_cnt < (RST_HOLD_CLKS + BOOT_WAIT_CLKS)) begin
+            end else if (boot_cnt < RST_T1_CLKS) begin
+                tp_rst_n <= 1'b0;
+                int_oe   <= 1'b1;
+                int_out  <= 1'b1;
+                boot_cnt <= boot_cnt + 24'd1;
+            end else if (boot_cnt < RST_T2_CLKS) begin
                 tp_rst_n <= 1'b1;
+                int_oe   <= 1'b1;
+                int_out  <= 1'b1;
+                boot_cnt <= boot_cnt + 24'd1;
+            end else if (boot_cnt < RST_T3_CLKS) begin
+                tp_rst_n <= 1'b1;
+                int_oe   <= 1'b0;
+                int_out  <= 1'b0;
                 boot_cnt <= boot_cnt + 24'd1;
             end else begin
                 tp_rst_n  <= 1'b1;
+                int_oe    <= 1'b0;
+                int_out   <= 1'b0;
                 boot_done <= 1'b1;
                 boot_cnt  <= 24'd0;
             end
@@ -88,6 +112,7 @@ module touch_ft5206_i2c #(
     reg [2:0] int_sync = 3'b111;
     always @(posedge clk) int_sync <= {int_sync[1:0], tp_int};
     wire int_fall = (int_sync[2:1] == 2'b10);
+    wire int_rise = (int_sync[2:1] == 2'b01);
 
     reg [23:0] poll_cnt = 24'd0;
     reg        trigger_poll = 1'b0;
@@ -98,7 +123,7 @@ module touch_ft5206_i2c #(
             trigger_poll <= 1'b0;
         end else if (boot_done) begin
             trigger_poll <= 1'b0;
-            if (int_fall) begin
+            if (int_fall || int_rise) begin
                 trigger_poll <= 1'b1;
             end else if (poll_cnt >= ((chip_type == CHIP_NONE) ? SCAN_RETRY_GAP : POLL_INTERVAL)) begin
                 poll_cnt     <= 24'd0;
@@ -179,7 +204,7 @@ module touch_ft5206_i2c #(
         S_GT_RD_BYTE      = 6'd26,
         S_GT_MACK         = 6'd27,
         S_GT_STOP1        = 6'd28,
-        // GT911 清除缓冲寄存器 (写 0x00 到 0x814E)
+        // GT911 写寄存器流程 (写 0x00 到 0x8040 初始化 或 写 0x00 到 0x814E 清零状态)
         S_GT_CLR_START    = 6'd29,
         S_GT_CLR_ADDR     = 6'd30,
         S_GT_CLR_ACK1     = 6'd31,
@@ -201,11 +226,12 @@ module touch_ft5206_i2c #(
     reg [7:0] tx_data = 8'd0;
     reg [7:0] rx_data = 8'd0;
 
-    // 探针状态
-    reg [1:0] prb_cand    = 2'd0; // 0: 0x38, 1: 0x14, 2: 0x5D
-    reg [6:0] active_addr = 7'h38;
-    reg [3:0] fail_cnt    = 4'd0;
-    reg [4:0] no_ready_cnt= 5'd0;
+    // 探针与 GT911 软初始化状态
+    reg [1:0] prb_cand     = 2'd0; // 0: 0x38, 1: 0x14, 2: 0x5D
+    reg [6:0] active_addr  = 7'h38;
+    reg [3:0] fail_cnt     = 4'd0;
+    reg [4:0] no_ready_cnt = 5'd0;
+    reg       gt_init_done = 1'b0;
 
     // 接收寄存器缓冲区
     reg [7:0] ft_td_status = 8'd0;
@@ -239,10 +265,12 @@ module touch_ft5206_i2c #(
             touch_cnt    <= 3'd0;
             chip_type    <= CHIP_NONE;
             dbg_ack_ok   <= 1'b0;
+            dbg_tpinfo   <= 8'h00;
             prb_cand     <= 2'd0;
             active_addr  <= 7'h38;
             fail_cnt     <= 4'd0;
             no_ready_cnt <= 5'd0;
+            gt_init_done <= 1'b0;
         end else if (!boot_done) begin
             state        <= S_IDLE;
             scl_out      <= 1'b1;
@@ -251,6 +279,7 @@ module touch_ft5206_i2c #(
             touch_valid  <= 1'b0;
             touch_down   <= 1'b0;
             no_ready_cnt <= 5'd0;
+            gt_init_done <= 1'b0;
         end else begin
             touch_valid <= 1'b0;
 
@@ -281,8 +310,11 @@ module touch_ft5206_i2c #(
                                 state   <= S_FT_START1;
                                 tx_data <= {7'h38, 1'b0};
                             end else begin
-                                state   <= S_GT_START1;
                                 tx_data <= {active_addr, 1'b0};
+                                if (!gt_init_done)
+                                    state <= S_GT_CLR_START; // 首次探测到 GT911：写 0x8040 = 0x00 进入读坐标模式
+                                else
+                                    state <= S_GT_START1;    // 正常轮询 0x814E..0x8153
                             end
                             bit_cnt <= 3'd7;
                         end
@@ -325,8 +357,9 @@ module touch_ft5206_i2c #(
                                 scl_out <= 1'b1;
                                 if (!sda_in) begin
                                     // 探针收到从机 ACK!
-                                    dbg_ack_ok <= 1'b1;
-                                    fail_cnt   <= 4'd0;
+                                    dbg_ack_ok   <= 1'b1;
+                                    fail_cnt     <= 4'd0;
+                                    gt_init_done <= 1'b0;
                                     if (prb_cand == 2'd0) begin
                                         chip_type   <= CHIP_FT5446;
                                         active_addr <= 7'h38;
@@ -555,9 +588,10 @@ module touch_ft5206_i2c #(
                             2'd1: begin scl_out <= 1'b1; sda_out <= 1'b0; end
                             2'd2: begin scl_out <= 1'b1; sda_out <= 1'b1; end // STOP
                             2'd3: begin
-                                scl_out <= 1'b1;
-                                sda_oe  <= 1'b0;
-                                state   <= S_DONE;
+                                scl_out    <= 1'b1;
+                                sda_oe     <= 1'b0;
+                                dbg_tpinfo <= ft_td_status;
+                                state      <= S_DONE;
                             end
                         endcase
                     end
@@ -789,17 +823,23 @@ module touch_ft5206_i2c #(
                             2'd1: begin scl_out <= 1'b1; sda_out <= 1'b0; end
                             2'd2: begin scl_out <= 1'b1; sda_out <= 1'b1; end
                             2'd3: begin
-                                scl_out <= 1'b1;
-                                sda_oe  <= 1'b0;
-                                // 读完后无条件写入 0x00 到 0x814E 清除 GT911 缓冲区标志
-                                state   <= S_GT_CLR_START;
-                                tx_data <= {active_addr, 1'b0};
-                                bit_cnt <= 3'd7;
+                                scl_out    <= 1'b1;
+                                sda_oe     <= 1'b0;
+                                dbg_tpinfo <= gt_tpinfo;
+                                // 关键修复：仅当 gt_tpinfo[7] == 1 (Buffer Status Ready) 时才写 0x00 到 0x814E！
+                                // 若 gt_tpinfo[7] == 0 时强写 0x814E，会周期性重置 GT911 扫描缓冲导致永远无法产生触点。
+                                if (gt_tpinfo[7]) begin
+                                    state   <= S_GT_CLR_START;
+                                    tx_data <= {active_addr, 1'b0};
+                                    bit_cnt <= 3'd7;
+                                end else begin
+                                    state   <= S_DONE;
+                                end
                             end
                         endcase
                     end
 
-                    // GT911 清除缓冲寄存器 0x814E
+                    // GT911 写寄存器 (gt_init_done=0 时写 0x8040=0x00 进入读坐标模式；gt_init_done=1 时写 0x814E=0x00 清零标志)
                     S_GT_CLR_START: begin
                         case (phase)
                             2'd0: begin scl_out <= 1'b1; sda_oe <= 1'b1; sda_out <= 1'b1; end
@@ -834,7 +874,7 @@ module touch_ft5206_i2c #(
                             2'd3: begin
                                 scl_out <= 1'b0;
                                 state   <= S_GT_CLR_REG_H;
-                                tx_data <= 8'h81;
+                                tx_data <= gt_init_done ? 8'h81 : 8'h80;
                                 bit_cnt <= 3'd7;
                                 sda_oe  <= 1'b1;
                             end
@@ -866,7 +906,7 @@ module touch_ft5206_i2c #(
                             2'd3: begin
                                 scl_out <= 1'b0;
                                 state   <= S_GT_CLR_REG_L;
-                                tx_data <= 8'h4E;
+                                tx_data <= gt_init_done ? 8'h4E : 8'h40;
                                 bit_cnt <= 3'd7;
                                 sda_oe  <= 1'b1;
                             end
@@ -898,7 +938,7 @@ module touch_ft5206_i2c #(
                             2'd3: begin
                                 scl_out <= 1'b0;
                                 state   <= S_GT_CLR_DATA;
-                                tx_data <= 8'h00; // 清除标志
+                                tx_data <= 8'h00; // 写 0x00
                                 bit_cnt <= 3'd7;
                                 sda_oe  <= 1'b1;
                             end
@@ -944,13 +984,18 @@ module touch_ft5206_i2c #(
                             2'd3: begin
                                 scl_out <= 1'b1;
                                 sda_oe  <= 1'b0;
-                                state   <= S_DONE;
+                                if (!gt_init_done) begin
+                                    gt_init_done <= 1'b1;
+                                    state        <= S_IDLE;
+                                end else begin
+                                    state        <= S_DONE;
+                                end
                             end
                         endcase
                     end
 
                     // =========================================================
-                    // 事务正常完成：坐标解码与输出 (1:1 真实物理坐标)
+                    // 事务正常完成：坐标解码与输出 (1:1 真实物理坐标 + 竖屏兼容)
                     // =========================================================
                     S_DONE: begin
                         state       <= S_IDLE;
@@ -966,6 +1011,9 @@ module touch_ft5206_i2c #(
                                 if ({ft_yh[3:0], ft_yl} < 12'd800 && {ft_xh[3:0], ft_xl} < 12'd480) begin
                                     touch_x <= {ft_yh[1:0], ft_yl};
                                     touch_y <= {ft_xh[0], ft_xl};
+                                end else if ({ft_xh[3:0], ft_xl} < 12'd800 && {ft_yh[3:0], ft_yl} < 12'd480) begin
+                                    touch_x <= {ft_xh[1:0], ft_xl};
+                                    touch_y <= {ft_yh[0], ft_yl};
                                 end
                             end else begin
                                 touch_down <= 1'b0;
@@ -977,11 +1025,17 @@ module touch_ft5206_i2c #(
                                 no_ready_cnt <= 5'd0;
                                 touch_down   <= 1'b1;
                                 touch_cnt    <= gt_tpinfo[2:0];
-                                // GT911 在 ATK-MD0700 横屏 (DIR_90, 800x480):
-                                // point.x = raw_x, point.y = raw_y (官方驱动 1:1 真实物理坐标)
+                                // GT911 在 ATK-MD0700 横屏 (800x480):
                                 if ({gt_xh, gt_xl} < 16'd800 && {gt_yh, gt_yl} < 16'd480) begin
                                     touch_x <= {gt_xh[1:0], gt_xl};
                                     touch_y <= {gt_yh[0], gt_yl};
+                                end else if ({gt_xh, gt_xl} < 16'd480 && {gt_yh, gt_yl} < 16'd800) begin
+                                    // 兼容 GT911 竖屏 480x800 固件配置自动旋转为 800x480 横屏坐标
+                                    touch_x <= {gt_yh[1:0], gt_yl};
+                                    touch_y <= 9'd479 - {gt_xh[0], gt_xl};
+                                end else begin
+                                    touch_x <= ({gt_xh, gt_xl} >= 16'd800) ? 10'd799 : {gt_xh[1:0], gt_xl};
+                                    touch_y <= ({gt_yh, gt_yl} >= 16'd480) ? 9'd479  : {gt_yh[0], gt_yl};
                                 end
                             end else if (gt_tpinfo[7] && (gt_tpinfo[3:0] == 4'd0)) begin
                                 // 0x814E == 0x80: 真实松开手指事件
@@ -991,7 +1045,7 @@ module touch_ft5206_i2c #(
                             end else begin
                                 // gt_tpinfo[7] == 0: GT911 正在扫描转换中，保持当前 touch_down 状态
                                 if (touch_down) begin
-                                    if (no_ready_cnt >= 5'd6) begin
+                                    if (no_ready_cnt >= 5'd12) begin
                                         no_ready_cnt <= 5'd0;
                                         touch_down   <= 1'b0;
                                         touch_cnt    <= 3'd0;
@@ -1018,6 +1072,7 @@ module touch_ft5206_i2c #(
                                 // 连续 5 次通讯失败才判定断连
                                 if (fail_cnt >= 4'd5) begin
                                     chip_type    <= CHIP_NONE;
+                                    gt_init_done <= 1'b0;
                                     fail_cnt     <= 4'd0;
                                     touch_down   <= 1'b0;
                                     touch_cnt    <= 3'd0;

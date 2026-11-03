@@ -33,7 +33,8 @@ module lcd_subsystem_j14 (
     input  wire [6:0]  cc_val,
     input  wire        uart_rx_valid,
     input  wire [7:0]  uart_rx_byte,
-    input  wire        page_next_pulse,   // Optional button pulse to cycle UI page
+    input  wire        page_next_pulse,   // Optional button/encoder pulse to cycle UI page (+1)
+    input  wire        page_prev_pulse,   // Optional encoder pulse to cycle UI page (-1)
 
     // Song Player Timeline & Score Scrolling Inputs
     input  wire [2:0]  song_index,
@@ -61,7 +62,7 @@ module lcd_subsystem_j14 (
     // FT5206 / FT5426 Capacitive Touch Pins (J14)
     inout  wire        tp_scl,            // AA18 (J14-29)
     inout  wire        tp_sda,            // AA19 (J14-28)
-    input  wire        tp_int,            // Y19 (J14-31)
+    inout  wire        tp_int,            // Y19 (J14-31)
     output wire        tp_rst_n,          // W17 (J14-9)
 
     // Touch Event Outputs to Synthesizer / top.v
@@ -358,6 +359,8 @@ module lcd_subsystem_j14 (
                 ui_page <= touch_page_val;
             end else if (page_next_pulse) begin
                 ui_page <= ui_page + 2'd1;
+            end else if (page_prev_pulse) begin
+                ui_page <= ui_page - 2'd1;
             end else if (cc_any_valid) begin
                 if (cc_num == 7'd25) begin snap_req <= 1'b1; snap_rle <= cc_val[0]; end
                 if (cc_num == 7'd28) ui_page <= cc_val[1:0];
@@ -441,6 +444,7 @@ module lcd_subsystem_j14 (
     wire [2:0] touch_cnt;
 
     wire [1:0] touch_chip_type;
+    wire [7:0] touch_dbg_tpinfo;
 
     touch_ft5206_i2c #(
         .CLK_HZ  (50_000_000),
@@ -459,7 +463,8 @@ module lcd_subsystem_j14 (
         .touch_y    (touch_y),
         .touch_cnt  (touch_cnt),
         .chip_type  (touch_chip_type),
-        .dbg_ack_ok ()
+        .dbg_ack_ok (),
+        .dbg_tpinfo (touch_dbg_tpinfo)
     );
 
     // ------------------------------------------------------------------------
@@ -941,7 +946,8 @@ lcd_ui u_lcd_ui (
         U_TP6 = 6'd14, U_TP7 = 6'd15, U_TP8 = 6'd16, U_TP9 = 6'd17, U_TP10 = 6'd18, U_TP11 = 6'd19,
         U_TF_SP = 6'd20, U_TF_T = 6'd21, U_TF_D3 = 6'd22, U_TF_D2 = 6'd23, U_TF_D1 = 6'd24, U_TF_D0 = 6'd25,
         U_TF_A_SP = 6'd26, U_TF_A1 = 6'd27, U_TF_A0 = 6'd28, U_TF_K_SP = 6'd29, U_TF_K1 = 6'd30, U_TF_K0 = 6'd31,
-        U_TF_X_SP = 6'd32, U_TF_X1 = 6'd33, U_TF_X0 = 6'd34, U_TF_D_SP = 6'd35, U_TF_SDA = 6'd36;
+        U_TF_X_SP = 6'd32, U_TF_X1 = 6'd33, U_TF_X0 = 6'd34, U_TF_D_SP = 6'd35, U_TF_SDA = 6'd36,
+        U_TP_I_SP = 6'd37, U_TP_I_TAG = 6'd38, U_TP_I1 = 6'd39, U_TP_I0 = 6'd40, U_IN_SP = 6'd41, U_IN_V = 6'd42;
 
     reg [5:0] us, us_ret;
     reg [4:0] ubi, ubi_end;
@@ -1344,7 +1350,13 @@ lcd_ui u_lcd_ui (
             U_TF_X1:   begin diag_u_byte <= hexc(tof_nack_cnt[7:4]); diag_u_start <= 1'b1; us_ret <= U_TF_X0; us <= U_WAIT; end
             U_TF_X0:   begin diag_u_byte <= hexc(tof_nack_cnt[3:0]); diag_u_start <= 1'b1; us_ret <= U_TF_D_SP; us <= U_WAIT; end
             U_TF_D_SP: begin diag_u_byte <= " "; diag_u_start <= 1'b1; us_ret <= U_TF_SDA; us <= U_WAIT; end
-            U_TF_SDA:  begin diag_u_byte <= tof_sda_raw ? "1" : "0"; diag_u_start <= 1'b1; us_ret <= U_NL; us <= U_WAIT; end
+            U_TF_SDA:  begin diag_u_byte <= tof_sda_raw ? "1" : "0"; diag_u_start <= 1'b1; us_ret <= U_TP_I_SP; us <= U_WAIT; end
+            U_TP_I_SP: begin diag_u_byte <= " "; diag_u_start <= 1'b1; us_ret <= U_TP_I_TAG; us <= U_WAIT; end
+            U_TP_I_TAG:begin diag_u_byte <= "I"; diag_u_start <= 1'b1; us_ret <= U_TP_I1; us <= U_WAIT; end
+            U_TP_I1:   begin diag_u_byte <= hexc(touch_dbg_tpinfo[7:4]); diag_u_start <= 1'b1; us_ret <= U_TP_I0; us <= U_WAIT; end
+            U_TP_I0:   begin diag_u_byte <= hexc(touch_dbg_tpinfo[3:0]); diag_u_start <= 1'b1; us_ret <= U_IN_SP; us <= U_WAIT; end
+            U_IN_SP:   begin diag_u_byte <= " "; diag_u_start <= 1'b1; us_ret <= U_IN_V; us <= U_WAIT; end
+            U_IN_V:    begin diag_u_byte <= "0" + {6'd0, timbre_sel}; diag_u_start <= 1'b1; us_ret <= U_NL; us <= U_WAIT; end
             U_NL: begin diag_u_byte <= 8'h0A; diag_u_start <= 1'b1; us_ret <= U_IDLE; us <= U_WAIT; end
             U_WAIT: if (!u_busy && !diag_u_start) us <= us_ret;
             default: us <= U_IDLE;
