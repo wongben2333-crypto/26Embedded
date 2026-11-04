@@ -144,73 +144,98 @@ module hw_input_mgr #(
     end
 
     // --------------------------------------------------- 4x EC11 Encoders --
-    // EC1 (J13-22/23): 滑音 (Glide time 0..127 & glide_on)
-    // EC2 (J13-26/27): 颤音 (Vibrato depth 0..127 & vib_on)
-    // EC3 (J13-37/38): 音量调节 (Master Volume 0..127)
-    // EC4 (J13-39/40): 切换屏幕界面 (UI Page Switch next/prev)
-    reg ea1, ea2, eb1, eb2;
-    reg e2a1, e2a2, e2b1, e2b2;
-    reg e3a1, e3a2, e3b1, e3b2;
-    reg e4a1, e4a2, e4b1, e4b2;
+    // EC1 (J13-22/23): Glide (0..127 & glide_on)
+    // EC2 (J13-26/27): Vibrato (0..127 & vib_on)
+    // EC3 (J13-37/38): Volume (0..127)
+    // EC4 (J13-39/40): UI Page Switch (next/prev)
+
+    // 1. 4 kHz sampling divider (12500 clk @ 50MHz = 250 us)
+    //    Matches PCB hardware RC filter (10k + 100nF, tau = 1.0 ms) to reject threshold oscillation
+    reg [13:0] enc_div;
+    reg        enc_tick;
     always @(posedge clk) begin
         if (!rst_n) begin
-            ea1  <= 1'b1; ea2  <= 1'b1; eb1  <= 1'b1; eb2  <= 1'b1;
-            e2a1 <= 1'b1; e2a2 <= 1'b1; e2b1 <= 1'b1; e2b2 <= 1'b1;
-            e3a1 <= 1'b1; e3a2 <= 1'b1; e3b1 <= 1'b1; e3b2 <= 1'b1;
-            e4a1 <= 1'b1; e4a2 <= 1'b1; e4b1 <= 1'b1; e4b2 <= 1'b1;
+            enc_div  <= 14'd0;
+            enc_tick <= 1'b0;
+        end else if (enc_div == 14'd12499) begin
+            enc_div  <= 14'd0;
+            enc_tick <= 1'b1;
         end else begin
-            ea1  <= ec1a_raw; ea2  <= ea1;  eb1  <= ec1b_raw; eb2  <= eb1;
-            e2a1 <= ec2a_raw; e2a2 <= e2a1; e2b1 <= ec2b_raw; e2b2 <= e2b1;
-            e3a1 <= ec3a_raw; e3a2 <= e3a1; e3b1 <= ec3b_raw; e3b2 <= e3b1;
-            e4a1 <= ec4a_raw; e4a2 <= e4a1; e4b1 <= ec4b_raw; e4b2 <= e4b1;
+            enc_div  <= enc_div + 14'd1;
+            enc_tick <= 1'b0;
         end
     end
 
-    reg  [1:0] q1_d, q2_d, q3_d, q4_d;
-    reg  [6:0] glide_r;
-    reg  [6:0] vib_r;
-    reg  [6:0] vol_r;
-    reg  signed [3:0] q4_acc;
-    reg  [31:0] page_last_ms;
-    reg  signed [15:0] enc_dbg;
+    // 2. 3-sample consistency debouncer (750 us solid stability window)
+    reg [2:0] db_e1a, db_e1b, db_e2a, db_e2b, db_e3a, db_e3b, db_e4a, db_e4b;
+    reg       f_e1a, f_e1b, f_e2a, f_e2b, f_e3a, f_e3b, f_e4a, f_e4b;
 
-    function signed [1:0] qstep;
-        input [1:0] prev;
-        input [1:0] cur;
-        reg [3:0] p;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            db_e1a <= 3'b111; db_e1b <= 3'b111;
+            db_e2a <= 3'b111; db_e2b <= 3'b111;
+            db_e3a <= 3'b111; db_e3b <= 3'b111;
+            db_e4a <= 3'b111; db_e4b <= 3'b111;
+            f_e1a  <= 1'b1;   f_e1b  <= 1'b1;
+            f_e2a  <= 1'b1;   f_e2b  <= 1'b1;
+            f_e3a  <= 1'b1;   f_e3b  <= 1'b1;
+            f_e4a  <= 1'b1;   f_e4b  <= 1'b1;
+        end else if (enc_tick) begin
+            db_e1a <= {db_e1a[1:0], ec1a_raw};
+            db_e1b <= {db_e1b[1:0], ec1b_raw};
+            db_e2a <= {db_e2a[1:0], ec2a_raw};
+            db_e2b <= {db_e2b[1:0], ec2b_raw};
+            db_e3a <= {db_e3a[1:0], ec3a_raw};
+            db_e3b <= {db_e3b[1:0], ec3b_raw};
+            db_e4a <= {db_e4a[1:0], ec4a_raw};
+            db_e4b <= {db_e4b[1:0], ec4b_raw};
+
+            if (db_e1a == 3'b111) f_e1a <= 1'b1; else if (db_e1a == 3'b000) f_e1a <= 1'b0;
+            if (db_e1b == 3'b111) f_e1b <= 1'b1; else if (db_e1b == 3'b000) f_e1b <= 1'b0;
+            if (db_e2a == 3'b111) f_e2a <= 1'b1; else if (db_e2a == 3'b000) f_e2a <= 1'b0;
+            if (db_e2b == 3'b111) f_e2b <= 1'b1; else if (db_e2b == 3'b000) f_e2b <= 1'b0;
+            if (db_e3a == 3'b111) f_e3a <= 1'b1; else if (db_e3a == 3'b000) f_e3a <= 1'b0;
+            if (db_e3b == 3'b111) f_e3b <= 1'b1; else if (db_e3b == 3'b000) f_e3b <= 1'b0;
+            if (db_e4a == 3'b111) f_e4a <= 1'b1; else if (db_e4a == 3'b000) f_e4a <= 1'b0;
+            if (db_e4b == 3'b111) f_e4b <= 1'b1; else if (db_e4b == 3'b000) f_e4b <= 1'b0;
+        end
+    end
+
+    // 3. Direct full-state quadrature decoder (no reset-on-11 bug)
+    reg [1:0] q1_prev, q2_prev, q3_prev, q4_prev;
+    reg signed [2:0] sub4;
+    reg [6:0] glide_r;
+    reg [6:0] vib_r;
+    reg [6:0] vol_r;
+    reg [15:0] page_cooldown;
+
+    function signed [1:0] decode_step;
+        input [1:0] p_st;
+        input [1:0] c_st;
+        reg [3:0] tr;
         begin
-            p = {prev, cur};
-            case (p)
-                4'b00_01, 4'b01_11, 4'b11_10, 4'b10_00: qstep = 2'sd1;
-                4'b01_00, 4'b11_01, 4'b10_11, 4'b00_10: qstep = -2'sd1;
-                default:                                qstep = 2'sd0;
+            tr = {p_st, c_st};
+            case (tr)
+                4'b00_01, 4'b01_11, 4'b11_10, 4'b10_00: decode_step = 2'sd1;
+                4'b01_00, 4'b11_01, 4'b10_11, 4'b00_10: decode_step = -2'sd1;
+                default:                                decode_step = 2'sd0;
             endcase
         end
     endfunction
 
-    wire [1:0] q1 = {ea2,  eb2};
-    wire [1:0] q2 = {e2a2, e2b2};
-    wire [1:0] q3 = {e3a2, e3b2};
-    wire [1:0] q4 = {e4a2, e4b2};
-
-    wire signed [1:0] s1_step = qstep(q1_d, q1);
-    wire signed [1:0] s2_step = qstep(q2_d, q2);
-    wire signed [1:0] s3_step = qstep(q3_d, q3);
-    wire signed [1:0] s4_step = qstep(q4_d, q4);
-    wire signed [3:0] q_sum   = s1_step + s2_step + s3_step + s4_step;
-    wire signed [3:0] next_q4 = q4_acc + {{2{s4_step[1]}}, s4_step};
-
     always @(posedge clk) begin
         if (!rst_n) begin
-            q1_d <= 2'b11; q2_d <= 2'b11; q3_d <= 2'b11; q4_d <= 2'b11;
-            glide_r      <= 7'd0;
-            vib_r        <= 7'd0;
-            vol_r        <= VOL_INIT;
-            q4_acc       <= 4'sd0;
-            page_last_ms <= 32'd0;
-            ev_page_next <= 1'b0;
-            ev_page_prev <= 1'b0;
-            enc_dbg      <= 16'sd0;
+            q1_prev       <= 2'b11;
+            q2_prev       <= 2'b11;
+            q3_prev       <= 2'b11;
+            q4_prev       <= 2'b11;
+            sub4          <= 3'sd0;
+            glide_r       <= 7'd0;
+            vib_r         <= 7'd0;
+            vol_r         <= VOL_INIT;
+            page_cooldown <= 16'd0;
+            ev_page_next  <= 1'b0;
+            ev_page_prev  <= 1'b0;
         end else begin
             ev_page_next <= 1'b0;
             ev_page_prev <= 1'b0;
@@ -219,47 +244,69 @@ module hw_input_mgr #(
                 vol_r <= ext_vol_val;
             end
 
-            if (tick1ms) begin
-                q1_d <= q1; q2_d <= q2; q3_d <= q3; q4_d <= q4;
-                enc_dbg <= enc_dbg + q_sum;
+            if (tick1ms && page_cooldown > 16'd0) begin
+                page_cooldown <= page_cooldown - 16'd1;
+            end
 
-                // 1. EC1 -> 滑音 (Glide time 0..127, +/-4 per step = +/-16 per detent)
-                if (s1_step > 0) begin
-                    glide_r <= (glide_r >= 7'd123) ? 7'd127 : (glide_r + 7'd4);
-                end else if (s1_step < 0) begin
-                    glide_r <= (glide_r <= 7'd4)   ? 7'd0   : (glide_r - 7'd4);
-                end
+            if (enc_tick) begin
+                q1_prev <= {f_e1a, f_e1b};
+                q2_prev <= {f_e2a, f_e2b};
+                q3_prev <= {f_e3a, f_e3b};
+                q4_prev <= {f_e4a, f_e4b};
 
-                // 2. EC2 -> 颤音 (Vibrato depth 0..127, +/-4 per step = +/-16 per detent)
-                if (s2_step > 0) begin
-                    vib_r <= (vib_r >= 7'd123) ? 7'd127 : (vib_r + 7'd4);
-                end else if (s2_step < 0) begin
-                    vib_r <= (vib_r <= 7'd4)   ? 7'd0   : (vib_r - 7'd4);
-                end
+                // ---- EC1: Glide (0..127, immediate response on every quadrature edge) ----
+                case (decode_step(q1_prev, {f_e1a, f_e1b}))
+                    2'sd1:  glide_r <= (glide_r >= 7'd123) ? 7'd127 : (glide_r + 7'd4);
+                    -2'sd1: glide_r <= (glide_r <= 7'd4)   ? 7'd0   : (glide_r - 7'd4);
+                    default: ;
+                endcase
 
-                // 3. EC3 -> 音量调节 (Master Volume 0..127, +/-2 per step = +/-8 per detent)
-                if (!ext_vol_valid) begin
-                    if (s3_step > 0) begin
-                        vol_r <= (vol_r >= 7'd125) ? 7'd127 : (vol_r + 7'd2);
-                    end else if (s3_step < 0) begin
-                        vol_r <= (vol_r <= 7'd2)   ? 7'd0   : (vol_r - 7'd2);
+                // ---- EC2: Vibrato (0..127, immediate response on every quadrature edge) ----
+                case (decode_step(q2_prev, {f_e2a, f_e2b}))
+                    2'sd1:  vib_r <= (vib_r >= 7'd123) ? 7'd127 : (vib_r + 7'd4);
+                    -2'sd1: vib_r <= (vib_r <= 7'd4)   ? 7'd0   : (vib_r - 7'd4);
+                    default: ;
+                endcase
+
+                // ---- EC3: Master Volume (0..127, immediate response on every quadrature edge) ----
+                case (decode_step(q3_prev, {f_e3a, f_e3b}))
+                    2'sd1: begin
+                        if (!ext_vol_valid)
+                            vol_r <= (vol_r >= 7'd124) ? 7'd127 : (vol_r + 7'd3);
                     end
-                end
+                    -2'sd1: begin
+                        if (!ext_vol_valid)
+                            vol_r <= (vol_r <= 7'd3) ? 7'd0 : (vol_r - 7'd3);
+                    end
+                    default: ;
+                endcase
 
-                // 4. EC4 -> 切换屏幕界面 (UI Page Switch with 120ms detent debounce)
-                if ((ms_cnt - page_last_ms) < 32'd120) begin
-                    q4_acc <= 4'sd0;
-                end else if (next_q4 >= 4'sd2) begin
-                    ev_page_next <= 1'b1;
-                    q4_acc       <= 4'sd0;
-                    page_last_ms <= ms_cnt;
-                end else if (next_q4 <= -4'sd2) begin
-                    ev_page_prev <= 1'b1;
-                    q4_acc       <= 4'sd0;
-                    page_last_ms <= ms_cnt;
-                end else begin
-                    q4_acc <= next_q4;
-                end
+                // ---- EC4: UI Page Switch (triggers every 2 quadrature edges with 120ms debounce) ----
+                case (decode_step(q4_prev, {f_e4a, f_e4b}))
+                    2'sd1: begin
+                        if (sub4 >= 3'sd1) begin
+                            sub4 <= 3'sd0;
+                            if (page_cooldown == 16'd0) begin
+                                ev_page_next  <= 1'b1;
+                                page_cooldown <= 16'd120;
+                            end
+                        end else begin
+                            sub4 <= (sub4 < 3'sd0) ? 3'sd1 : (sub4 + 3'sd1);
+                        end
+                    end
+                    -2'sd1: begin
+                        if (sub4 <= -3'sd1) begin
+                            sub4 <= 3'sd0;
+                            if (page_cooldown == 16'd0) begin
+                                ev_page_prev  <= 1'b1;
+                                page_cooldown <= 16'd120;
+                            end
+                        end else begin
+                            sub4 <= (sub4 > 3'sd0) ? -3'sd1 : (sub4 - 3'sd1);
+                        end
+                    end
+                    default: ;
+                endcase
             end
         end
     end

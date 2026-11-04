@@ -81,7 +81,7 @@ module top #(
     input  wire        ec2b,       // J13-27 D16          EC2B 编码器 #2 正交 B
     inout  wire        scl_tof_b,  // J13-29 F14          SCL2 ToF#2 总线 B SCL
     inout  wire        sda_tof_b,  // J13-30 F13          SDA2 ToF#2 总线 B SDA
-    input  wire [5:0]  aux_io,     // J13 31..36          AUX1..AUX6 预留给触屏
+    output wire [5:0]  aux_io,     // J13 31..36          示波器时序测量调试打标输出 (AUX1..AUX6)
     input  wire        ec3a,       // J13-37 D19          EC3A 编码器 #3 正交 A
     input  wire        ec3b,       // J13-38 E19          EC3B 编码器 #3 正交 B
     input  wire        ec4a,       // J13-39 C19          EC4A 编码器 #4 正交 A
@@ -203,12 +203,24 @@ module top #(
     wire k1_short_pulse = run_song && k1_rel && !k1_long_fired;
 
     // 运行期模式：1=自由演奏（上电默认，同时支持 PC MIDI + J13 物理按键），2=自动放歌
-    reg [1:0] source_mode = 2'd1;
+    // 同时与屏幕 Page 3（曲目界面）双向同步：用触屏或 EC4 旋钮切到曲目页自动播放，切回演奏/示波/谱峰页自动恢复自由演奏
+    wire [1:0] lcd_current_page;
+    reg  [1:0] lcd_page_d  = 2'd0;
+    reg  [1:0] source_mode = 2'd1;
     always @(posedge clk) begin
         if (!rst_n) begin
             source_mode <= 2'd1;
-        end else if (((MODE == 1) || (MODE == 3)) && k2_press) begin
-            source_mode <= (source_mode == 2'd2) ? 2'd1 : 2'd2;
+            lcd_page_d  <= 2'd0;
+        end else begin
+            lcd_page_d <= lcd_current_page;
+            if (((MODE == 1) || (MODE == 3)) && k2_press) begin
+                source_mode <= (source_mode == 2'd2) ? 2'd1 : 2'd2;
+            end else if (((MODE == 1) || (MODE == 3)) && (lcd_current_page != lcd_page_d)) begin
+                if (lcd_current_page == 2'd3)
+                    source_mode <= 2'd2;
+                else if (lcd_page_d == 2'd3)
+                    source_mode <= 2'd1;
+            end
         end
     end
     wire run_song = (MODE == 0) || (((MODE == 1) || (MODE == 3)) && (source_mode == 2'd2));
@@ -561,6 +573,10 @@ module top #(
     wire [7:0]         piano_active;
     wire [31:0]        piano_active32;
 
+    wire scan_v_act;
+    wire [6:0] scan_v_note;
+    wire [4:0] scan_v_idx;
+
     generate
     if (USE_TDM32 != 0) begin : g_tdm32_engine
         // ★ 138K 满血版：32复音 × 6泛音 = 192个同时活跃可闻独立振荡器 (TDM SDPB 架构)
@@ -586,7 +602,10 @@ module top #(
             .inst_sel   (inst_sel_eff_r),
             .bow_speed  (bow_speed_eff_r),
             .mix_out    (mix_piano),
-            .active     (piano_active32)
+            .active     (piano_active32),
+            .scan_voice_act (scan_v_act),
+            .scan_voice_note(scan_v_note),
+            .scan_voice_idx (scan_v_idx)
         );
         assign piano_active = piano_active32[7:0] | piano_active32[15:8] |
                               piano_active32[23:16] | piano_active32[31:24];
@@ -616,6 +635,9 @@ module top #(
             .active     (piano_active)
         );
         assign piano_active32 = {24'd0, piano_active};
+        assign scan_v_act     = bus_on_valid;
+        assign scan_v_note    = bus_on_note;
+        assign scan_v_idx     = 5'd0;
     end
     endgenerate
 
@@ -936,6 +958,9 @@ module top #(
             .timbre_sel       (inst_sel_eff_r),
             .fx_sel           (fx_sel),
             .voice_active32   (piano_active32),
+            .scan_voice_act   (scan_v_act),
+            .scan_voice_note  (scan_v_note),
+            .scan_voice_idx   (scan_v_idx),
             .hw_key_state     (~h_key_state),
             .master_vol       ((MODE == 3) ? vol_r : 7'd100),
             .bus_on_valid     (bus_on_valid),
@@ -983,6 +1008,7 @@ module top #(
             .touch_fx_pulse   (touch_fx_pulse),
             .touch_vol_val    (touch_vol_val),
             .touch_vol_valid  (touch_vol_valid),
+            .current_page     (lcd_current_page),
             .tof_dist         (h_tof_dist),
             .tof_ack_cnt      (h_tof_ack_cnt),
             .tof_nack_cnt     (h_tof_nack_cnt),
@@ -1014,6 +1040,7 @@ module top #(
         assign touch_fx_pulse     = 1'b0;
         assign touch_vol_val      = 7'd100;
         assign touch_vol_valid    = 1'b0;
+        assign lcd_current_page   = 2'd0;
         assign dbg_tx      = h_dbg_tx;
     end
     endgenerate
@@ -1058,10 +1085,117 @@ module top #(
     wire led2_out = ~(note_sounding && (eff_note >= 7'd60 && eff_note < 7'd72));
     wire led3_out = ~(note_sounding && (eff_note >= 7'd72));
 
-    assign led[0] = (MODE == 2) ? heart[24]  : led0_out;
-    assign led[1] = (MODE == 2) ? ~samp_seen : led1_out;
-    assign led[2] = (MODE == 2) ? ~(&gate)   : led2_out;
-    assign led[3] = (MODE == 2) ? ~act_seen  : led3_out;
+    // ---------------------------------------------------- 示波器时序测量调试打标引擎 -----
+    // 通过引脚高低电平区分“读取到硬件信号的时刻（上升沿 -> 高电平 1）”与
+    // “FPGA 发出音频信号的时刻（下降沿 -> 低电平 0）”，高电平脉宽即为处理延迟！
+    //
+    // 1. 原始物理硬件引脚 2-FF 同步与下降沿检测 (key_hw[12:0], photo_hw[5:0], key, key2)
+    wire [20:0] raw_hw_bus = {photo_hw, key_hw, key2, key}; // 按下/遮挡均为低有效(0)
+    reg  [20:0] raw_hw_s1  = 21'h1FFFFF;
+    reg  [20:0] raw_hw_s2  = 21'h1FFFFF;
+    reg  [20:0] raw_hw_d   = 21'h1FFFFF;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            raw_hw_s1 <= 21'h1FFFFF;
+            raw_hw_s2 <= 21'h1FFFFF;
+            raw_hw_d  <= 21'h1FFFFF;
+        end else begin
+            raw_hw_s1 <= raw_hw_bus;
+            raw_hw_s2 <= raw_hw_s1;
+            raw_hw_d  <= raw_hw_s2;
+        end
+    end
+    wire raw_hw_trig_edge = |(raw_hw_d & ~raw_hw_s2);
+
+    // 2. FPGA 有效硬件信号读取事件脉冲 (涵盖按键/光电/ToF/触屏/编码器/MIDI)
+    wire hw_read_event = bus_on_valid | h_on_valid | touch_on_valid |
+                         h_page_next  | h_page_prev | touch_timbre_pulse | touch_fx_pulse;
+
+    // 3. 打标通道 A (MARK_SYNTH -> J9-6 [T18/led0] & J13-31 [E17/aux_io0]):
+    //    - 读取到有效硬件信号时刻 -> 拉高为 1 (3.3V)
+    //    - FPGA 完成合成并在 sample_tick 向 I2S DAC 发出音频采样时刻 -> 拉低为 0 (0V)
+    reg mark_synth_gate = 1'b0;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            mark_synth_gate <= 1'b0;
+        end else if (hw_read_event) begin
+            mark_synth_gate <= 1'b1; // 读取到硬件信号时刻 -> 高电平 1
+        end else if (mark_synth_gate && sample_tick) begin
+            mark_synth_gate <= 1'b0; // FPGA 发出信号时刻 -> 低电平 0
+        end
+    end
+
+    // 4. 打标通道 B (MARK_E2E_RAW -> J9-5 [R18/led1] & J13-32 [F16/aux_io1]):
+    //    - 物理引脚首次检测到原始硬件信号跳变时刻 -> 拉高为 1 (3.3V)
+    //    - 完成硬件消抖 + TDM-32 合成并在 sample_tick 向 I2S DAC 发出音频信号时刻 -> 拉低为 0 (0V)
+    reg        mark_e2e_gate    = 1'b0;
+    reg        mark_e2e_armed   = 1'b0;
+    reg [18:0] mark_e2e_timeout = 19'd0;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            mark_e2e_gate    <= 1'b0;
+            mark_e2e_armed   <= 1'b0;
+            mark_e2e_timeout <= 19'd0;
+        end else begin
+            if (!mark_e2e_gate && (raw_hw_trig_edge || hw_read_event)) begin
+                mark_e2e_gate    <= 1'b1; // 物理引脚读取到硬件信号时刻 -> 高电平 1
+                mark_e2e_armed   <= hw_read_event;
+                mark_e2e_timeout <= 19'd400_000; // 8 ms 超时保护
+            end else if (mark_e2e_gate) begin
+                if (hw_read_event) begin
+                    mark_e2e_armed <= 1'b1;
+                end
+                if (mark_e2e_armed && sample_tick) begin
+                    mark_e2e_gate  <= 1'b0; // FPGA 发出信号时刻 -> 低电平 0
+                    mark_e2e_armed <= 1'b0;
+                end else if (mark_e2e_timeout == 19'd0) begin
+                    mark_e2e_gate  <= 1'b0;
+                    mark_e2e_armed <= 1'b0;
+                end else begin
+                    mark_e2e_timeout <= mark_e2e_timeout - 19'd1;
+                end
+            end
+        end
+    end
+
+    // 5. 独立双通道事件脉冲打标 (100 us 展宽正脉冲，便于双通道示波器 CH1-CH2 测量时差)
+    wire fpga_emit_event = mark_synth_gate && sample_tick;
+    reg [12:0] in_pulse_cnt  = 13'd0;
+    reg [12:0] out_pulse_cnt = 13'd0;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            in_pulse_cnt  <= 13'd0;
+            out_pulse_cnt <= 13'd0;
+        end else begin
+            if (hw_read_event)
+                in_pulse_cnt <= 13'd5000;
+            else if (in_pulse_cnt != 13'd0)
+                in_pulse_cnt <= in_pulse_cnt - 13'd1;
+
+            if (fpga_emit_event)
+                out_pulse_cnt <= 13'd5000;
+            else if (out_pulse_cnt != 13'd0)
+                out_pulse_cnt <= out_pulse_cnt - 13'd1;
+        end
+    end
+    wire mark_in_pulse   = (in_pulse_cnt  != 13'd0);
+    wire mark_out_pulse  = (out_pulse_cnt != 13'd0);
+    wire mark_hw_active  = (|(~h_key_state)) | (|(~h_photo_state)) | touch_on_valid;
+    wire mark_aud_active = (piano_active32 != 32'd0) || (audio_mix_l != 16'sd0);
+
+    // J13-31..36 (aux_io[0..5]) 专用示波器打标排针输出
+    assign aux_io[0] = mark_synth_gate; // J13-31 (E17): 高=读取到有效硬件信号, 低=FPGA发出音频信号 (测纯合成延迟)
+    assign aux_io[1] = mark_e2e_gate;   // J13-32 (F16): 高=读取到物理原始信号, 低=FPGA发出音频信号 (测含消抖端到端延迟)
+    assign aux_io[2] = mark_in_pulse;   // J13-33 (F19): 读取到硬件信号时刻 (100us 高脉冲)
+    assign aux_io[3] = mark_out_pulse;  // J13-34 (F15): FPGA 发出信号时刻 (100us 高脉冲)
+    assign aux_io[4] = mark_hw_active;  // J13-35 (C20): 硬件按下持续高电平 (1=按下, 0=松开)
+    assign aux_io[5] = mark_aud_active; // J13-36 (D20): FPGA 发声持续高电平 (1=发声, 0=静音)
+
+    // J9 PMOD0 排针 (led[0..3]: J9-6=T18, J9-5=R18, J9-8=R17, J9-7=P16) 同步输出时序打标
+    assign led[0] = (MODE == 2) ? heart[24]  : mark_synth_gate; // J9-6 (T18): 高=读取到有效硬件信号, 低=FPGA发出信号
+    assign led[1] = (MODE == 2) ? ~samp_seen : mark_e2e_gate;   // J9-5 (R18): 高=读取到物理原始信号, 低=FPGA发出信号
+    assign led[2] = (MODE == 2) ? ~(&gate)   : mark_in_pulse;   // J9-8 (R17): 读取到硬件信号 100us 正脉冲
+    assign led[3] = (MODE == 2) ? ~act_seen  : mark_out_pulse;  // J9-7 (P16): FPGA 发出信号 100us 正脉冲
 
     // ---------------------------------------------------- 纯硬件超低延迟与确定性无抖动统计引擎 (赛题拓展③)
     wire [15:0] hw_lat_cur_cycles;

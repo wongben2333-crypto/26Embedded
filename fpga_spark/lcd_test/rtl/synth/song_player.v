@@ -232,8 +232,9 @@ module song_player #(
     end
 
     wire [8:0]  cur_note_idx_w = (note_idx > 9'd0) ? (note_idx - 9'd1) : 9'd0;
-    wire [25:0] pct_mult = cur_note_idx_w * inv_notes_q16;
-    wire [7:0]  pct_w = (cur_note_idx_w >= {1'b0, total_notes_r}) ? 8'd100 : pct_mult[23:16];
+    wire [14:0] fine_note_pos  = {cur_note_idx_w, 6'd0} + {9'd0, song_sub_scroll_r};
+    wire [31:0] pct_mult       = fine_note_pos * inv_notes_q16;
+    wire [7:0]  pct_w          = (cur_note_idx_w >= {1'b0, total_notes_r} || pct_mult[29:22] > 8'd100) ? 8'd100 : pct_mult[29:22];
 
     reg [7:0]  song_progress_pct_r;
     reg [8:0]  song_note_idx_r;

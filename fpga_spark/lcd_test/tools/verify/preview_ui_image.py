@@ -147,29 +147,26 @@ def render_ui_preview(timbre_sel, dot_matrix, out_path):
     import math
     pts = []
     for x in range(30, 430):
-        y = int(300 + 45 * math.sin((x - 30) * 0.04) * math.cos((x - 30) * 0.01))
+        y = int(300 + 110 * math.sin((x - 30) * 0.04) * math.cos((x - 30) * 0.01))
         pts.append((x, y))
     draw.line(pts, fill=c_cyan, width=2)
 
     # 4. Top-Right Spectrum & Level (x: 456..778, y: 114..265)
-    draw.rectangle([456, 114, 778, 265], fill=c_card_bg, outline=c_border)
+    draw.rectangle([456, 114, 778, 192], fill=c_card_bg, outline=c_border)
     render_cn_string(img, dot_matrix, 17, 468, 122, c_white) # 立体声峰值电平
     render_cn_string(img, dot_matrix, 15, 468, 142, c_gray)  # 左声道输出
     render_cn_string(img, dot_matrix, 16, 468, 160, c_gray)  # 右声道输出
     # 32 Peaks
-    for p in range(32):
-        bx = 470 + p * 9
-        ph = int(30 * (1.0 - abs(p - 12)/20.0)) if abs(p - 12) < 20 else 4
-        draw.rectangle([bx, 240 - ph, bx + 6, 240], fill=c_cyan)
-    draw.text((470, 246), "-48dB     -24dB     -12dB      -6dB       0dB", fill=c_gray)
+    draw.rectangle([486, 142, 666, 154], fill=c_cyan)
+    draw.rectangle([486, 160, 666, 172], fill=c_cyan)
+    draw.text((470, 178), "-48dB     -24dB     -12dB      -6dB       0dB", fill=c_gray)
 
     # 5. Bottom-Right Dynamic Instrument Panel (x: 456..778, y: 270..468)
     draw.rectangle([456, 270, 778, 468], fill=c_card_bg, outline=c_cyan)
 
     if timbre_sel == 0:
         # Piano Mode
-        render_cn_string(img, dot_matrix, 19, 468, 274, c_green) # 施坦威三角钢琴键盘
-        render_cn_string(img, dot_matrix, 36, 468, 296, c_gray)  # 弦槌敲击毛毡响应
+        render_cn_string(img, dot_matrix, 19, 468, 290, c_green)
         # Keyboard (x: 460..773, y: 322..458)
         # 7 White keys
         for i in range(7):
@@ -183,8 +180,7 @@ def render_ui_preview(timbre_sel, dot_matrix, out_path):
 
     elif timbre_sel == 1:
         # Guitar Mode
-        render_cn_string(img, dot_matrix, 20, 468, 274, c_green) # 全单原声木吉他指板
-        render_cn_string(img, dot_matrix, 37, 468, 296, c_gray)  # 物理建模弦振动
+        render_cn_string(img, dot_matrix, 20, 468, 290, c_green)
         # Fretboard (x: 460..774, y: 320..462)
         draw.rectangle([460, 320, 774, 462], fill=(45, 25, 20), outline=c_border)
         draw.rectangle([466, 320, 469, 462], fill=c_white) # Nut
@@ -195,12 +191,10 @@ def render_ui_preview(timbre_sel, dot_matrix, out_path):
         for sy in [336, 358, 380, 402, 424, 446]:
             draw.line([466, sy, 774, sy], fill=(220, 200, 160), width=1)
         # Strum aura
-        draw.ellipse([600, 370, 650, 410], fill=c_amber)
 
     elif timbre_sel == 2:
         # Violin Mode (Clear positions & strings!)
-        render_cn_string(img, dot_matrix, 21, 468, 274, c_green) # 抒情小提琴指板琴弓
-        render_cn_string(img, dot_matrix, 38, 468, 296, c_gray)  # 亥姆霍兹粘滑锯齿波
+        render_cn_string(img, dot_matrix, 21, 468, 290, c_green)
         # Position Labels at y=320: 空弦, 一把位, 二把位, 三把位, 运弓
         render_cn_string(img, dot_matrix, 26, 470, 320, c_cyan)  # 空弦
         render_cn_string(img, dot_matrix, 27, 530, 320, c_cyan)  # 一把位
@@ -228,12 +222,10 @@ def render_ui_preview(timbre_sel, dot_matrix, out_path):
         draw.line([720, 320, 720, 462], fill=c_white, width=2)
         draw.line([722, 320, 722, 462], fill=(160, 90, 40), width=2)
         # Active finger stop on A4 1st position (B4 = 71)
-        draw.ellipse([540, 400, 560, 416], fill=c_cyan, outline=c_white)
 
     elif timbre_sel == 3:
         # Erhu Mode (二胡)
-        render_cn_string(img, dot_matrix, 40, 468, 274, c_green) # 民族二胡内外双弦
-        render_cn_string(img, dot_matrix, 41, 468, 296, c_gray)  # 琴弓内夹蟒皮共鸣
+        render_cn_string(img, dot_matrix, 40, 468, 290, c_green)
         # Labels at y=320: 千斤, 一把位, 二把位, 三把位, 琴筒
         render_cn_string(img, dot_matrix, 48, 468, 320, c_cyan)  # 千斤
         render_cn_string(img, dot_matrix, 27, 530, 320, c_cyan)  # 一把位

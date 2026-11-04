@@ -43,6 +43,8 @@ module lcd_ui (
     input  wire        liss_border,
     input  wire        liss_reticle,
     input  wire        liss_dot,
+    input  wire [31:0] voice_active_mask,
+    input  wire [7:0]  cur_band_energy,
     input  wire        spec_bar_hit,
     input  wire [1:0]  spec_bar_zone,
 
@@ -2482,10 +2484,10 @@ module lcd_ui (
                          (py >= 9'd140 && py <= 9'd460);
 
     // 右上区: 立体声 VU 表与 ADSR 包络 (x: 456..778, y: 114..280)
-    wire p0_vu_panel  = (page == 2'd0) && (px >= 10'd456 && px <= 10'd778 && py >= 9'd114 && py <= 9'd280);
+    wire p0_vu_panel  = (page == 2'd0) && (px >= 10'd456 && px <= 10'd778 && py >= 9'd114 && py <= 9'd192);
     wire p0_vu_border = (page == 2'd0) && (
-        ((px == 10'd456 || px == 10'd778) && py >= 9'd114 && py <= 9'd280) ||
-        ((py == 9'd114 || py == 9'd280) && px >= 10'd456 && px <= 10'd778)
+        ((px == 10'd456 || px == 10'd778) && py >= 9'd114 && py <= 9'd192) ||
+        ((py == 9'd114 || py == 9'd192) && px >= 10'd456 && px <= 10'd778)
     );
     wire t_p0_vu_hdr = (page == 2'd0) && cn_text_pixel(6'd17, px, py, 10'd468, 9'd122, 2'd1); // 立体声峰值电平
     wire t_p0_vu_l   = (page == 2'd0) && cn_text_pixel(6'd15, px, py, 10'd468, 9'd142, 2'd1); // 左声道输出
@@ -2502,8 +2504,8 @@ module lcd_ui (
     wire p0_vu_hit   = (p0_vu_l_bar || p0_vu_r_bar) && (px - 10'd486 < vu_p0_w);
 
     // ADSR 分界线与曲线 (16 位防溢出平滑曲线)
-    wire p0_adsr_sep  = (page == 2'd0) && (px >= 10'd468 && px <= 10'd766 && py == 9'd194);
-    wire t_p0_adsr    = (page == 2'd0) && cn_text_pixel(6'd18, px, py, 10'd468, 9'd198, 2'd1); // 硬件包络ADSR曲线
+    wire p0_adsr_sep  = 1'b0;
+    wire t_p0_adsr    = 1'b0;
 
     wire [8:0] adsr_y_atk = 9'd268 - ((({14'd0, px - 10'd486} * 24'd88688)) >> 16);
     wire [8:0] adsr_y_dec = 9'd222 + ((({14'd0, px - 10'd520} * 24'd19661)) >> 16);
@@ -2512,10 +2514,8 @@ module lcd_ui (
                                (px < 10'd580) ? adsr_y_dec :
                                (px < 10'd690) ? 9'd240 : adsr_y_rel;
 
-    wire p0_adsr_line = (page == 2'd0) && (px >= 10'd486 && px <= 10'd750) &&
-                        (py >= adsr_target_y - 9'd1 && py <= adsr_target_y + 9'd1);
-    wire p0_adsr_fill = (page == 2'd0) && (px >= 10'd486 && px <= 10'd750) &&
-                        (py > adsr_target_y + 9'd1 && py <= 9'd268);
+    wire p0_adsr_line = 1'b0;
+    wire p0_adsr_fill = 1'b0;
 
     // -------------------------------------------------------------------------
     // 右下区: 动态乐器呈现与交互指板 (Piano / Guitar / Violin Morphing)
@@ -2529,18 +2529,13 @@ module lcd_ui (
 
     // 动态乐器标题与物理声学说明
     wire t_p0_inst_hdr = (page == 2'd0) && (
-        (timbre_sel == 2'd1) ? cn_text_pixel(6'd20, px, py, 10'd468, 9'd274, 2'd1) : // 全单原声木吉他指板
-        (timbre_sel == 2'd2) ? cn_text_pixel(6'd21, px, py, 10'd468, 9'd274, 2'd1) : // 抒情小提琴指板琴弓
-        (timbre_sel == 2'd3) ? cn_text_pixel(6'd40, px, py, 10'd468, 9'd274, 2'd1) : // 民族二胡内外双弦
-                               cn_text_pixel(6'd19, px, py, 10'd468, 9'd274, 2'd1)   // 施坦威三角钢琴键盘
+        (timbre_sel == 2'd1) ? cn_text_pixel(6'd20, px, py, 10'd468, 9'd290, 2'd1) : // 全单原声木吉他指板
+        (timbre_sel == 2'd2) ? cn_text_pixel(6'd21, px, py, 10'd468, 9'd290, 2'd1) : // 抒情小提琴指板琴弓
+        (timbre_sel == 2'd3) ? cn_text_pixel(6'd40, px, py, 10'd468, 9'd290, 2'd1) : // 民族二胡内外双弦
+                               cn_text_pixel(6'd19, px, py, 10'd468, 9'd290, 2'd1)   // 施坦威三角钢琴键盘
     );
 
-    wire t_p0_inst_sub = (page == 2'd0) && (
-        (timbre_sel == 2'd1) ? cn_text_pixel(6'd37, px, py, 10'd468, 9'd296, 2'd1) : // 物理建模弦振动
-        (timbre_sel == 2'd2) ? cn_text_pixel(6'd38, px, py, 10'd468, 9'd296, 2'd1) : // 亥姆霍兹粘滑锯齿波
-        (timbre_sel == 2'd3) ? cn_text_pixel(6'd41, px, py, 10'd468, 9'd296, 2'd1) : // 琴弓内夹蟒皮共鸣
-                               cn_text_pixel(6'd36, px, py, 10'd468, 9'd296, 2'd1)   // 弦槌敲击毛毡响应
-    );
+    wire t_p0_inst_sub = 1'b0;
 
     // 1. 钢琴键盘元素 (timbre_sel == 0)
     wire in_white_area = (page == 2'd0) && (timbre_sel == 2'd0) &&
@@ -2634,10 +2629,7 @@ module lcd_ui (
     wire gt_string3 = in_gt_fretboard && (py == gt_s3_y);
     wire gt_string2 = in_gt_fretboard && (py == gt_s2_y);
     wire gt_string1 = in_gt_fretboard && (py == gt_s1_y);
-    wire gt_active_glow = in_gt_fretboard && any_key_active && (
-        (px >= 10'd585 && px <= 10'd645 && py >= 9'd370 && py <= 9'd410) ||
-        (px >= 10'd645 && px <= 10'd705 && py >= 9'd390 && py <= 9'd430)
-    );
+    wire gt_active_glow = 1'b0;
 
     // 3. 抒情小提琴指板与琴弓 (timbre_sel == 2)
     wire in_vn_box = (page == 2'd0) && (timbre_sel == 2'd2) &&
@@ -2665,9 +2657,7 @@ module lcd_ui (
 
     wire [8:0] vib_sine_y = vn_a_y + ((px[2] ^ px[1]) ? 9'd1 : 9'd0);
     wire vn_vibrato_ripple = in_vn_box && any_key_active && (py == vib_sine_y) && (px >= 10'd480 && px <= 10'd700);
-    wire vn_active_glow = in_vn_fingerboard && any_key_active && (
-        (px >= 10'd580 && px <= 10'd640 && py >= 9'd395 && py <= 9'd425)
-    );
+    wire vn_active_glow = 1'b0;
     // 4. 传统民族二胡琴筒与琴弦 (timbre_sel == 3)
     wire in_eh_box = (page == 2'd0) && (timbre_sel == 2'd3) &&
                      (px >= 10'd460 && px <= 10'd774 && py >= 9'd320 && py <= 9'd462);
@@ -2688,10 +2678,7 @@ module lcd_ui (
     wire eh_string_outer = in_eh_box && (px >= 10'd466 && px <= 10'd730) && (py == eh_out_y);
     wire eh_bow_hair = in_eh_box && (px == bow_x) && (py >= 9'd350 && py <= 9'd432);
     wire eh_bow_wood = in_eh_box && (px == bow_x + 10'd3) && (py >= 9'd345 && py <= 9'd437);
-    wire eh_active_glow = in_eh_box && any_key_active && (
-        (px >= 10'd525 && px <= 10'd700 && py >= 9'd360 && py <= 9'd422) ||
-        (px >= 10'd710 && px <= 10'd760 && py >= 9'd350 && py <= 9'd430)
-    );
+    wire eh_active_glow = 1'b0;
 
 
     // 小提琴把位与琴弦文字标注 (让演奏与操作直观易懂)
@@ -2882,15 +2869,21 @@ module lcd_ui (
     wire t_p2_pk_hdr = (page == 2'd2) && text_pixel(60, px, py, 10'd32,  9'd264, 2'd1);
     wire t_p2_pk_det = (page == 2'd2) && text_pixel(61, px, py, 10'd640, 9'd264, 2'd1);
 
-    // 32 根独立谱线针状柱 (基线 y = 434, 顶点不超过 315)
+    // 32 根独立谱线针状柱 (基线 y = 434, 顶点不超过 315, 60FPS 实时频谱与振荡器动态跳动)
     wire p2_peak_base = (page == 2'd2) && (px >= 10'd36 && px <= 10'd764 && py == 9'd434);
     wire [4:0] p2_needle_idx = p12_b_idx;
-    wire [8:0] p2_needle_h = 9'd75 + ((p2_needle_idx[2:0] * 9'd5) ^ (p2_needle_idx[4:3] * 9'd10));
+    wire [4:0] p2_phase      = frame_cnt[5:1] + (p2_needle_idx * 5'd7) + {2'd0, p2_needle_idx[4:2]};
+    wire [3:0] p2_tri        = p2_phase[4] ? (~p2_phase[3:0]) : p2_phase[3:0];
+    wire [8:0] p2_osc_dyn    = 9'd32 + {3'd0, p2_tri, 2'b00} + {5'd0, p2_needle_idx[3:0]};
+    wire [8:0] p2_audio_h    = {1'b0, cur_band_energy} + {4'd0, p2_tri[3:1], 1'b0};
+    wire [8:0] p2_live_h     = (cur_band_energy > 8'd0) ? p2_audio_h :
+                               (audio_active)           ? (9'd12 + {4'd0, p2_tri, 1'b0}) : p2_osc_dyn;
+    wire [8:0] p2_needle_h   = (p2_live_h > 9'd145) ? 9'd145 : p2_live_h;
     wire p2_needle_stem = (page == 2'd2) && (px >= 10'd36 && px <= 10'd764) &&
-                          (p12_b_rem == 10'd11) &&
+                          (p12_b_rem == 10'd11) && (p2_needle_h > 9'd2) &&
                           (py >= 9'd434 - p2_needle_h && py <= 9'd434);
     wire p2_needle_dot  = (page == 2'd2) && (px >= 10'd36 && px <= 10'd764) &&
-                          (p12_b_rem >= 10'd9 && p12_b_rem <= 10'd13) &&
+                          (p12_b_rem >= 10'd9 && p12_b_rem <= 10'd13) && (p2_needle_h > 9'd2) &&
                           (py >= 9'd434 - p2_needle_h - 9'd3 && py <= 9'd434 - p2_needle_h + 9'd1);
 
     // 底部频率刻度与文本 (y: 434..462)
@@ -2961,9 +2954,13 @@ module lcd_ui (
                          (pct_rem100 >= 8'd10) ? 8'd1 : 8'd0;
     wire [7:0] pct_rem10 = pct_rem100 - (pct_d10 * 8'd10);
 
-    wire [23:0] fill_prod = {16'd0, song_progress} * 24'd95945;
+    wire [19:0] fill_px_mult = {12'd0, pct_val} * 20'd7496;
+    wire [9:0]  fill_len     = (pct_val >= 8'd100) ? 10'd732 : fill_px_mult[19:10];
     reg  [9:0]  p3_fill_x;
-    always @(posedge clk) p3_fill_x <= 10'd32 + fill_prod[23:17];
+    always @(posedge clk) begin
+        if (!rst_n) p3_fill_x <= 10'd32;
+        else p3_fill_x <= 10'd32 + fill_len;
+    end
     wire p3_bar_box = (page == 2'd3) && (px >= 10'd32 && px <= 10'd764 && py >= 9'd160 && py <= 9'd186);
     wire p3_bar_border = p3_bar_box && (px == 10'd32 || px == 10'd764 || py == 9'd160 || py == 9'd186);
     wire p3_bar_fill   = p3_bar_box && (px <= p3_fill_x) && (py >= 9'd162 && py <= 9'd184);
@@ -2974,15 +2971,13 @@ module lcd_ui (
         ((px == 10'd20 || px == 10'd778) && py >= 9'd230 && py <= 9'd468) ||
         ((py == 9'd230 || py == 9'd468) && px >= 10'd20 && px <= 10'd778)
     );
-    wire t_p3_sc_hdr = (page == 2'd3) && text_pixel(77, px, py, 10'd32,  9'd238, 2'd1);
-    wire t_p3_sc_mel = (page == 2'd3) && text_pixel(78, px, py, 10'd560, 9'd238, 2'd1);
-    wire t_p3_sc_ply = (page == 2'd3) && text_pixel(79, px, py, 10'd345, 9'd426, 2'd1);
+    wire t_p3_sc_hdr = (page == 2'd3) && cn_text_pixel(6'd14, px, py, 10'd32,  9'd238, 2'd1); // 实时音频示波器
+    wire t_p3_sc_mel = 1'b0;
+    wire t_p3_sc_ply = 1'b0;
 
-    wire p3_stave = (page == 2'd3) && p3_score_box && (
-        py == 9'd280 || py == 9'd305 || py == 9'd330 || py == 9'd355 || py == 9'd380
-    ) && (px >= 10'd32 && px <= 10'd764);
+    wire p3_stave = 1'b0;
 
-    wire p3_playhead = (page == 2'd3) && (px == 10'd360) && (py >= 9'd260 && py <= 9'd420);
+    wire p3_playhead = 1'b0;
 
     // -------------------------------------------------------------------------
     // Real-Time Dynamic Scrolling Score Engine (8 Slots, Smooth Continuous Scroll)
@@ -3063,6 +3058,23 @@ module lcd_ui (
     // Stage 1: Parallel per-page combinational logic evaluated into registers
     // Stage 2: Clean 5:1 registered color multiplexer (Timing Closed: 0 Violations)
     // -------------------------------------------------------------------------
+
+    // Page 3 实时示波器网格与波形
+    wire [9:0] p3_gx = (px >= 10'd20) ? (px - 10'd20) : 10'd0;
+    wire [9:0] p3_gx_q = (p3_gx * 24'd3121) >> 17;
+    wire p3_scope_grid = (page == 2'd3) && p3_score_box && (
+        ((p3_gx == (p3_gx_q * 10'd42)) && py >= 9'd256 && py <= 9'd448) ||
+        ((py == 9'd270 || py == 9'd310 || py == 9'd390 || py == 9'd430) && px >= 10'd32 && px <= 10'd766)
+    );
+    wire p3_scope_zero = (page == 2'd3) && p3_score_box && (py == 9'd350) && (px >= 10'd28 && px <= 10'd770);
+
+    wire [8:0] p3_y_lo = (scope_wave_y < scope_prev_y) ? scope_wave_y : scope_prev_y;
+    wire [8:0] p3_y_hi = (scope_wave_y > scope_prev_y) ? scope_wave_y : scope_prev_y;
+    wire p3_wave_hit   = (page == 2'd3) && p3_score_box &&
+                         (py >= p3_y_lo) && (py <= p3_y_hi) && (py >= 9'd252 && py <= 9'd448);
+    wire p3_wave_edge  = (page == 2'd3) && p3_score_box &&
+                         ((py == p3_y_lo) || (py == p3_y_hi)) &&
+                         (py >= 9'd252 && py <= 9'd448);
     reg [15:0] col_nav_comb;
     reg [15:0] col_p0_comb;
     reg [15:0] col_p1_comb;
@@ -3228,7 +3240,7 @@ module lcd_ui (
 
         if (in_osc_cell)      col_p2_comb = 16'h11CE;
         if (osc_cell_border)  col_p2_comb = C_BORDER;
-        if (osc_green_led)    col_p2_comb = C_GREEN;
+        if (osc_green_led)    col_p2_comb = (work_mode == 2'd2 || voice_active_mask[p2_voice_idx]) ? C_GREEN : 16'h0248;
         if (osc_text_hit)     col_p2_comb = 16'hFFFF;
 
         if (p2_peak_box)   col_p2_comb = C_SCOPE_BG;
@@ -3262,14 +3274,15 @@ module lcd_ui (
         if (p3_bar_fill)   col_p3_comb = C_CYAN;
         if (p3_bar_head)   col_p3_comb = C_TEXT_PRI;
 
-        if (p3_score_box) col_p3_comb = C_SCOPE_BG;
+        if (p3_score_box)    col_p3_comb = C_SCOPE_BG;
+        if (p3_scope_grid)   col_p3_comb = C_GRID;
+        if (p3_scope_zero)   col_p3_comb = C_CYAN;
+        if (p3_wave_hit)     col_p3_comb = 16'h0310;
+        if (p3_wave_edge)    col_p3_comb = C_CYAN;
+        if (p3_score_border) col_p3_comb = C_BORDER;
         if (p3_stave)     col_p3_comb = C_GRID;
         if (p3_playhead)  col_p3_comb = C_RED;
 
-        if (hit_b_0 || hit_b_1 || hit_b_2 || hit_b_3 || hit_b_4 || hit_b_5 || hit_b_6 || hit_b_7) col_p3_comb = C_GREEN;
-        if (hit_m_0 || hit_m_1) col_p3_comb = 16'h128C;
-        if (hit_m_3 || hit_m_4 || hit_m_5 || hit_m_6 || hit_m_7) col_p3_comb = C_CYAN;
-        if (hit_m_2)            col_p3_comb = C_AMBER;
 
         if (t_p3_tr_idx || t_p3_pr_key || t_p3_pr_hdl) col_p3_comb = C_TEXT_SEC;
         if (t_p3_tr_nam || t_p3_pr_txt || t_p3_sc_hdr) col_p3_comb = C_TEXT_PRI;

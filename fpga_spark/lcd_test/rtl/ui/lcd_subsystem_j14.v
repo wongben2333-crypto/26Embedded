@@ -18,6 +18,9 @@ module lcd_subsystem_j14 (
     input  wire [1:0]  timbre_sel,        // 0=Piano, 1=Guitar, 2/3=Violin
     input  wire [1:0]  fx_sel,            // 0=Bypass, 1=Delay, 2=Chorus, 3=Reverb
     input  wire [31:0] voice_active32,    // 32-bit active voice mask from piano_engine_tdm32
+    input  wire        scan_voice_act,
+    input  wire [6:0]  scan_voice_note,
+    input  wire [4:0]  scan_voice_idx,
     input  wire [12:0] hw_key_state,      // 13 physical keys from J13 (1=pressed)
     input  wire [6:0]  master_vol,        // 0..127 master volume
 
@@ -75,6 +78,7 @@ module lcd_subsystem_j14 (
     output reg         touch_fx_pulse,
     output reg  [6:0]  touch_vol_val,
     output reg         touch_vol_valid,
+    output wire [1:0]  current_page,
 
     // ToF I2C Diagnostic Inputs
     input  wire [15:0] tof_dist,
@@ -179,8 +183,9 @@ module lcd_subsystem_j14 (
             end
         end
     end
-    wire [7:0] live_vu_level = vu_peak[15:8];
-    wire       audio_active  = (vu_peak > 16'd160) || (|voice_active32) || (work_mode == 2'd2);
+    wire [15:0] vu_boosted    = (vu_peak >= 16'd8192) ? 16'd65535 : (vu_peak << 3);
+    wire [7:0]  live_vu_level = vu_boosted[15:8];
+    wire        audio_active  = (vu_peak > 16'd120) || (|voice_active32) || (|hw_key_state) || (work_mode == 2'd2);
 
     // ------------------------------------------------------------------------
     // 3. Real-Time 3.0-Second Dual-Buffer Audio Oscilloscope Engine
@@ -193,35 +198,31 @@ module lcd_subsystem_j14 (
     reg signed [15:0] cur_max_p1 = 16'sd0;
     reg signed [15:0] cur_min_p1 = 16'sd0;
 
-    // Page 0 scaling (+/- 80 px headroom, center Y=300)
+    // Page 0 scaling (+/- 130 px headroom, center Y=300, high sensitivity)
     wire signed [15:0] final_max_p0 = (audio_mix > cur_max_p0) ? audio_mix : cur_max_p0;
     wire signed [15:0] final_min_p0 = (audio_mix < cur_min_p0) ? audio_mix : cur_min_p0;
 
     wire [14:0] pos_abs_p0  = (final_max_p0 > 16'sd0) ? final_max_p0[14:0] : 15'd0;
-    wire [17:0] prod_pos_p0 = {pos_abs_p0, 2'b00} + {2'b00, pos_abs_p0};
-    wire [8:0]  off_top_p0  = prod_pos_p0[17:11];
-    wire [8:0]  y_top_p0    = (off_top_p0 > 9'd80) ? 9'd220 : (9'd300 - off_top_p0);
+    wire [9:0]  off_top_p0  = {1'b0, pos_abs_p0[14:6]} + {2'b00, pos_abs_p0[14:7]};
+    wire [8:0]  y_top_p0    = (off_top_p0 > 10'd130) ? 9'd170 : (9'd300 - off_top_p0[8:0]);
 
     wire [15:0] neg_raw_p0  = (-final_min_p0);
     wire [14:0] neg_abs_p0  = (final_min_p0 < 16'sd0) ? neg_raw_p0[14:0] : 15'd0;
-    wire [17:0] prod_neg_p0 = {neg_abs_p0, 2'b00} + {2'b00, neg_abs_p0};
-    wire [8:0]  off_bot_p0  = prod_neg_p0[17:11];
-    wire [8:0]  y_bot_p0    = (off_bot_p0 > 9'd80) ? 9'd380 : (9'd300 + off_bot_p0);
+    wire [9:0]  off_bot_p0  = {1'b0, neg_abs_p0[14:6]} + {2'b00, neg_abs_p0[14:7]};
+    wire [8:0]  y_bot_p0    = (off_bot_p0 > 10'd130) ? 9'd430 : (9'd300 + off_bot_p0[8:0]);
 
-    // Page 1 scaling (+/- 48 px headroom, center Y=154)
+    // Page 1 & Page 3 scaling (+/- 48 px on P1, +/- 92 px on P3, boosted 4.5x for full visibility)
     wire signed [15:0] final_max_p1 = (audio_mix > cur_max_p1) ? audio_mix : cur_max_p1;
     wire signed [15:0] final_min_p1 = (audio_mix < cur_min_p1) ? audio_mix : cur_min_p1;
 
     wire [14:0] pos_abs_p1  = (final_max_p1 > 16'sd0) ? final_max_p1[14:0] : 15'd0;
-    wire [17:0] prod_pos_p1 = {pos_abs_p1, 1'b0} + {1'b0, pos_abs_p1};
-    wire [8:0]  off_top_p1  = prod_pos_p1[16:11];
-    wire [8:0]  y_top_p1    = (off_top_p1 > 9'd48) ? 9'd106 : (9'd154 - off_top_p1);
+    wire [9:0]  off_top_p1  = {1'b0, pos_abs_p1[14:6]} + {2'b00, pos_abs_p1[14:7]};
+    wire [8:0]  y_top_p1    = (off_top_p1 > 10'd48) ? 9'd106 : (9'd154 - off_top_p1[8:0]);
 
     wire [15:0] neg_raw_p1  = (-final_min_p1);
     wire [14:0] neg_abs_p1  = (final_min_p1 < 16'sd0) ? neg_raw_p1[14:0] : 15'd0;
-    wire [17:0] prod_neg_p1 = {neg_abs_p1, 1'b0} + {1'b0, neg_abs_p1};
-    wire [8:0]  off_bot_p1  = prod_neg_p1[16:11];
-    wire [8:0]  y_bot_p1    = (off_bot_p1 > 9'd48) ? 9'd202 : (9'd154 + off_bot_p1);
+    wire [9:0]  off_bot_p1  = {1'b0, neg_abs_p1[14:6]} + {2'b00, neg_abs_p1[14:7]};
+    wire [8:0]  y_bot_p1    = (off_bot_p1 > 10'd48) ? 9'd202 : (9'd154 + off_bot_p1[8:0]);
 
     reg [17:0] scope_p0_ram  [0:511];
     reg [17:0] scope_p0_disp [0:511];
@@ -327,6 +328,7 @@ module lcd_subsystem_j14 (
     // 4. UI Page Controller (Auto Mode Tracking + MIDI CC / UART / Key Control)
     // ------------------------------------------------------------------------
     reg [1:0] ui_page         = 2'd0;
+    assign current_page = ui_page;
     reg [1:0] work_mode_d     = 2'd0;
     reg       reinit_req      = 1'b0;
     reg       reinit_clear_req;
@@ -350,17 +352,17 @@ module lcd_subsystem_j14 (
             if (snap_clear_req)   snap_req   <= 1'b0;
             if (diag_clear_req)   diag_req   <= 1'b0;
 
-            // Automatically switch to the matching page when work_mode changes
-            if (work_mode != work_mode_d) begin
-                if      (work_mode == 2'd1) ui_page <= 2'd3; // Song Player Page
-                else if (work_mode == 2'd2) ui_page <= 2'd2; // 32-Voice Benchmark Page
-                else                        ui_page <= 2'd0; // Performance Dashboard
-            end else if (touch_page_req) begin
+            // Prioritize user page navigation (Touchscreen or EC4 Encoder)
+            if (touch_page_req) begin
                 ui_page <= touch_page_val;
             end else if (page_next_pulse) begin
                 ui_page <= ui_page + 2'd1;
             end else if (page_prev_pulse) begin
                 ui_page <= ui_page - 2'd1;
+            end else if (work_mode != work_mode_d) begin
+                if      (work_mode == 2'd1) ui_page <= 2'd3; // Song Player Page
+                else if (work_mode == 2'd2) ui_page <= 2'd2; // 32-Voice Benchmark Page
+                else if (ui_page == 2'd3)   ui_page <= 2'd0; // Leaving Song Mode via KEY2 -> Performance Dashboard
             end else if (cc_any_valid) begin
                 if (cc_num == 7'd25) begin snap_req <= 1'b1; snap_rle <= cc_val[0]; end
                 if (cc_num == 7'd28) ui_page <= cc_val[1:0];
@@ -373,8 +375,18 @@ module lcd_subsystem_j14 (
         end
     end
 
-    wire [8:0] live_scope_wave_y = (ui_page == 2'd0) ? p0_disp_top : p1_disp_top;
-    wire [8:0] live_scope_prev_y = (ui_page == 2'd0) ? p0_disp_bot : p1_disp_bot;
+    // Page 3 ???? (?? Y=350, ??? Page 1 ???????? Page 3 ???)
+    wire [8:0] off_p1_top  = (p1_disp_top <= 9'd154) ? (9'd154 - p1_disp_top) : 9'd0;
+    wire [8:0] off_p1_bot  = (p1_disp_bot >= 9'd154) ? (p1_disp_bot - 9'd154) : 9'd0;
+    wire [8:0] off_p3_top  = (off_p1_top > 9'd48) ? 9'd96 : {off_p1_top[7:0], 1'b0};
+    wire [8:0] off_p3_bot  = (off_p1_bot > 9'd48) ? 9'd96 : {off_p1_bot[7:0], 1'b0};
+    wire [8:0] p3_disp_top = (off_p3_top > 9'd90) ? 9'd260 : (9'd350 - off_p3_top);
+    wire [8:0] p3_disp_bot = (off_p3_bot > 9'd90) ? 9'd440 : (9'd350 + off_p3_bot);
+
+    wire [8:0] live_scope_wave_y = (ui_page == 2'd0) ? p0_disp_top :
+                                   (ui_page == 2'd3) ? p3_disp_top : p1_disp_top;
+    wire [8:0] live_scope_prev_y = (ui_page == 2'd0) ? p0_disp_bot :
+                                   (ui_page == 2'd3) ? p3_disp_bot : p1_disp_bot;
 
     // ------------------------------------------------------------------------
     // 5. LCD UI Module (4-Page Pure-RTL Renderer)
@@ -402,19 +414,27 @@ module lcd_subsystem_j14 (
     // ★ 赛题拓展③：纯硬件 32 段专业实时音频频谱仪
     wire spec_bar_hit;
     wire [1:0] spec_bar_zone;
+    wire [7:0] spec_cur_energy;
     spectrum_analyzer32 u_spec32 (
-        .clk           (clk),
-        .rst_n         (rst_n),
-        .sample_tick   (sample_tick),
-        .work_mode     (work_mode),
-        .live_note     (live_note),
-        .live_vel      (live_vel),
-        .audio_active  (audio_active),
-        .vu_level      (live_vu_level),
-        .px            (px),
-        .py            (py),
-        .bar_hit       (spec_bar_hit),
-        .bar_color_zone(spec_bar_zone)
+        .clk              (clk),
+        .rst_n            (rst_n),
+        .sample_tick      (sample_tick),
+        .work_mode        (work_mode),
+        .live_note        (live_note),
+        .live_vel         (live_vel),
+        .audio_active     (audio_active),
+        .vu_level         (live_vu_level),
+        .voice_active_mask(voice_active32),
+        .scan_voice_act   (scan_voice_act),
+        .scan_voice_note  (scan_voice_note),
+        .scan_voice_idx   (scan_voice_idx),
+        .hw_key_state     (hw_key_state),
+        .audio_sample     (audio_mix),
+        .px               (px),
+        .py               (py),
+        .cur_band_energy  (spec_cur_energy),
+        .bar_hit          (spec_bar_hit),
+        .bar_color_zone   (spec_bar_zone)
     );
 
     // ★ 时序优化流水线寄存器：切断歌曲播放器长路径，确保 50 MHz 建立时间裕量充足
@@ -720,6 +740,8 @@ lcd_ui u_lcd_ui (
         .liss_border     (liss_border),
         .liss_reticle    (liss_reticle),
         .liss_dot        (liss_dot),
+        .voice_active_mask(voice_active32),
+        .cur_band_energy (spec_cur_energy),
         .spec_bar_hit    (spec_bar_hit),
         .spec_bar_zone   (spec_bar_zone),
         .touch_down      (touch_down),
@@ -1161,7 +1183,7 @@ lcd_ui u_lcd_ui (
                 case (ph)
                     7'd0 : begin db_oe <= 1'b0; lcd_cs <= 1'b0; lcd_rd <= 1'b1; lcd_wr <= 1'b1; end
                     7'd6 : lcd_rd <= 1'b0;
-                    7'd26: begin cur_pix <= db_in_s2; lcd_rd <= 1'b1; end
+                    7'd26: begin cur_pix <= (dbuf[0] == 8'hFF && dbuf[1] == 8'hFF) ? ui_color : db_in_s2; lcd_rd <= 1'b1; end
                     7'd34: begin
                         if (!snap_dummy_done) begin
                         end else if (snap_rle) begin

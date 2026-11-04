@@ -33,7 +33,10 @@ module piano_engine_tdm32 #(
 
     // ---- 输出 ----
     output reg  signed [15:0]  mix_out,
-    output wire [N_VOICES-1:0] active
+    output wire [N_VOICES-1:0] active,
+    output wire                scan_voice_act,
+    output wire [6:0]          scan_voice_note,
+    output wire [4:0]          scan_voice_idx
 );
 
     localparam integer N_PART = 6;
@@ -195,6 +198,11 @@ module piano_engine_tdm32 #(
     reg [6:0]          v_note [0:N_VOICES-1];
     reg [16:0]         v_velg [0:N_VOICES-1];
     assign active = v_act_r;
+    reg [4:0] scan_v_r = 5'd0;
+    always @(posedge clk) scan_v_r <= scan_v_r + 5'd1;
+    assign scan_voice_act  = v_act_r[scan_v_r];
+    assign scan_voice_note = v_note[scan_v_r];
+    assign scan_voice_idx  = scan_v_r;
 
     // ------------------------------------------------ 3. 32声部树形分配器 ----
     reg [31:0] nm32;
@@ -234,10 +242,9 @@ module piano_engine_tdm32 #(
     wire [4:0] s2_32 = (|(m_idle32 & ge32)) ? pri32(m_idle32 & ge32) : pri32(m_idle32 & lt32);
     wire [4:0] s3_32 = (|(m_rel32  & ge32)) ? pri32(m_rel32  & ge32) : pri32(m_rel32  & lt32);
 
-    wire [SEL_W-1:0] alloc_sel = (glide_on && last_valid) ? last_voice :
-                                 (|m_same32)              ? s1_32      :
-                                 (|m_idle32)              ? s2_32      :
-                                 (|m_rel32)               ? s3_32      : rr;
+    wire [SEL_W-1:0] alloc_sel = (|m_same32) ? s1_32 :
+                                 (|m_idle32) ? s2_32 :
+                                 (|m_rel32)  ? s3_32 : rr;
 
     // ----------------------------------------- 4. Gowin SDPB BSRAM 状态阵列 ----
     (* ram_style = "block" *) reg [31:0] mem_ph  [0:255];
