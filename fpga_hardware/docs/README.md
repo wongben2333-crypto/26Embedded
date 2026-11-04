@@ -1,8 +1,10 @@
+> **平台与状态（2026-11-04）**：最终整机 138K，60K 仅作早期 bring-up；PCB1、贴装、两件式 PETG 外壳已制造并完成整机联调；13 键、6 路光电、双路 ToF（A 主/B 热备）、7 寸触控均已实测；4 路 EC11 仅预留，不参与评分口径。PCB1 定位为“输入调理与隔离转接板”（上拉/限流/RC/PC817/ToF 供电/地分割），防爆音在 RTL+PA_EN，不在 PCB。
+
 # FPGA 乐器硬件文档入口
 
 > 整理日期：2026-10-28  
-> 当前工程：Tang Mega 60K + 13 键 + 6 光电 + 2 ToF + 4 EC11  
-> 当前阶段：面包板链路已验证，PCB 与整壳已通过数字检查，实体首件未制造
+> 当前工程：Tang Mega 138K（60K 为早期 bring-up）+ 13 键 + 6 光电 + 2 ToF + 4 路预留 EC11  
+> 当前阶段：面包板链路已验证，PCB 与整壳已通过数字检查，实体首件已制造并装配
 
 ## 1. 先看这里
 
@@ -35,19 +37,19 @@
 | [PCB-SCHEMATIC-SPEC.md](PCB-SCHEMATIC-SPEC.md) | 嘉立创 EDA 原理图分页、逐通道接法和网络命名 |
 | [PCB-POWER-ESD.md](PCB-POWER-ESD.md) | 可选保护/ESD 增强方案；不等于当前已装 BOM |
 | [TOF-VB22B-PROTOCOL.md](TOF-VB22B-PROTOCOL.md) | VB22B 地址、寄存器、突发读字节序和电气实测 |
-| [INSTRUMENT-MAPPING.md](INSTRUMENT-MAPPING.md) | 音符、光电“弦”、ToF、EC11 和 8 声部仲裁语义 |
+| [INSTRUMENT-MAPPING.md](INSTRUMENT-MAPPING.md) | 音符、光电“弦”、ToF、EC11 和 TDM32 32 声部仲裁语义 |
 | [../enclosure/MODELING-NOTES.md](../enclosure/MODELING-NOTES.md) | CAD 参数、原始 STL 检查、DfAM 实测和输出文件说明 |
 | [../enclosure/MODIFICATION-2026-10-28.md](../enclosure/MODIFICATION-2026-10-28.md) | 本次硬件确认版的外壳改动、复检数据和打印说明 |
 | [../enclosure/src/README.md](../enclosure/src/README.md) | 参数化 CAD 脚本、生成命令和输出文件 |
 
 ## 4. 当前已冻结的关键事实
 
-- 主控：Tang Mega 60K Dock，GW5AT-60B。
+- 主控：Tang Mega 138K Dock，GW5AST-138C（60K 为早期 bring-up）。
 - 音频：底板 PT8211；自制板不重做音频。
 - 13 键：C4–C5，8 白 + 5 黑；开关总高 5.0 mm，行程约 2.0 mm。
 - 光电：6 路 E3F-20C1，12 V；PCB 用 6×PC817 隔离。
 - ToF：2×VB22B，31×15×6.2 mm，双轴向上，各自独立 I2C，地址均为 0x52。
-- 编码器：4×EC11，A/B 正交，无按压。
+- 编码器：4×EC11（预留），A/B 正交，无按压。
 - PCB：100×70×1.6 mm，R3，4 个 Ø3.4 mm 安装孔。
 - 外壳：下壳 130×109×22.124 mm；上壳主平面 140×109×26.2 mm，
   40P 局部拱盖最高 Z=27.0；PCB 完全内置。
@@ -65,10 +67,10 @@
 - 键床水平定位已建模，但垂直防上跳和首件插拔手感仍需实物验证。
 - 开关正式封装、柱塞截面和键帽锁合仍需实物确认。
 - Gerber 双钻孔文件有 479 个重复坐标，缺 ERC/DRC、BOM、坐标和装配图。
-- 实际 IDC 附件、线缆最小弯曲半径、压线片硬件和 EC11 面板未选型。
+- 实际 IDC 附件、线缆最小弯曲半径、压线片硬件和 EC11 面板未选型（EC11 为预留接口）。
 - ToF 镜头中心、安装孔/卡槽和四芯线弯曲半径仍需实物复核。
-- PCB、整壳和线束尚未进行实体首件装配。
-- PCB 已规划的光电 2–6、EC2–EC4 和 ToF B 尚未完成固件闭环。
+- PCB、整壳和线束已完成实体首件装配。
+- 6 路光电、双路 ToF 已实测；EC2–EC4 仅预留。
 
 ## 6. 阅读路径
 
