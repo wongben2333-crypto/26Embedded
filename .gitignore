@@ -1,49 +1,42 @@
-# ---- Python ----
+# =============================================================================
+#  Git Ignore Rules - 26Embedded (FPGA 纯硬件电子乐器合成引擎)
+# =============================================================================
+
+# Python 临时与缓存文件
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
 
-# ---- Generated simulation artifacts (regenerate: python scripts\run_all.py) ----
-**/sim/out/
+# Gowin EDA 构建中间文件与临时输出 (仅保留 /bitstream/lcd_test_j14.fs)
+impl/
+eda_proj/
+out/
+*.gprj.user
+*.db*
+*.bin
+*.binx
+*.tr
+*.rpt
+*.cfg
 
-# ---- Tooling state (not source) ----
-.codegraph/
-.omo/
-.workbuddy-ai/
+# 仿真临时数据集与波形缓存
+*.wlf
+modelsim.ini
+transcript
+work/
 
-# ---- OS / editor noise ----
+# 系统与编辑器临时配置
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
 *.log
-# ---- fpga_hank 构建产物（可再生，不入库）----
-# 生成方式：gw_sh fpga_hank\tools\gowin\build.tcl
-fpga_hank/eda_proj/
-fpga_hank/work/
-fpga_hank/out/
-fpga_hank/**/*.fs
-fpga_hank/**/*.wlf
-fpga_hank/modelsim.ini
-fpga_hank/transcript
-fpga_hank/tone_samples.txt
-fpga_hank/_tools/
+.agents/
+.workbuddy-ai/
 
-# ---- Gowin EDA 工程临时配置与构建产物 ----
-*.gprj.user
-**/impl/
-
-# ---- ��ʱ��������Ƭ���� ----
+# 过程性截图与临时草稿
 /_*
 /patch.txt
-
-**/scratch/
-*.wav
-
-**/old_working.fs
-
-**/eda_proj/
-**/out/
-**/*.wlf
-**/modelsim.ini
-**/transcript
+*.tmp
