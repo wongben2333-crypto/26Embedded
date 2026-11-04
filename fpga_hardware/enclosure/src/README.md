@@ -1,3 +1,5 @@
+> **平台与状态（2026-11-04）**：最终整机 138K，60K 仅作早期 bring-up；PCB1、贴装、两件式 PETG 外壳已制造并完成整机联调；13 键、6 路光电、双路 ToF（A 主/B 热备）、7 寸触控均已实测；4 路 EC11 仅预留，不参与评分口径。PCB1 定位为“输入调理与隔离转接板”（上拉/限流/RC/PC817/ToF 供电/地分割），防爆音在 RTL+PA_EN，不在 PCB。
+
 # CAD models
 
 整机结构和尺寸决策以 [`../../docs/ENCLOSURE-DESIGN.md`](../../docs/ENCLOSURE-DESIGN.md)

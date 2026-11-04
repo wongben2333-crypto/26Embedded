@@ -76,7 +76,7 @@ module top #(
     input  wire        ec1a,       // J13-22 D17  EC11 #1 正交 A
     input  wire        ec1b,       // J13-23 A19  EC11 #1 正交 B
     inout  wire        scl_tof,    // J13    A18  ToF#1 总线 A SCL（必须 inout）
-    inout  wire        sda_tof,    // J13 D15  ToF#1 总线 A SDA
+    inout  wire        sda_tof,    // J13    D15  ToF#1 总线 A SDA
     output wire        dbg_tx,     // U15         UART TX（遥测 & 屏幕硬件截屏输出）
 
     // ------ J14 7寸 800x480 ATK-MD0700 (SSD1963 16-bit 8080) 仪器屏接口 ------
@@ -90,10 +90,10 @@ module top #(
     output wire        ws_dout,    // J16 -> 板载 WS2812 RGB 状态灯
 
     // ------ 电容触摸屏接口 (FT5206 / FT5426 I2C on J14) ------
-    inout  wire        tp_scl,     // AA18 (J14-29) I2C SCL
-    inout  wire        tp_sda,     // AA19 (J14-28) I2C SDA
-    input  wire        tp_int,     // Y19 (J14-31) 触摸中断（低有效）
-    output wire        tp_rst_n    // W17 (J14-9) 触摸复位（低有效）
+    inout  wire        tp_scl,     // U18 (J14-359)  I2C SCL
+    inout  wire        tp_sda,     // Y19 (J14-31)  I2C SDA
+    input  wire        tp_int,     // Y19 (J14-33)  触摸中断（低有效）
+    output wire        tp_rst_n    // U18 (J14-35) 触摸复位（低有效，严禁使用 T20/J14-33 专用脚）
 );
 
     // ---------------------------------------------------- 上电复位 ----------
